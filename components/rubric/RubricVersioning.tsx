@@ -1,15 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { RubricVersion as BaseRubricVersion } from '../../types/rubric';
 
-interface RubricVersion {
-  id: string;
-  version: string;
-  name: string;
+interface RubricVersion extends Omit<BaseRubricVersion, 'createdAt'> {
   createdAt: string;
-  systemPrompt: string;
-  rubricItems: any[];
-  testCases: any[];
   description: string;
 }
 
@@ -34,8 +29,10 @@ export default function RubricVersioning({ rubricData, setRubricData }: RubricVe
         description: newVersionDescription,
         createdAt: new Date().toISOString(),
         systemPrompt: rubricData.systemPrompt,
+        evaluationPrompt: rubricData.evaluationPrompt || '',
         rubricItems: rubricData.rubricItems,
-        testCases: rubricData.testCases || []
+        testCases: rubricData.testCases || [],
+        history: []
       };
 
       const updatedVersions = [...versions, newVersion];
