@@ -1,16 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { RubricVersion as BaseRubricVersion } from '../../types/rubric';
+import { RubricVersion as BaseRubricVersion, RubricItem, TestCase } from '../../types/rubric';
 
 interface RubricVersion extends Omit<BaseRubricVersion, 'createdAt'> {
   createdAt: string;
   description: string;
 }
 
+interface RubricData {
+  versions?: RubricVersion[];
+  systemPrompt?: string;
+  evaluationPrompt?: string;
+  rubricItems?: RubricItem[];
+  testCases?: TestCase[];
+}
+
 interface RubricVersioningProps {
-  rubricData: any;
-  setRubricData: (data: any) => void;
+  rubricData: RubricData;
+  setRubricData: (data: RubricData) => void;
 }
 
 export default function RubricVersioning({ rubricData, setRubricData }: RubricVersioningProps) {
@@ -28,9 +36,9 @@ export default function RubricVersioning({ rubricData, setRubricData }: RubricVe
         name: newVersionName,
         description: newVersionDescription,
         createdAt: new Date().toISOString(),
-        systemPrompt: rubricData.systemPrompt,
+        systemPrompt: rubricData.systemPrompt || '',
         evaluationPrompt: rubricData.evaluationPrompt || '',
-        rubricItems: rubricData.rubricItems,
+        rubricItems: rubricData.rubricItems || [],
         testCases: rubricData.testCases || [],
         history: []
       };
@@ -102,10 +110,10 @@ export default function RubricVersioning({ rubricData, setRubricData }: RubricVe
               </label>
               <input
                 type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="e.g., Initial Release, Updated Criteria, Final Version"
                 value={newVersionName}
                 onChange={(e) => setNewVersionName(e.target.value)}
+                placeholder="Enter version name..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
@@ -115,8 +123,8 @@ export default function RubricVersioning({ rubricData, setRubricData }: RubricVe
               </label>
               <textarea
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Describe what changed in this version..."
+                placeholder="Describe what changes were made in this version..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 value={newVersionDescription}
                 onChange={(e) => setNewVersionDescription(e.target.value)}
               />
@@ -126,7 +134,7 @@ export default function RubricVersioning({ rubricData, setRubricData }: RubricVe
               <h4 className="text-sm font-medium text-blue-900 mb-2">Current State</h4>
               <div className="text-sm text-blue-800 space-y-1">
                 <div>• System Prompt: {rubricData.systemPrompt ? '✓ Set' : '✗ Not set'}</div>
-                <div>• Rubric Items: {rubricData.rubricItems?.filter((item: any) => item.criteria && item.description).length || 0}/5 defined</div>
+                <div>• Rubric Items: {rubricData.rubricItems?.filter((item: RubricItem) => item.criteria && item.description).length || 0}/5 defined</div>
                 <div>• Test Cases: {rubricData.testCases?.length || 0} added</div>
               </div>
             </div>
@@ -218,16 +226,6 @@ export default function RubricVersioning({ rubricData, setRubricData }: RubricVe
           <p className="text-sm text-green-800">{selectedVersion.description}</p>
         </div>
       )}
-
-      <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-        <h4 className="text-sm font-medium text-yellow-900 mb-2">Versioning Tips</h4>
-        <ul className="text-sm text-yellow-800 space-y-1">
-          <li>• Create versions after major changes to your rubric</li>
-          <li>• Use descriptive names and descriptions for easy identification</li>
-          <li>• Export versions to backup or share with others</li>
-          <li>• Load previous versions to compare or rollback changes</li>
-        </ul>
-      </div>
     </div>
   );
 } 

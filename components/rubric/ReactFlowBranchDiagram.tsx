@@ -33,7 +33,30 @@ interface ReactFlowBranchDiagramProps {
   onLoadVersion?: (versionData: VersionData) => void;
 }
 
-const CustomNode = ({ data, selected }: { data: any; selected?: boolean }) => {
+interface NodeData {
+  id: string;
+  label: string;
+  action: string;
+  timestamp: Date;
+  modifier: string;
+  version: string;
+  commitHash: string;
+  summary?: string;
+  differenceSummary?: string;
+  field?: string;
+  comment?: string;
+  changeType?: string;
+  parentId?: string;
+  isMultiSelected?: boolean;
+  isMergeMode?: boolean;
+}
+
+interface CustomNodeProps {
+  data: NodeData;
+  selected?: boolean;
+}
+
+const CustomNode = ({ data, selected }: CustomNodeProps) => {
   const getActionIcon = (action: string) => {
     switch (action) {
       case 'created': return '✨';
@@ -161,8 +184,22 @@ const CustomNode = ({ data, selected }: { data: any; selected?: boolean }) => {
   );
 };
 
-// Custom edge component to show action labels
-const CustomEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, data }: any) => {
+interface CustomEdgeProps {
+  id: string;
+  sourceX: number;
+  sourceY: number;
+  targetX: number;
+  targetY: number;
+  sourcePosition: Position;
+  targetPosition: Position;
+  style?: React.CSSProperties;
+  data?: {
+    action?: string;
+    label?: string;
+  };
+}
+
+const CustomEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, data }: CustomEdgeProps) => {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -203,8 +240,13 @@ const nodeTypes: NodeTypes = {
 // Using default edge types for now
 const edgeTypes: EdgeTypes = { default: CustomEdge };
 
-// Keyboard shortcuts component
-const KeyboardShortcuts = ({ onClose, onResetLayout, onCenterCurrent }: any) => {
+interface KeyboardShortcutsProps {
+  onClose: () => void;
+  onResetLayout: () => void;
+  onCenterCurrent: () => void;
+}
+
+const KeyboardShortcuts = ({ onClose, onResetLayout, onCenterCurrent }: KeyboardShortcutsProps) => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
@@ -567,8 +609,7 @@ function ReactFlowBranchDiagramContent({
         criteriaName
       });
 
-      let layoutData;
-      layoutData = generateTimelineLayout(filteredHistory);
+      const layoutData = generateTimelineLayout(filteredHistory);
 
       console.log('Layout data generated:', {
         nodesCount: layoutData.nodes.length,
@@ -599,14 +640,14 @@ function ReactFlowBranchDiagramContent({
     } finally {
       setIsLoading(false);
     }
-  }, [filteredHistory, generateTimelineLayout, setNodes, setEdges, selectedNodes, isMergeMode]);
+  }, [filteredHistory, generateTimelineLayout, setNodes, setEdges, selectedNodes, isMergeMode, criteriaName]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
     [setEdges],
   );
 
-  const onNodeClick = useCallback((event: any, node: Node) => {
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     if (isMergeMode) {
       // 合并模式下直接多选，不改变selectedNode，也不聚焦
       setSelectedNodes(prev => {
