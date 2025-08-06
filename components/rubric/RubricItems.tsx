@@ -9,9 +9,14 @@ interface RubricItem {
   score: number;
 }
 
+interface RubricData {
+  rubricItems: RubricItem[];
+  [key: string]: unknown;
+}
+
 interface RubricItemsProps {
-  rubricData: any;
-  setRubricData: (data: any) => void;
+  rubricData: RubricData;
+  setRubricData: (data: RubricData) => void;
 }
 
 export default function RubricItems({ rubricData, setRubricData }: RubricItemsProps) {
@@ -110,52 +115,32 @@ export default function RubricItems({ rubricData, setRubricData }: RubricItemsPr
               </div>
             </div>
           ))}
-          
-          <div className="flex justify-end">
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              Save Rubric Items
-            </button>
-          </div>
         </div>
 
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-3">Example Criteria</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Example Criteria</h3>
           <div className="space-y-3">
             {exampleCriteria.map((example) => (
-              <div
-                key={example.score}
-                className="p-3 border border-gray-200 rounded-md hover:border-blue-300 cursor-pointer"
-                onClick={() => {
-                  const updatedItems = items.map(item =>
-                    item.score === example.score
-                      ? { ...item, criteria: example.criteria, description: example.description }
-                      : item
-                  );
-                  setItems(updatedItems);
-                }}
-              >
+              <div key={example.score} className="border border-gray-200 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-medium text-gray-900">Score {example.score}</h4>
-                  <span className="text-sm text-gray-500">{example.criteria}</span>
+                  <span className="text-sm text-gray-500">{example.score}/5</span>
                 </div>
-                <p className="text-sm text-gray-600">{example.description}</p>
+                <p className="text-sm font-medium text-gray-700 mb-1">{example.criteria}</p>
+                <p className="text-xs text-gray-600">{example.description}</p>
               </div>
             ))}
           </div>
-          
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-            <h4 className="text-sm font-medium text-yellow-900 mb-2">Tips</h4>
-            <ul className="text-sm text-yellow-800 space-y-1">
-              <li>• Make criteria descriptions specific and measurable</li>
-              <li>• Ensure clear progression between score levels</li>
-              <li>• Include both positive and negative indicators</li>
-              <li>• Consider the context of your evaluation domain</li>
-            </ul>
-          </div>
         </div>
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          onClick={handleSave}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Save Changes
+        </button>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { RubricItem, RubricVersion } from '../../types/rubric';
 
 interface EvaluationResult {
@@ -35,7 +35,6 @@ export default function RubricComparison({
   const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
   const [comparisonMode, setComparisonMode] = useState<'versions' | 'results' | 'criteria'>('versions');
   const [selectedResults, setSelectedResults] = useState<string[]>([]);
-  const [selectedCriteria, setSelectedCriteria] = useState<string[]>([]);
   const [showDifferences, setShowDifferences] = useState(true);
   const [highlightChanges, setHighlightChanges] = useState(true);
 
@@ -75,7 +74,7 @@ export default function RubricComparison({
     }
   ];
 
-  const allResults = [...evaluationResults, ...mockEvaluationResults];
+  const allResults = useMemo(() => [...evaluationResults, ...mockEvaluationResults], [evaluationResults]);
 
   const selectedVersionData = useMemo(() => {
     return versions.filter(v => selectedVersions.includes(v.id));
@@ -305,7 +304,7 @@ export default function RubricComparison({
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {selectedVersionData.map((version, index) => (
+                    {selectedVersionData.map((version) => (
                       <div key={version.id} className="bg-gray-50 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="font-semibold text-gray-900">{version.name}</h4>
@@ -376,8 +375,8 @@ export default function RubricComparison({
                               <div>
                                 <h5 className="font-medium text-orange-700 mb-2">🔄 Modified Criteria ({differences.modified.length})</h5>
                                 <div className="space-y-2">
-                                  {differences.modified.map((mod, index) => (
-                                    <div key={index} className="bg-orange-100 p-2 rounded text-sm">
+                                  {differences.modified.map((mod) => (
+                                    <div key={`${mod.item.id}-${mod.field}`} className="bg-orange-100 p-2 rounded text-sm">
                                       <div className="font-medium">{mod.item.criteria}</div>
                                       <div className="text-xs">
                                         <span className="text-red-600">- {mod.oldValue}</span>
@@ -446,7 +445,7 @@ export default function RubricComparison({
                   <h3 className="text-lg font-semibold text-gray-900">Results Comparison</h3>
                   
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {selectedResultData.map((result, index) => (
+                    {selectedResultData.map((result) => (
                       <div key={result.id} className="bg-gray-50 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="font-semibold text-gray-900">Evaluation {result.id}</h4>
@@ -547,7 +546,7 @@ export default function RubricComparison({
                 <div className="bg-white border rounded-lg p-6">
                   <h4 className="font-semibold text-gray-900 mb-4">📈 Criteria Evolution Timeline</h4>
                   <div className="space-y-4">
-                    {versions.map((version, index) => (
+                    {versions.map((version) => (
                       <div key={version.id} className="border-l-4 border-blue-500 pl-4">
                         <div className="flex items-center justify-between mb-2">
                           <h5 className="font-medium text-gray-900">{version.name} ({version.version})</h5>
