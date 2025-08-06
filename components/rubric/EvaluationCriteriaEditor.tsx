@@ -41,7 +41,7 @@ export default function EvaluationCriteriaEditor({
 
   const saveEditing = (itemId: string) => {
     if (editingValue.trim()) {
-      updateRubricItem(itemId, "criteria", editingValue);
+      updateRubricItemLocal(itemId, "criteria", editingValue);
       setEditingCriteria(null);
       setEditingValue("");
     }
@@ -296,7 +296,7 @@ export default function EvaluationCriteriaEditor({
                       <span className="text-blue-600">💡</span>
                       <p className="text-sm text-blue-800 font-medium">
                         <strong>Tip:</strong> Drag criteria items to move them between categories. 
-                        After dropping, you'll be taken to the target category and the moved item will be highlighted.
+                        After dropping, you&apos;ll be taken to the target category and the moved item will be highlighted.
                       </p>
                     </div>
                   </div>
