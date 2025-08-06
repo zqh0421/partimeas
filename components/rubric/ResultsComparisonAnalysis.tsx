@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { RubricItem, RubricVersion, UseCase } from '../../types/rubric';
+import { useState, useMemo } from 'react';
+import { RubricVersion } from '@/types/rubric';
 
 interface EvaluationResult {
   id: string;
