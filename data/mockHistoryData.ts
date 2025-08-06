@@ -109,14 +109,74 @@ export const mockCurrentVersion: RubricVersion = {
     {
       id: '1',
       criteria: 'Theoretical Accuracy & Application',
-      description: 'Demonstrates accurate understanding and application of child development theories',
+      description: 'Demonstrates accurate understanding and application of child development theories such as Piaget, Vygotsky, Erikson, and contemporary frameworks like Polyvagal Theory and Neurosequential Model. Evaluates how well the response grounds recommendations in established theoretical foundations.',
       category: 'Theory Application'
     },
     {
       id: '2',
       criteria: 'Safety & Ethics',
-      description: 'Ensures child safety and ethical considerations in all recommendations',
+      description: 'Ensures child safety and ethical considerations in all recommendations. Evaluates awareness of potential risks, appropriate boundaries, confidentiality, and child-centered approaches that prioritize the child\'s well-being.',
       category: 'Safety & Ethics'
+    },
+    {
+      id: '3',
+      criteria: 'Practical Application',
+      description: 'Provides concrete, actionable strategies that can be implemented in real-world settings. Evaluates the feasibility, appropriateness, and effectiveness of suggested interventions and activities.',
+      category: 'Practical Application'
+    },
+    {
+      id: '4',
+      criteria: 'Assessment & Observation',
+      description: 'Demonstrates understanding of developmentally appropriate assessment methods and observational techniques. Evaluates ability to gather relevant information and make informed recommendations based on observations.',
+      category: 'Assessment & Observation'
+    },
+    {
+      id: '5',
+      criteria: 'Communication & Collaboration',
+      description: 'Shows effective communication with diverse stakeholders including parents, teachers, and other professionals. Evaluates clarity, cultural sensitivity, and collaborative approach in recommendations.',
+      category: 'Communication & Collaboration'
+    },
+    {
+      id: '6',
+      criteria: 'Professional Development',
+      description: 'Demonstrates commitment to ongoing learning and professional growth. Evaluates awareness of current research, best practices, and reflective practice in child development.',
+      category: 'Professional Development'
+    },
+    {
+      id: '7',
+      criteria: 'Trauma-Informed Practice',
+      description: 'Shows understanding of trauma-informed approaches and their application in child development contexts. Evaluates sensitivity to trauma history and appropriate response strategies.',
+      category: 'Safety & Ethics'
+    },
+    {
+      id: '8',
+      criteria: 'Cultural Competence',
+      description: 'Demonstrates awareness of cultural diversity and its impact on child development. Evaluates ability to provide culturally responsive recommendations and respect for diverse family structures.',
+      category: 'Communication & Collaboration'
+    },
+    {
+      id: '9',
+      criteria: 'Evidence-Based Practice',
+      description: 'Uses research-based approaches and current evidence to inform recommendations. Evaluates integration of scientific literature and best practices in child development.',
+      category: 'Theory Application'
+    },
+    {
+      id: '10',
+      criteria: 'Individualization',
+      description: 'Tailors recommendations to the specific needs, strengths, and context of individual children and families. Evaluates personalization and avoidance of one-size-fits-all approaches.',
+      category: 'Assessment & Observation'
+    },
+    {
+      id: '11',
+      criteria: 'Family-Centered Approach',
+      description: 'Recognizes families as partners in child development and includes them in planning and decision-making. Evaluates respect for family expertise and collaborative problem-solving.',
+      category: 'Communication & Collaboration'
+    },
+    {
+      id: '12',
+      criteria: 'Prevention & Early Intervention',
+      description: 'Identifies opportunities for prevention and early intervention to support optimal development. Evaluates proactive approaches and timely support strategies.',
+      category: 'Practical Application'
     }
   ],
   testCases: [
@@ -210,19 +270,61 @@ export const mockCurrentVersion: RubricVersion = {
     },
     {
       id: 'usecase-5',
-      name: 'Handle emotional support',
-      description: 'Provide guidance for supporting children\'s emotional well-being and mental health',
+      name: 'Providing reflective questions for teacher meetings',
+      description: 'For use case: Providing reflective questions (and explanations for why those questions may be helpful) that the worker could use to facilitate discussion in a future teacher meeting …. including questions that help reflect on the teacher\'s strengths and concerning behaviors. The goal here is to help the S123 worker work with the teacher to help the teacher reflect on their strengths and any concerning behaviors, so that they could collaboratively work together to understand how the teacher could best bring out their strengths.',
       testCases: [
         {
           id: 'test-5-1',
-          input: 'A child is experiencing anxiety about starting school',
-          expectedOutput: 'Response should offer strategies to help the child feel more comfortable and confident',
+          input: 'Use Context: A student frequently interrupts or talks over peers during group activities.\n\nScenario: During a group discussion, Marcus keeps blurting out answers without raising his hand. Instead of addressing the behavior directly, the teacher turns to the class and says with a smirk, "Well, I guess Marcus is running the lesson today." A few students laugh uncomfortably while Marcus grins, not realizing he\'s being mocked. The tone sets an unclear boundary and leaves the rest of the group unsure how to engage.',
+          expectedOutput: 'Response should provide reflective questions that help the teacher examine their response to student interruptions, including questions about the impact of sarcasm on classroom dynamics, alternative approaches to managing interruptions, and how to maintain authority while being respectful.',
           useCaseId: 'usecase-5'
         },
         {
           id: 'test-5-2',
-          input: 'A parent is concerned about their child\'s self-esteem',
-          expectedOutput: 'Response should provide positive reinforcement techniques and confidence-building activities',
+          input: 'Use Context: A child becomes withdrawn or shuts down when given constructive feedback.\n\nScenario: When Lily turns in her math worksheet with multiple errors, the teacher glances at it and immediately starts erasing answers without saying a word. Lily watches silently as the teacher redoes her work, offering no explanation or encouragement. "There," the teacher mutters, placing it back on Lily\'s desk. Lily folds her arms and doesn\'t touch her pencil for the rest of the lesson, feeling invisible.',
+          expectedOutput: 'Response should provide reflective questions that help the teacher examine their feedback delivery methods, including questions about the emotional impact of silent corrections, how to provide constructive feedback that builds confidence, and strategies for maintaining student engagement during corrections.',
+          useCaseId: 'usecase-5'
+        },
+        {
+          id: 'test-5-3',
+          input: 'Use Context: Two students repeatedly argue or escalate minor disagreements into conflicts.\n\nScenario: Jayden and Amira start arguing during a group activity, but the teacher only steps in to scold Amira. "Jayden\'s been doing all the work — maybe you should listen for once," she snaps, ignoring Amira\'s side of the story. Amira goes quiet, clearly upset, while Jayden smirks and continues without her. The favoritism reinforces tension between the two and increases the likelihood of future conflicts.',
+          expectedOutput: 'Response should provide reflective questions that help the teacher examine their conflict resolution approach, including questions about the impact of taking sides, how to remain neutral while addressing conflicts, and strategies for fostering collaborative problem-solving between students.',
+          useCaseId: 'usecase-5'
+        },
+        {
+          id: 'test-5-4',
+          input: 'Use Context: A student displays difficulty transitioning between activities, often becoming agitated or disruptive.\n\nScenario: As the class moves from lunch to quiet reading time, Daniel refuses to sit at his desk, pacing instead. The teacher pretends not to notice, saying in a strained voice, "We\'ll all just wait for Daniel to be ready, I guess." The whole class turns to stare at him, and Daniel\'s face flushes red. Rather than helping him ease into the transition, the public spotlight makes him more anxious and defiant.',
+          expectedOutput: 'Response should provide reflective questions that help the teacher examine their transition management strategies, including questions about the impact of public pressure on students with transition difficulties, alternative approaches to supporting smooth transitions, and how to maintain classroom flow while supporting individual needs.',
+          useCaseId: 'usecase-5'
+        },
+        {
+          id: 'test-5-5',
+          input: 'Use Context: A child shows signs of anxiety or stress during academic challenges, such as refusing to participate.\n\nScenario: When Sofia expresses frustration about a timed reading quiz, saying, "I\'m going to mess this up," the teacher, clearly overwhelmed, responds with a flat tone: "Just do your best," without looking up. Sofia hesitates, then puts her head down on the desk. The teacher continues grading papers without following up. The lack of emotional presence deepens Sofia\'s anxiety and sense of isolation.',
+          expectedOutput: 'Response should provide reflective questions that help the teacher examine their response to student anxiety, including questions about the importance of emotional presence during challenging moments, how to validate student feelings while encouraging participation, and strategies for supporting anxious students without enabling avoidance.',
+          useCaseId: 'usecase-5'
+        },
+        {
+          id: 'test-5-6',
+          input: 'Use Context: Conflict in a small group\n\nScenario: Two students at a shared table begin speaking over each other while working on a math activity. One student raises their voice, while the other crosses their arms and looks away. The teacher walks past, glances at the group, and briefly nods at one of the students without saying anything.',
+          expectedOutput: 'Response should provide reflective questions that help the teacher examine their strengths in noticing student dynamics, including questions about what they observed in the interaction, how their brief acknowledgment might have supported the students, and ways to build on this strength to provide more comprehensive support.',
+          useCaseId: 'usecase-5'
+        },
+        {
+          id: 'test-5-7',
+          input: 'Use Context: A student needing reassurance before reading aloud\n\nScenario: A student hesitates when it\'s their turn to read aloud and looks toward the teacher. The teacher remains seated at the back of the room and raises a thumb in the student\'s direction. The student looks back at their book and begins reading.',
+          expectedOutput: 'Response should provide reflective questions that help the teacher examine their strength in providing non-verbal support, including questions about how their gesture conveyed confidence to the student, what made this approach effective, and ways to expand this strength to support other students in similar situations.',
+          useCaseId: 'usecase-5'
+        },
+        {
+          id: 'test-5-8',
+          input: 'Use Context: A child upset over losing a game at recess\n\nScenario: After recess, a student enters the classroom with furrowed brows and their arms crossed. As the class settles in, the teacher says aloud, "It\'s okay to feel upset sometimes," while looking toward the group. No further comment is made, and the lesson continues.',
+          expectedOutput: 'Response should provide reflective questions that help the teacher examine their strength in normalizing emotions, including questions about how their acknowledgment might have helped the student feel seen, what made this approach appropriate for the situation, and ways to build on this strength to support emotional regulation.',
+          useCaseId: 'usecase-5'
+        },
+        {
+          id: 'test-5-9',
+          input: 'Use Context: A student distracted and doodling during instruction\n\nScenario: While the teacher reads a story aloud to the class, one student looks down at their desk and draws in the corner of a notebook. After finishing the page, the teacher says, "I notice some creative drawing—are you thinking about what\'s happening in the story?" and looks at the student with a neutral expression.',
+          expectedOutput: 'Response should provide reflective questions that help the teacher examine their strength in reframing behavior positively, including questions about how their approach might have engaged the student differently than a reprimand, what made this response effective, and ways to apply this strength to other situations where students appear disengaged.',
           useCaseId: 'usecase-5'
         }
       ]

@@ -56,7 +56,7 @@ export default function SettingsModal({
         ...prev, 
         [provider]: isValid ? 'success' : 'error' 
       }));
-    } catch (error) {
+    } catch {
       setTestStatus(prev => ({ ...prev, [provider]: 'error' }));
     }
   };

@@ -74,7 +74,7 @@ export default function RubricComparison({
     }
   ];
 
-  const allResults = useMemo(() => [...evaluationResults, ...mockEvaluationResults], [evaluationResults]);
+  const allResults = useMemo(() => [...evaluationResults, ...mockEvaluationResults], [evaluationResults, mockEvaluationResults]);
 
   const selectedVersionData = useMemo(() => {
     return versions.filter(v => selectedVersions.includes(v.id));
@@ -463,12 +463,21 @@ export default function RubricComparison({
                           <div>
                             <h5 className="font-medium text-gray-700 mb-2">Scores by Criteria</h5>
                             <div className="space-y-2">
-                              {Object.entries(result.scores).map(([criteriaId, score]) => (
-                                <div key={criteriaId} className="flex items-center justify-between bg-white p-2 rounded border">
-                                  <span className="text-sm">Criteria {criteriaId}</span>
-                                  <span className="font-medium">{score}/5</span>
-                                </div>
-                              ))}
+                              {Object.entries(result.scores).map(([criteriaId, score]) => {
+                                // Find the criteria item from the versions
+                                const criteriaItem = versions
+                                  .flatMap(v => v.rubricItems)
+                                  .find(item => item.id === criteriaId);
+                                
+                                return (
+                                  <div key={criteriaId} className="flex items-center justify-between bg-white p-2 rounded border">
+                                    <span className="text-sm">
+                                      {criteriaItem ? `${criteriaItem.category} - ${criteriaItem.criteria}` : `Criteria ${criteriaId}`}
+                                    </span>
+                                    <span className="font-medium">{score}/5</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                           
@@ -490,20 +499,29 @@ export default function RubricComparison({
                         const comparison = getScoreComparison(selectedResultData[0], selectedResultData[1]);
                         return (
                           <div className="space-y-3">
-                            {comparison.map(item => (
-                              <div key={item.criteriaId} className="flex items-center justify-between bg-white p-3 rounded border">
-                                <span className="text-sm">Criteria {item.criteriaId}</span>
-                                <div className="flex items-center space-x-4">
-                                  <span className="text-sm">{item.score1} → {item.score2}</span>
-                                  <span className={`text-sm font-medium ${
-                                    item.trend === 'improved' ? 'text-green-600' :
-                                    item.trend === 'declined' ? 'text-red-600' : 'text-gray-600'
-                                  }`}>
-                                    {item.trend === 'improved' ? '↗' : item.trend === 'declined' ? '↘' : '→'} {item.difference}
+                            {comparison.map(item => {
+                              // Find the criteria item from the versions
+                              const criteriaItem = versions
+                                .flatMap(v => v.rubricItems)
+                                .find(criteria => criteria.id === item.criteriaId);
+                              
+                              return (
+                                <div key={item.criteriaId} className="flex items-center justify-between bg-white p-3 rounded border">
+                                  <span className="text-sm">
+                                    {criteriaItem ? `${criteriaItem.category} - ${criteriaItem.criteria}` : `Criteria ${item.criteriaId}`}
                                   </span>
+                                  <div className="flex items-center space-x-4">
+                                    <span className="text-sm">{item.score1} → {item.score2}</span>
+                                    <span className={`text-sm font-medium ${
+                                      item.trend === 'improved' ? 'text-green-600' :
+                                      item.trend === 'declined' ? 'text-red-600' : 'text-gray-600'
+                                    }`}>
+                                      {item.trend === 'improved' ? '↗' : item.trend === 'declined' ? '↘' : '→'} {item.difference}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                             
                             <div className="border-t pt-3">
                               <div className="flex items-center justify-between">

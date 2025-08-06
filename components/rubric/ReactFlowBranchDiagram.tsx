@@ -16,7 +16,6 @@ import ReactFlow, {
   MiniMap,
   ReactFlowProvider,
   useReactFlow,
-  ConnectionMode,
   Handle,
   Position,
   getBezierPath
@@ -274,7 +273,6 @@ const KeyboardShortcuts = ({ onClose, onResetLayout, onCenterCurrent }: Keyboard
 };
 
 function ReactFlowBranchDiagramContent({ 
-  criteriaId, 
   criteriaName, 
   history, 
   isOpen, 
@@ -291,7 +289,6 @@ function ReactFlowBranchDiagramContent({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAction, setFilterAction] = useState<string>('all');
   const [showMiniMap, setShowMiniMap] = useState(true);
-  const [autoLayout, setAutoLayout] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -458,9 +455,6 @@ function ReactFlowBranchDiagramContent({
     // 创建边连接
     history.forEach(entry => {
       if (entry.parentId && nodePositions.has(entry.parentId) && nodePositions.has(entry.id)) {
-        // 获取父节点的操作类型
-        const parentEntry = history.find(h => h.id === entry.parentId);
-        
         const edge: Edge = {
           id: `${entry.parentId}-${entry.id}`,
           source: entry.parentId,

@@ -11,6 +11,50 @@ interface EvaluationCriteriaEditorProps {
   onSaveVersion: () => void;
 }
 
+// Category descriptions to help users understand what each category evaluates
+const categoryDescriptions: Record<string, string> = {
+  "Theory Application": "Evaluates how well the AI response demonstrates understanding and proper application of child development theories (e.g., Piaget, Vygotsky, Erikson, Polyvagal Theory).",
+  "Safety & Ethics": "Assesses the AI's awareness and prioritization of child safety, ethical considerations, and appropriate boundaries in recommendations.",
+  "Practical Application": "Evaluates the feasibility and effectiveness of suggested interventions and activities in real-world settings.",
+  "Assessment & Observation": "Assesses understanding of developmentally appropriate assessment methods and observational techniques for gathering relevant information.",
+  "Communication & Collaboration": "Evaluates the AI's ability to communicate effectively with various stakeholders and promote collaborative approaches.",
+  "Professional Development": "Assesses the AI's understanding of ongoing learning, reflection, and professional growth in child development practice."
+};
+
+// Template questions for scaffolding agreement-based descriptions
+const agreementQuestionTemplates = {
+  "Theory Application": [
+    "The response demonstrates accurate understanding of relevant child development theories.",
+    "Theoretical concepts are appropriately applied to the specific situation.",
+    "The response shows awareness of current research and evidence-based practices."
+  ],
+  "Safety & Ethics": [
+    "The response prioritizes child safety and well-being in all recommendations.",
+    "Ethical considerations and appropriate boundaries are clearly addressed.",
+    "The response demonstrates cultural sensitivity and respect for diverse perspectives."
+  ],
+  "Practical Application": [
+    "The suggested strategies are feasible and can be implemented in real-world settings.",
+    "The recommendations are developmentally appropriate for the child's age and needs.",
+    "The response provides concrete, actionable steps rather than vague suggestions."
+  ],
+  "Assessment & Observation": [
+    "The response demonstrates understanding of appropriate assessment methods.",
+    "Observational techniques are well-described and developmentally appropriate.",
+    "The assessment approach considers the child's individual needs and context."
+  ],
+  "Communication & Collaboration": [
+    "The response promotes effective communication with parents, caregivers, and professionals.",
+    "Collaborative approaches with other stakeholders are appropriately suggested.",
+    "The communication style is clear, respectful, and accessible to the target audience."
+  ],
+  "Professional Development": [
+    "The response encourages ongoing learning and professional growth.",
+    "Reflection and self-assessment are appropriately incorporated.",
+    "The response demonstrates awareness of current best practices and research."
+  ]
+};
+
 export default function EvaluationCriteriaEditor({
   currentVersion,
   setCurrentVersion,
@@ -24,6 +68,13 @@ export default function EvaluationCriteriaEditor({
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [dragTarget, setDragTarget] = useState<string | null>(null);
   const [focusedItem] = useState<string | null>(null);
+  const [showDescriptionHelper, setShowDescriptionHelper] = useState<string | null>(null);
+  const [showCategoryEditModal, setShowCategoryEditModal] = useState(false);
+  const [editingCategoryName, setEditingCategoryName] = useState<string>("");
+  const [editingCategoryDesc, setEditingCategoryDesc] = useState<string>("");
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState<string>("");
+  const [newCategoryDesc, setNewCategoryDesc] = useState<string>("");
 
   const stableCategoryOrder = [
     "Theory Application",
@@ -170,10 +221,14 @@ export default function EvaluationCriteriaEditor({
   };
 
   const addRubricItem = (category: string) => {
+    // Get a template question for the category
+    const templates = agreementQuestionTemplates[category as keyof typeof agreementQuestionTemplates] || [];
+    const defaultDescription = templates.length > 0 ? templates[0] : "The response demonstrates this criterion effectively.";
+
     const newItem: RubricItem = {
       id: Date.now().toString(),
       criteria: "New Criteria",
-      description: "Describe what this criterion evaluates...",
+      description: defaultDescription,
       category: category,
     };
 
@@ -191,13 +246,97 @@ export default function EvaluationCriteriaEditor({
     );
   };
 
-  const addNewCategory = () => {
-    const newCategory = prompt("Enter new category name:");
-    if (newCategory && newCategory.trim()) {
-      if (!stableCategoryOrder.includes(newCategory.trim())) {
-        stableCategoryOrder.push(newCategory.trim());
+
+
+  const openCategoryEditModal = (category: string) => {
+    setEditingCategoryName(category);
+    setEditingCategoryDesc(categoryDescriptions[category] || "");
+    setShowCategoryEditModal(true);
+  };
+
+  const saveCategoryEdit = () => {
+    if (editingCategoryName.trim() && editingCategoryName !== selectedCategory) {
+      // Update category name in all rubric items
+      setCurrentVersion((prev) => ({
+        ...prev,
+        rubricItems: prev.rubricItems.map((item) =>
+          item.category === selectedCategory ? { ...item, category: editingCategoryName.trim() } : item
+        ),
+      }));
+      
+      // Update category descriptions
+      if (editingCategoryDesc.trim()) {
+        categoryDescriptions[editingCategoryName.trim()] = editingCategoryDesc.trim();
       }
+      
+      // Update selected category
+      setSelectedCategory(editingCategoryName.trim());
+      
+      addHistoryEntryLocal(
+        "modified",
+        "category_name",
+        selectedCategory,
+        editingCategoryName.trim(),
+        `Renamed category from "${selectedCategory}" to "${editingCategoryName.trim()}"`
+      );
+    } else if (editingCategoryDesc.trim() !== categoryDescriptions[selectedCategory]) {
+      // Only description changed
+      categoryDescriptions[selectedCategory] = editingCategoryDesc.trim();
+      addHistoryEntryLocal(
+        "modified",
+        "category_description",
+        categoryDescriptions[selectedCategory] || "",
+        editingCategoryDesc.trim(),
+        `Updated description for category "${selectedCategory}"`
+      );
+    } else {
+      // No changes made
+      return;
     }
+    
+    setShowCategoryEditModal(false);
+    setEditingCategoryName("");
+    setEditingCategoryDesc("");
+  };
+
+  const cancelCategoryEdit = () => {
+    setShowCategoryEditModal(false);
+    setEditingCategoryName("");
+    setEditingCategoryDesc("");
+  };
+
+  const addNewCategory = () => {
+    setNewCategoryName("");
+    setNewCategoryDesc("");
+    setShowAddCategoryModal(true);
+  };
+
+  const saveNewCategory = () => {
+    if (newCategoryName.trim()) {
+      if (!stableCategoryOrder.includes(newCategoryName.trim())) {
+        stableCategoryOrder.push(newCategoryName.trim());
+      }
+      // Add the description to categoryDescriptions (required)
+      categoryDescriptions[newCategoryName.trim()] = newCategoryDesc.trim();
+      
+      addHistoryEntryLocal(
+        "created",
+        "category",
+        "",
+        newCategoryName.trim(),
+        `Added new category: ${newCategoryName.trim()}`
+      );
+      
+      setShowAddCategoryModal(false);
+      setNewCategoryName("");
+      setNewCategoryDesc("");
+    }
+  };
+
+  const cancelAddCategory = () => {
+    setShowAddCategoryModal(false);
+    setNewCategoryName("");
+    setNewCategoryDesc("");
   };
 
   const categories = getCategoriesInOrder(currentVersion);
@@ -279,9 +418,18 @@ export default function EvaluationCriteriaEditor({
               {/* Category Items */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-lg font-medium text-gray-900">
-                    {selectedCategory}
-                  </h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-lg font-medium text-gray-900">
+                      {selectedCategory}
+                    </h4>
+                    <button
+                      onClick={() => openCategoryEditModal(selectedCategory)}
+                      className="text-gray-400 hover:text-gray-600 text-sm"
+                      title="Edit category"
+                    >
+                      ✏️
+                    </button>
+                  </div>
                   <button
                     onClick={() => addRubricItem(selectedCategory)}
                     className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -291,13 +439,23 @@ export default function EvaluationCriteriaEditor({
                 </div>
 
                 {categoryItems.length > 0 && (
-                  <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <span className="text-blue-600">💡</span>
-                      <p className="text-sm text-blue-800 font-medium">
-                        <strong>Tip:</strong> Drag criteria items to move them between categories. 
-                        After dropping, you&apos;ll be taken to the target category and the moved item will be highlighted.
-                      </p>
+                  <div className="mb-4 ">
+                                         <div className="flex flex-col items-left gap-2">
+                       <p className="text-sm">
+                         {categoryDescriptions[selectedCategory] || 
+                         "This category evaluates important aspects of child development AI responses."}
+                       </p>
+                       <p className="text-xs ">
+                         <strong>Rating Scale:</strong> 1 = Poor, 2 = Below Average, 3 = Average, 4 = Good, 5 = Excellent
+                       </p>
+                     </div>
+                     <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                                         <div className="flex flex-col items-left gap-2">
+                        <p className="text-sm text-blue-800 font-medium">
+                          <strong>💡 Tip:</strong> Drag criteria items to move them between categories. 
+                          After dropping, you&apos;ll be taken to the target category and the moved item will be highlighted.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -408,13 +566,36 @@ export default function EvaluationCriteriaEditor({
                     </div>
 
                     <div className="ml-6">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Description
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                                                 <label className="block text-xs font-medium text-gray-700">
+                           Description
+                         </label>
+                        <button
+                          onClick={() => setShowDescriptionHelper(showDescriptionHelper === item.id ? null : item.id)}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          {showDescriptionHelper === item.id ? "Hide" : "Show"} Templates
+                        </button>
+                      </div>
+                      
+                      {showDescriptionHelper === item.id && (
+                        <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                          <p className="text-yellow-800 mb-2 font-medium">Template questions for {selectedCategory}:</p>
+                          <ul className="space-y-1 text-yellow-700">
+                            {agreementQuestionTemplates[selectedCategory as keyof typeof agreementQuestionTemplates]?.map((template, idx) => (
+                              <li key={idx} className="flex items-start gap-2">
+                                <span className="text-yellow-600">•</span>
+                                <span>{template}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
                       <textarea
                         rows={2}
                         className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm overflow-visible"
-                        placeholder="Describe what this criterion evaluates in child development AI responses..."
+                        placeholder="Write a criterion description for the 1-5 rating scale (e.g., 'The response demonstrates accurate understanding of child development theories')"
                         value={item.description}
                         onChange={(e) =>
                           updateRubricItemLocal(
@@ -424,6 +605,9 @@ export default function EvaluationCriteriaEditor({
                           )
                         }
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Write a description that can be rated 1-5 (Poor to Excellent)
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -440,6 +624,139 @@ export default function EvaluationCriteriaEditor({
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Edit Modal */}
+      {showCategoryEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Edit Category
+              </h3>
+              <button
+                onClick={cancelCategoryEdit}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category Name
+                </label>
+                <input
+                  type="text"
+                  value={editingCategoryName}
+                  onChange={(e) => setEditingCategoryName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter category name"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category Description *
+                </label>
+                <textarea
+                  value={editingCategoryDesc}
+                  onChange={(e) => setEditingCategoryDesc(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Describe what this category evaluates in child development AI responses..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Write a description that can be rated 1-5 (Poor to Excellent)
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={cancelCategoryEdit}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveCategoryEdit}
+                disabled={!editingCategoryName.trim() || !editingCategoryDesc.trim()}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Category Modal */}
+      {showAddCategoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Add New Category
+              </h3>
+              <button
+                onClick={cancelAddCategory}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category Name *
+                </label>
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter category name"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category Description *
+                </label>
+                <textarea
+                  value={newCategoryDesc}
+                  onChange={(e) => setNewCategoryDesc(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Describe what this category evaluates in child development AI responses..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Write a description that can be rated 1-5 (Poor to Excellent)
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={cancelAddCategory}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveNewCategory}
+                disabled={!newCategoryName.trim() || !newCategoryDesc.trim()}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                Add Category
+              </button>
             </div>
           </div>
         </div>

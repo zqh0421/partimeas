@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { RubricVersion } from "@/types/rubric";
 
 interface ResultsComparisonCardProps {
@@ -23,15 +23,16 @@ interface EvaluationResult {
 
 export default function ResultsComparisonCard({
   currentVersion,
-  setCurrentVersion,
 }: ResultsComparisonCardProps) {
-  const [isComparisonCardExpanded, setIsComparisonCardExpanded] = useState(false);
+  const [isComparisonCardExpanded, setIsComparisonCardExpanded] = useState(true);
+  const [expandedCriteria, setExpandedCriteria] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState({
-    analysis: false,
-    directMode: false,
+    analysis: true,
+    directMode: true,
+    batchMode: true,
+    consistency: true,
     sideBySide: false,
     qualityAssessment: false,
-    consistencyCheck: false,
   });
 
   // Filtering and search state
@@ -43,8 +44,6 @@ export default function ResultsComparisonCard({
   
   // Comparison mode state
   const [comparisonMode, setComparisonMode] = useState<'models' | 'criteria'>('models');
-  const [selectedComparisonType, setSelectedComparisonType] = useState<string>('');
-  const [selectedTestCases, setSelectedTestCases] = useState<string[]>([]);
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections((prev) => ({
@@ -53,8 +52,8 @@ export default function ResultsComparisonCard({
     }));
   };
 
-  // Mock evaluation results for demonstration
-  const mockEvaluationResults: EvaluationResult[] = [
+  // Mock evaluation results for demonstration - wrapped in useMemo to prevent dependency changes
+  const mockEvaluationResults = useMemo((): EvaluationResult[] => [
     {
       id: 'eval-4',
       testCaseInput: 'I wanted reflective questions because I was feeling a disconnect between the way that I was framing our conversations and the teachers\' understanding (of my words and of the child). I don\'t want to include observations that don\'t directly involve M, but I\'d like some reflective questions to explore. I want them to tie in with M and his history and experiences while also addressing the classroom environment and social and emotional supports.',
@@ -113,118 +112,23 @@ Are there opportunities to shift from directive language ("Don't do that") to re
 
 **Simplified Report on K — Understanding Through a Brain-Based Lens**
 
-Since K moved into Ms. S.'s classroom, he seems to feel safer and more at ease. The daily routines and clear structure help him know what to expect, which is very important for his sense of safety and ability to learn. When the classroom feels calm and predictable, it helps K stay in a "ready to learn" state. This idea comes from something called the **Polyvagal Theory**, which teaches us that kids need to feel safe and connected before they can focus, play, or learn.
-
-K has big feelings that can lead to long tantrums—sometimes up to 30 minutes. Even though Ms. S. has nine other students, she gives K the time and calm presence he needs when he's upset. This is what we call **co-regulation**—when an adult stays calm and helps a child calm down by being a steady, comforting presence. This is especially helpful when a child's brain and body are stuck in a "fight or flight" or overwhelmed state.
-
-K has speech delays, which makes it hard for him to say how he feels or what he needs. This can be frustrating for him and sometimes leads to meltdowns. He's not doing this on purpose—his brain is still learning how to express and handle big emotions. His home life is a bit unpredictable too. He moves between two homes, and his family is dealing with financial stress. These types of stress can affect how a child's brain develops, especially when it comes to emotional regulation and problem-solving. That's part of what the **Neurosequential Model** helps us understand: the brain develops from the bottom up, and some kids need extra support building those early blocks of safety and regulation before they can move on to higher-level thinking.
-
-K does really well when things go as expected, but any change in routine can be very upsetting. He thrives when he knows what's coming next. His mom shared that he enjoys being outside and she's working on helping him become more independent at home.
-
-When I observed him in class, K looked more engaged and happy than before. He smiled and followed along with what his peers were doing, even if he didn't always take the lead himself. He loves to help out in the classroom and seems to feel proud when he gets to play that role. Ms. S. often reminds him gently to "use your words" to express his needs. Even though he struggles with this, it's helping him learn. During meltdowns, he seeks connection—he wants someone to be there with him.
-
-K loves coloring (and he stays inside the lines!), enjoys letters and numbers, and lights up during music and movement activities like dancing and singing. These kinds of rhythmic, sensory activities are great for his brain and body—they help him stay regulated and engaged.
-
-He's still learning to use the potty, but doesn't always tell someone when he needs to go or when he's had an accident. Ms. S. handles this with kindness, using natural consequences like having him sit next to her to think about what happened. This gives him structure without shame.
-
-K often repeats back what's said to him, especially if he doesn't fully understand. This repetition is actually one of the ways he's trying to make sense of what's happening. Ms. S. is very consistent in how she responds to his behavior. She stays calm, clear, and warm—which is exactly what he needs. Her use of humor and encouragement helps him feel connected and safe.
-
-K does well in play centers, has strong fine motor skills, and is able to entertain himself in solo play. Sometimes it seems like he's in his own little world, but he can rejoin the group when gently invited. That's a good sign that he's developing trust and connection.
-
----
-
-**What We're Working On:**
-
-1. **Helping K Calm Down Faster:** Support him with routines, calming activities (like music, movement, or helping roles), and stay near during dysregulation.
-2. **Building Language Skills:** Use simple language, visual supports, and repetition. Encourage him to label his feelings and ask for help.
-3. **Fostering Independence:** Give him chances to make choices and take on responsibilities (like helping jobs or picking activities).
-4. **Staying Consistent:** Predictability helps K feel safe. Clear transitions and routines help reduce meltdowns.
-
----
-
-**Final Thoughts**
-
-K is not trying to be difficult—his brain is still learning how to manage big feelings and communicate effectively. With consistent structure, warmth, and patience, he is making progress. Ms. S. is doing a wonderful job creating a classroom environment that supports his nervous system and emotional needs. Over time, with continued support and speech therapy, we expect to see more independence, shorter tantrums, and stronger communication from K.
-
----
-
-Let me know if you'd like this turned into a one-page handout or visuals to share with staff!`,
-      scores: {
-        '1': 5, // Theoretical Accuracy
-        '2': 4, // Safety & Ethics
-        '3': 5, // Practical Application
-        '4': 4, // Assessment & Observation
-        '5': 5, // Communication & Collaboration
-        '6': 4, // Professional Development
-      },
-      overallScore: 4.7,
-      feedback: 'Excellent application of theoretical frameworks to real-world scenarios. The response demonstrates sophisticated understanding of neurodevelopmental principles and their practical application in educational settings.',
-      evaluatedAt: new Date('2024-01-24T09:30:00'),
-      evaluator: 'LLM-as-a-Judge',
-      modelName: 'Claude-3',
-      criteriaVersion: 'v2.0'
-    },
-    {
-      id: 'eval-6',
-      testCaseInput: 'Please simplify the language of the report into practical and classroom appropriate language',
-      llmResponse: `Absolutely. Here's a simplified, classroom-appropriate version of the report that retains the insights from the **Polyvagal Theory** and **Neurosequential Model**, but uses clear and practical language for teachers, aides, or school staff:
-
----
-
-**Simplified Report on K — Understanding Through a Brain-Based Lens**
-
-Since K moved into Ms. S.'s classroom, he seems to feel safer and more at ease. The daily routines and clear structure help him know what to expect, which is very important for his sense of safety and ability to learn. When the classroom feels calm and predictable, it helps K stay in a "ready to learn" state. This idea comes from something called the **Polyvagal Theory**, which teaches us that kids need to feel safe and connected before they can focus, play, or learn.
-
-K has big feelings that can lead to long tantrums—sometimes up to 30 minutes. Even though Ms. S. has nine other students, she gives K the time and calm presence he needs when he's upset. This is what we call **co-regulation**—when an adult stays calm and helps a child calm down by being a steady, comforting presence. This is especially helpful when a child's brain and body are stuck in a "fight or flight" or overwhelmed state.
-
-K has speech delays, which makes it hard for him to say how he feels or what he needs. This can be frustrating for him and sometimes leads to meltdowns. He's not doing this on purpose—his brain is still learning how to express and handle big emotions. His home life is a bit unpredictable too. He moves between two homes, and his family is dealing with financial stress. These types of stress can affect how a child's brain develops, especially when it comes to emotional regulation and problem-solving. That's part of what the **Neurosequential Model** helps us understand: the brain develops from the bottom up, and some kids need extra support building those early blocks of safety and regulation before they can move on to higher-level thinking.
-
-K does really well when things go as expected, but any change in routine can be very upsetting. He thrives when he knows what's coming next. His mom shared that he enjoys being outside and she's working on helping him become more independent at home.
-
-When I observed him in class, K looked more engaged and happy than before. He smiled and followed along with what his peers were doing, even if he didn't always take the lead himself. He loves to help out in the classroom and seems to feel proud when he gets to play that role. Ms. S. often reminds him gently to "use your words" to express his needs. Even though he struggles with this, it's helping him learn. During meltdowns, he seeks connection—he wants someone to be there with him.
-
-K loves coloring (and he stays inside the lines!), enjoys letters and numbers, and lights up during music and movement activities like dancing and singing. These kinds of rhythmic, sensory activities are great for his brain and body—they help him stay regulated and engaged.
-
-He's still learning to use the potty, but doesn't always tell someone when he needs to go or when he's had an accident. Ms. S. handles this with kindness, using natural consequences like having him sit next to her to think about what happened. This gives him structure without shame.
-
-K often repeats back what's said to him, especially if he doesn't fully understand. This repetition is actually one of the ways he's trying to make sense of what's happening. Ms. S. is very consistent in how she responds to his behavior. She stays calm, clear, and warm—which is exactly what he needs. Her use of humor and encouragement helps him feel connected and safe.
-
-K does well in play centers, has strong fine motor skills, and is able to entertain himself in solo play. Sometimes it seems like he's in his own little world, but he can rejoin the group when gently invited. That's a good sign that he's developing trust and connection.
-
----
-
-**What We're Working On:**
-
-1. **Helping K Calm Down Faster:** Support him with routines, calming activities (like music, movement, or helping roles), and stay near during dysregulation.
-2. **Building Language Skills:** Use simple language, visual supports, and repetition. Encourage him to label his feelings and ask for help.
-3. **Fostering Independence:** Give him chances to make choices and take on responsibilities (like helping jobs or picking activities).
-4. **Staying Consistent:** Predictability helps K feel safe. Clear transitions and routines help reduce meltdowns.
-
----
-
-**Final Thoughts**
-
-K is not trying to be difficult—his brain is still learning how to manage big feelings and communicate effectively. With consistent structure, warmth, and patience, he is making progress. Ms. S. is doing a wonderful job creating a classroom environment that supports his nervous system and emotional needs. Over time, with continued support and speech therapy, we expect to see more independence, shorter tantrums, and stronger communication from K.
-
----
-
-Let me know if you'd like this turned into a one-page handout or visuals to share with staff!`,
+Since K moved into Ms. S.'s classroom, he seems to feel safer and more at ease. The daily routines and clear structure help him know what to expect, which is very important for his sense of safety and ability to learn. When the classroom feels calm and predictable, it helps K stay in a "ready to learn" state. This idea comes from something called the **Polyvagal Theory**, which teaches us that kids need to feel safe and connected before they can focus, play, or learn.`,
       scores: {
         '1': 4, // Theoretical Accuracy
         '2': 5, // Safety & Ethics
-        '3': 5, // Practical Application
+        '3': 4, // Practical Application
         '4': 5, // Assessment & Observation
         '5': 4, // Communication & Collaboration
-        '6': 5, // Professional Development
+        '6': 4, // Professional Development
       },
-      overallScore: 4.7,
-      feedback: 'Outstanding translation of complex theoretical concepts into accessible, practical language. The response maintains theoretical accuracy while being highly accessible to classroom practitioners.',
-      evaluatedAt: new Date('2024-01-25T14:15:00'),
+      overallScore: 4.3,
+      feedback: 'Good response that effectively translates complex theoretical concepts into practical classroom language while maintaining the scientific foundation.',
+      evaluatedAt: new Date('2024-01-23T12:15:00'),
       evaluator: 'LLM-as-a-Judge',
-      modelName: 'GPT-4',
-      criteriaVersion: 'v1.8'
+      modelName: 'Claude-3',
+      criteriaVersion: 'v2.1'
     }
-  ];
+  ], []);
 
   // Filter results based on search and criteria
   const filteredResults = useMemo(() => {
@@ -286,7 +190,7 @@ Let me know if you'd like this turned into a one-page handout or visuals to shar
   }, [filteredResults]);
 
   // Mock reasoning for criteria scores
-  const getCriteriaReasoning = (criteriaId: string, score: number) => {
+  const getCriteriaReasoning = (criteriaId: string) => {
     switch (criteriaId) {
       case '1':
         return 'The LLM accurately identifies the theoretical foundation of the request (Polyvagal Theory, Neurosequential Model).';
@@ -304,6 +208,20 @@ Let me know if you'd like this turned into a one-page handout or visuals to shar
         return 'No specific reasoning provided.';
     }
   };
+
+  const toggleCriteriaExpansion = (criteriaId: string) => {
+    setExpandedCriteria(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(criteriaId)) {
+        newSet.delete(criteriaId);
+      } else {
+        newSet.add(criteriaId);
+      }
+      return newSet;
+    });
+  };
+
+  const isCriteriaExpanded = (criteriaId: string) => expandedCriteria.has(criteriaId);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 transition-all duration-200 hover:shadow-md">
@@ -364,149 +282,65 @@ Let me know if you'd like this turned into a one-page handout or visuals to shar
                         {expandedSections.directMode && (
                           <div className="p-4">
                             <p className="text-sm text-gray-600 mb-4">
+                              [Start by selecting test cases and/or models and then run the evaluation on a certain criteria version.]
+                            </p>
+                            <p className="text-sm text-gray-600 mb-4">
                               Run analysis tools directly on selected test cases for immediate results.
                             </p>
-                            <div className="space-y-3">
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id="select-all"
-                                  className="rounded"
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedTestCases(filteredResults.map(result => result.id));
-                                    } else {
-                                      setSelectedTestCases([]);
-                                    }
-                                  }}
-                                />
-                                <label htmlFor="select-all" className="text-sm font-medium text-gray-700">
-                                  Select All ({filteredResults.length})
-                                </label>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                                {filteredResults.map((result, index) => (
-                                  <div key={result.id} className="flex items-center space-x-2">
-                                    <input
-                                      type="checkbox"
-                                      id={`test-case-${result.id}`}
-                                      className="rounded"
-                                      checked={selectedTestCases.includes(result.id)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedTestCases(prev => [...prev, result.id]);
-                                        } else {
-                                          setSelectedTestCases(prev => prev.filter(id => id !== result.id));
-                                        }
-                                      }}
-                                    />
-                                    <label htmlFor={`test-case-${result.id}`} className="text-sm text-gray-700">
-                                      Test Case {index + 1} ({result.overallScore.toFixed(1)})
-                                    </label>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="mt-4 flex space-x-2">
-                                <button 
-                                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                                  disabled={selectedTestCases.length === 0}
-                                >
-                                  Run Analysis ({selectedTestCases.length})
-                                </button>
-                                <button 
-                                  className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition-colors"
-                                  onClick={() => setSelectedTestCases([])}
-                                >
-                                  Clear Selection
-                                </button>
+                            
+                            {/* Output Filtering & Search - Moved into Direct Mode */}
+                            <div className="mb-6">
+                              <h4 className="font-semibold text-gray-900 mb-4">🔍 Output Filtering & Search</h4>
+                              <div className="space-y-3">
+                                <div className="flex space-x-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Search outputs..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                  />
+                                  <select 
+                                    value={selectedCriteria}
+                                    onChange={(e) => setSelectedCriteria(e.target.value)}
+                                    className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                  >
+                                    <option value="">All Criteria</option>
+                                    {availableCriteria.map(criterion => (
+                                      <option key={criterion} value={criterion}>Criteria {criterion}</option>
+                                    ))}
+                                  </select>
+                                  <select 
+                                    value={selectedModel}
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                  >
+                                    <option value="">All Models</option>
+                                    {availableModels.map(model => (
+                                      <option key={model} value={model}>{model}</option>
+                                    ))}
+                                  </select>
+                                  <select 
+                                    value={selectedCriteriaVersion}
+                                    onChange={(e) => setSelectedCriteriaVersion(e.target.value)}
+                                    className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                  >
+                                    <option value="">All Versions</option>
+                                    {availableCriteriaVersions.map(version => (
+                                      <option key={version} value={version}>{version}</option>
+                                    ))}
+                                  </select>
+                                  <button 
+                                    onClick={() => setShowFilteredResults(!showFilteredResults)}
+                                    className="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors"
+                                  >
+                                    {showFilteredResults ? 'Hide' : 'Show'} Results
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
 
-                    {/* Comparison Mode Selection */}
-                    <div className="mb-6">
-                      <h4 className="font-semibold text-gray-900 mb-4">🔄 Comparison Mode</h4>
-                      <div className="flex space-x-4">
-                        <button
-                          onClick={() => setComparisonMode('models')}
-                          className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                            comparisonMode === 'models'
-                              ? 'bg-blue-600 text-white shadow-lg'
-                              : 'bg-gray-100 text-gray-700 hover:bg-blue-50 hover:text-blue-600'
-                          }`}
-                        >
-                          📊 Model Comparison
-                        </button>
-                        
-                        <button
-                          onClick={() => setComparisonMode('criteria')}
-                          className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                            comparisonMode === 'criteria'
-                              ? 'bg-green-600 text-white shadow-lg'
-                              : 'bg-gray-100 text-gray-700 hover:bg-green-50 hover:text-green-600'
-                          }`}
-                        >
-                          📋 Criteria Comparison
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Output Filtering & Search */}
-                    <div className="mb-6">
-                      <h4 className="font-semibold text-gray-900 mb-4">🔍 Output Filtering & Search</h4>
-                      <div className="space-y-3">
-                        <div className="flex space-x-2">
-                          <input
-                            type="text"
-                            placeholder="Search outputs..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
-                          />
-                          <select 
-                            value={selectedCriteria}
-                            onChange={(e) => setSelectedCriteria(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-                          >
-                            <option value="">All Criteria</option>
-                            {availableCriteria.map(criterion => (
-                              <option key={criterion} value={criterion}>Criteria {criterion}</option>
-                            ))}
-                          </select>
-                          <select 
-                            value={selectedModel}
-                            onChange={(e) => setSelectedModel(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-                          >
-                            <option value="">All Models</option>
-                            {availableModels.map(model => (
-                              <option key={model} value={model}>{model}</option>
-                            ))}
-                          </select>
-                          <select 
-                            value={selectedCriteriaVersion}
-                            onChange={(e) => setSelectedCriteriaVersion(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-                          >
-                            <option value="">All Versions</option>
-                            {availableCriteriaVersions.map(version => (
-                              <option key={version} value={version}>{version}</option>
-                            ))}
-                          </select>
-                          <button 
-                            onClick={() => setShowFilteredResults(!showFilteredResults)}
-                            className="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors"
-                          >
-                            {showFilteredResults ? 'Hide' : 'Show'} Results
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Summary Statistics */}
+                                                {/* Summary Statistics */}
                     <div className="mb-6">
                       <h4 className="font-semibold text-gray-900 mb-4">📊 Summary Statistics</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -522,225 +356,6 @@ Let me know if you'd like this turned into a one-page handout or visuals to shar
                           <div className="text-2xl font-bold text-purple-600">{summaryStats.highScores}</div>
                           <div className="text-sm text-purple-700">High Scores (≥4)</div>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Side-by-Side Comparison Tool */}
-                    <div className="mb-6">
-                      <div className="bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="px-4 py-3 border-b border-gray-200">
-                          <button
-                            onClick={() => toggleSection("sideBySide")}
-                            className="flex justify-between items-center w-full text-left"
-                          >
-                            <h4 className="font-semibold text-gray-900">📊 Side-by-Side Comparison</h4>
-                            <span className="text-gray-500">
-                              {expandedSections.sideBySide ? "▼" : "▶"}
-                            </span>
-                          </button>
-                        </div>
-                        {expandedSections.sideBySide && (
-                          <div className="p-4">
-                            <p className="text-sm text-gray-600 mb-4">
-                              Compare multiple model outputs side by side for detailed analysis.
-                            </p>
-                            <div className="space-y-3">
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id="select-all-comparison"
-                                  className="rounded"
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedTestCases(filteredResults.map(result => result.id));
-                                    } else {
-                                      setSelectedTestCases([]);
-                                    }
-                                  }}
-                                />
-                                <label htmlFor="select-all-comparison" className="text-sm font-medium text-gray-700">
-                                  Select All for Comparison ({filteredResults.length})
-                                </label>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                                {filteredResults.map((result, index) => (
-                                  <div key={result.id} className="flex items-center space-x-2">
-                                    <input
-                                      type="checkbox"
-                                      id={`comparison-${result.id}`}
-                                      className="rounded"
-                                      checked={selectedTestCases.includes(result.id)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedTestCases(prev => [...prev, result.id]);
-                                        } else {
-                                          setSelectedTestCases(prev => prev.filter(id => id !== result.id));
-                                        }
-                                      }}
-                                    />
-                                    <label htmlFor={`comparison-${result.id}`} className="text-sm text-gray-700">
-                                      {result.modelName || 'Unknown'} - Test Case {index + 1}
-                                    </label>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="mt-4">
-                                <button 
-                                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                                  disabled={selectedTestCases.length < 2}
-                                >
-                                  Start Comparison ({selectedTestCases.length} selected)
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Quality Assessment Tool */}
-                    <div className="mb-6">
-                      <div className="bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="px-4 py-3 border-b border-gray-200">
-                          <button
-                            onClick={() => toggleSection("qualityAssessment")}
-                            className="flex justify-between items-center w-full text-left"
-                          >
-                            <h4 className="font-semibold text-gray-900">📈 Quality Assessment</h4>
-                            <span className="text-gray-500">
-                              {expandedSections.qualityAssessment ? "▼" : "▶"}
-                            </span>
-                          </button>
-                        </div>
-                        {expandedSections.qualityAssessment && (
-                          <div className="p-4">
-                            <p className="text-sm text-gray-600 mb-4">
-                              Assess output quality based on predefined criteria and metrics.
-                            </p>
-                            <div className="space-y-3">
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id="select-all-quality"
-                                  className="rounded"
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedTestCases(filteredResults.map(result => result.id));
-                                    } else {
-                                      setSelectedTestCases([]);
-                                    }
-                                  }}
-                                />
-                                <label htmlFor="select-all-quality" className="text-sm font-medium text-gray-700">
-                                  Select All for Assessment ({filteredResults.length})
-                                </label>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                                {filteredResults.map((result, index) => (
-                                  <div key={result.id} className="flex items-center space-x-2">
-                                    <input
-                                      type="checkbox"
-                                      id={`quality-${result.id}`}
-                                      className="rounded"
-                                      checked={selectedTestCases.includes(result.id)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedTestCases(prev => [...prev, result.id]);
-                                        } else {
-                                          setSelectedTestCases(prev => prev.filter(id => id !== result.id));
-                                        }
-                                      }}
-                                    />
-                                    <label htmlFor={`quality-${result.id}`} className="text-sm text-gray-700">
-                                      Test Case {index + 1} (Score: {result.overallScore.toFixed(1)})
-                                    </label>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="mt-4">
-                                <button 
-                                  className="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
-                                  disabled={selectedTestCases.length === 0}
-                                >
-                                  Run Assessment ({selectedTestCases.length} selected)
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Consistency Check Tool */}
-                    <div className="mb-6">
-                      <div className="bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="px-4 py-3 border-b border-gray-200">
-                          <button
-                            onClick={() => toggleSection("consistencyCheck")}
-                            className="flex justify-between items-center w-full text-left"
-                          >
-                            <h4 className="font-semibold text-gray-900">🔄 Consistency Check</h4>
-                            <span className="text-gray-500">
-                              {expandedSections.consistencyCheck ? "▼" : "▶"}
-                            </span>
-                          </button>
-                        </div>
-                        {expandedSections.consistencyCheck && (
-                          <div className="p-4">
-                            <p className="text-sm text-gray-600 mb-4">
-                              Check for consistency across multiple outputs and responses.
-                            </p>
-                            <div className="space-y-3">
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id="select-all-consistency"
-                                  className="rounded"
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedTestCases(filteredResults.map(result => result.id));
-                                    } else {
-                                      setSelectedTestCases([]);
-                                    }
-                                  }}
-                                />
-                                <label htmlFor="select-all-consistency" className="text-sm font-medium text-gray-700">
-                                  Select All for Consistency Check ({filteredResults.length})
-                                </label>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                                {filteredResults.map((result, index) => (
-                                  <div key={result.id} className="flex items-center space-x-2">
-                                    <input
-                                      type="checkbox"
-                                      id={`consistency-${result.id}`}
-                                      className="rounded"
-                                      checked={selectedTestCases.includes(result.id)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedTestCases(prev => [...prev, result.id]);
-                                        } else {
-                                          setSelectedTestCases(prev => prev.filter(id => id !== result.id));
-                                        }
-                                      }}
-                                    />
-                                    <label htmlFor={`consistency-${result.id}`} className="text-sm text-gray-700">
-                                      {result.modelName || 'Unknown'} - Test Case {index + 1}
-                                    </label>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="mt-4">
-                                <button 
-                                  className="px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors"
-                                  disabled={selectedTestCases.length < 2}
-                                >
-                                  Check Consistency ({selectedTestCases.length} selected)
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -795,22 +410,54 @@ Let me know if you'd like this turned into a one-page handout or visuals to shar
                                       <tr>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-700">Criteria</th>
                                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-700">Score</th>
+                                        <th className="px-3 py-2 text-center text-xs font-medium text-gray-700">Details</th>
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {Object.entries(result.scores).map(([criteriaId, score]) => (
-                                        <tr 
-                                          key={criteriaId} 
-                                          className="border-t border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer group"
-                                          title={`Criteria ${criteriaId}: ${getCriteriaReasoning(criteriaId, score)}`}
-                                        >
-                                          <td className="px-3 py-2 text-sm text-gray-900">
-                                            Criteria {criteriaId}
+                                                                            {Object.entries(result.scores).map(([criteriaId, score]) => (
+                                        <React.Fragment key={criteriaId}>
+                                          <tr 
+                                            className="border-t border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer group"
+                                          >
+                                            <td className="px-3 py-2 text-sm text-gray-900">
+                                            {(() => {
+                                              const criteriaItem = currentVersion.rubricItems.find(item => item.id === criteriaId);
+                                              return criteriaItem ? `${criteriaItem.category} - ${criteriaItem.criteria}` : `Criteria ${criteriaId}`;
+                                            })()}
                                           </td>
-                                          <td className="px-3 py-2 text-sm font-medium text-right">
-                                            {score}/5
-                                          </td>
-                                        </tr>
+                                            <td className="px-3 py-2 text-sm font-medium text-right">
+                                              {score}/5
+                                            </td>
+                                            <td className="px-3 py-2 text-center">
+                                              <button
+                                                onClick={() => toggleCriteriaExpansion(criteriaId)}
+                                                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 mx-auto"
+                                              >
+                                                {isCriteriaExpanded(criteriaId) ? "Hide" : "Show"}
+                                                <span className="text-xs">
+                                                  {isCriteriaExpanded(criteriaId) ? "▼" : "▶"}
+                                                </span>
+                                              </button>
+                                            </td>
+                                          </tr>
+                                          {isCriteriaExpanded(criteriaId) && (
+                                            <tr className="bg-gray-50">
+                                              <td colSpan={3} className="px-3 py-2">
+                                                <div className="text-xs text-gray-700 bg-white p-2 rounded border">
+                                                  <div className="mb-2">
+                                                    <strong>Description:</strong> {(() => {
+                                                      const criteriaItem = currentVersion.rubricItems.find(item => item.id === criteriaId);
+                                                      return criteriaItem ? criteriaItem.description : getCriteriaReasoning(criteriaId);
+                                                    })()}
+                                                  </div>
+                                                  <div className="border-t pt-2">
+                                                    <strong>Scoring Reasoning:</strong> {getCriteriaReasoning(criteriaId)}
+                                                  </div>
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </React.Fragment>
                                       ))}
                                     </tbody>
                                   </table>
@@ -819,6 +466,38 @@ Let me know if you'd like this turned into a one-page handout or visuals to shar
                             </div>
                           </div>
                         ))}
+                      </div>
+                    </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Comparison Mode Selection */}
+                    <div className="mb-6">
+                      <h4 className="font-semibold text-gray-900 mb-4">🔄 Comparison Mode</h4>
+                      <div className="flex space-x-4">
+                        <button
+                          onClick={() => setComparisonMode('models')}
+                          className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                            comparisonMode === 'models'
+                              ? 'bg-blue-600 text-white shadow-lg'
+                              : 'bg-gray-100 text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                          }`}
+                        >
+                          📊 Model Comparison
+                        </button>
+                        
+                        <button
+                          onClick={() => setComparisonMode('criteria')}
+                          className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                            comparisonMode === 'criteria'
+                              ? 'bg-green-600 text-white shadow-lg'
+                              : 'bg-gray-100 text-gray-700 hover:bg-green-50 hover:text-green-600'
+                          }`}
+                        >
+                          📋 Criteria Comparison
+                        </button>
                       </div>
                     </div>
 
