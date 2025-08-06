@@ -9,7 +9,6 @@ export { default as SettingsModal } from './SettingsModal';
 export { default as CriteriaHistory } from './CriteriaHistory';
 export { default as ReactFlowBranchDiagram } from './ReactFlowBranchDiagram';
 export { default as RubricComparison } from './RubricComparison';
-export { default as ResultsComparisonAnalysis } from './ResultsComparisonAnalysis';
 
 // Utility components
 export { default as RubricVersioning } from './RubricVersioning';

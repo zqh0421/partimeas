@@ -21,17 +21,21 @@ export default function Home() {
           >
             🎯 Start Rubric Builder
           </Link>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto"
-            href="https://github.com/your-repo/rubric-refiner"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-green-600 text-white gap-2 hover:bg-green-700 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
+            href="/comparison"
           >
-            📖 Documentation
-          </a>
+            🔍 Model Comparison
+          </Link>
+          <Link
+            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-purple-600 text-white gap-2 hover:bg-purple-700 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
+            href="/dynamic-comparison"
+          >
+            ⚡ Dynamic Comparison
+          </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
           <div className="p-6 border border-gray-200 rounded-lg">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">System Setup</h3>
             <p className="text-gray-600 text-sm">
@@ -48,6 +52,12 @@ export default function Home() {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Test Cases</h3>
             <p className="text-gray-600 text-sm">
               Add input examples and test cases to validate your rubric against real scenarios.
+            </p>
+          </div>
+          <div className="p-6 border border-gray-200 rounded-lg">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Model Comparison</h3>
+            <p className="text-gray-600 text-sm">
+              Compare different AI models side-by-side with structured feedback collection.
             </p>
           </div>
         </div>

@@ -5,7 +5,6 @@ import {
   SettingsModal,
   CriteriaHistory,
   ReactFlowBranchDiagram,
-  ResultsComparisonAnalysis,
   Header,
   ConfigurationPanel,
   EvaluationCriteriaEditor,
@@ -29,7 +28,7 @@ export default function RubricPage() {
   const [selectedCriteriaForHistory, setSelectedCriteriaForHistory] =
     useState<RubricItem | null>(null);
   const [reactFlowBranchOpen, setReactFlowBranchOpen] = useState(false);
-  const [resultsAnalysisOpen, setResultsAnalysisOpen] = useState(false);
+  const [isConfigPanelCollapsed, setIsConfigPanelCollapsed] = useState(false);
 
   useEffect(() => {
     console.log("Current Version Updated:", {
@@ -68,6 +67,10 @@ export default function RubricPage() {
     saveVersion(currentVersion);
   };
 
+  const toggleConfigPanel = () => {
+    setIsConfigPanelCollapsed(!isConfigPanelCollapsed);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -77,18 +80,26 @@ export default function RubricPage() {
         />
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
           {/* Left Sidebar - Configuration */}
-          <div className="lg:col-span-3">
-            <ConfigurationPanel
-              currentVersion={currentVersion}
-              setCurrentVersion={setCurrentVersion}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-            />
-          </div>
+          {!isConfigPanelCollapsed && (
+            <div className="lg:col-span-3">
+              <ConfigurationPanel
+                currentVersion={currentVersion}
+                setCurrentVersion={setCurrentVersion}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+                isCollapsed={isConfigPanelCollapsed}
+                onToggleCollapse={toggleConfigPanel}
+              />
+            </div>
+          )}
 
           {/* Right Content Area */}
-          <div className="lg:col-span-7 space-y-4 lg:space-y-6">
+          <div className={`transition-all duration-300 ease-in-out ${
+            isConfigPanelCollapsed 
+              ? 'lg:col-span-12' 
+              : 'lg:col-span-9'
+          } space-y-4 lg:space-y-6`}>
             {/* Evaluation Criteria Editor Card */}
             <EvaluationCriteriaEditor
               currentVersion={currentVersion}
@@ -104,12 +115,29 @@ export default function RubricPage() {
             />
           </div>
         </div>
+
+        {/* Fixed Collapsed Configuration Panel */}
+        {isConfigPanelCollapsed && (
+          <div className="fixed left-0 top-1/5 transform -translate-y-1/2 z-50">
+            <ConfigurationPanel
+              currentVersion={currentVersion}
+              setCurrentVersion={setCurrentVersion}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              isCollapsed={isConfigPanelCollapsed}
+              onToggleCollapse={toggleConfigPanel}
+            />
+          </div>
+        )}
       </div>
 
       {/* Modals */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+        evaluationPrompt={currentVersion.evaluationPrompt}
+        onEvaluationPromptChange={(prompt) => 
+          setCurrentVersion(prev => ({ ...prev, evaluationPrompt: prompt }))
+        }
       />
 
       {selectedCriteriaForHistory && (
@@ -135,16 +163,6 @@ export default function RubricPage() {
             setReactFlowBranchOpen(false);
           }}
           onLoadVersion={handleLoadVersion}
-        />
-      )}
-
-      {resultsAnalysisOpen && (
-        <ResultsComparisonAnalysis
-          currentVersion={currentVersion}
-          isOpen={resultsAnalysisOpen}
-          onClose={() => {
-            setResultsAnalysisOpen(false);
-          }}
         />
       )}
     </div>

@@ -5,9 +5,16 @@ import { useState, useEffect } from 'react';
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  evaluationPrompt?: string;
+  onEvaluationPromptChange?: (prompt: string) => void;
 }
 
-export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+export default function SettingsModal({ 
+  isOpen, 
+  onClose, 
+  evaluationPrompt = '', 
+  onEvaluationPromptChange 
+}: SettingsModalProps) {
   const [apiKeys, setApiKeys] = useState({
     openai: '',
     anthropic: '',
@@ -101,6 +108,31 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
 
         <div className="px-6 py-4 space-y-6">
+          {/* Evaluation Prompt Section */}
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">🎯 Evaluation Prompt Configuration</h3>
+            <div className="space-y-4">
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="mb-3">
+                  <h4 className="text-base font-medium text-gray-900 mb-2">Evaluation Prompt</h4>
+                  <p className="text-sm text-gray-600">
+                    Configure the prompt used for evaluating LLM outputs. This prompt will be used by the evaluation system to assess the quality of model responses.
+                  </p>
+                </div>
+                <textarea
+                  rows={6}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  placeholder="Enter the evaluation prompt for comparing LLM outputs..."
+                  value={evaluationPrompt}
+                  onChange={(e) => onEvaluationPromptChange?.(e.target.value)}
+                />
+                <div className="mt-2 text-xs text-gray-500">
+                  Use placeholders like {'{input}'}, {'{output}'}, {'{criteria}'} to reference dynamic content.
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* API Keys Section */}
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">API Key Configuration</h3>

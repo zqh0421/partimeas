@@ -7,12 +7,16 @@ interface ConfigurationPanelProps {
   currentVersion: RubricVersion;
   setCurrentVersion: (version: RubricVersion | ((prev: RubricVersion) => RubricVersion)) => void;
   onOpenSettings: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export default function ConfigurationPanel({ 
   currentVersion, 
   setCurrentVersion, 
-  onOpenSettings 
+  onOpenSettings,
+  isCollapsed = false,
+  onToggleCollapse
 }: ConfigurationPanelProps) {
   const [expandedSections, setExpandedSections] = useState({
     systemPrompt: false,
@@ -28,6 +32,34 @@ export default function ConfigurationPanel({
     }));
   };
 
+  // If collapsed, show only a minimal toggle button
+  if (isCollapsed) {
+    return (
+      <div className="bg-white rounded-r-lg shadow-lg border border-gray-200 transition-all duration-200 hover:shadow-xl">
+        <div className="p-2">
+          <button
+            onClick={onToggleCollapse}
+            className="w-full flex items-center justify-center p-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
+            title="Expand Configuration Panel"
+          >
+            <span className="text-lg">🔧</span>
+          </button>
+        </div>
+        
+        {/* Quick Settings Button */}
+        <div className="px-2 pb-2">
+          <button
+            onClick={onOpenSettings}
+            className="w-full flex items-center justify-center p-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+            title="Settings"
+          >
+            <span className="text-sm">⚙️</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 lg:sticky lg:top-6 transition-all duration-200 hover:shadow-md">
       <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
@@ -37,12 +69,21 @@ export default function ConfigurationPanel({
               🔧 Context Configuration
             </h2>
           </div>
-          <button
-            onClick={onOpenSettings}
-            className="px-3 py-1 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            ⚙️
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={onToggleCollapse}
+              className="px-3 py-1 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
+              title="Collapse Panel"
+            >
+              ◀
+            </button>
+            <button
+              onClick={onOpenSettings}
+              className="px-3 py-1 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              ⚙️
+            </button>
+          </div>
         </div>
       </div>
 
@@ -228,7 +269,7 @@ export default function ConfigurationPanel({
                                       </label>
                                       <textarea
                                         rows={2}
-                                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                        className="w-full px-3 py-1 border border-gray-300 rounded text-sm"
                                         value={testCase.expectedOutput}
                                         onChange={(e) => {
                                           const updatedUseCases = [...(currentVersion.useCases || [])];
