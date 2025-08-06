@@ -13,6 +13,5 @@ export { default as RubricComparison } from './RubricComparison';
 // Utility components
 export { default as RubricVersioning } from './RubricVersioning';
 export { default as RubricItems } from './RubricItems';
-export { default as ApiKeySetup } from './ApiKeySetup';
 export { default as CategoryManager } from './CategoryManager';
 export { default as TestCases } from './TestCases'; 

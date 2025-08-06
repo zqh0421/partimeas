@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RubricItem, RubricVersion, HistoryEntry } from "@/types/rubric";
+import { RubricItem, RubricVersion } from "@/types/rubric";
 import { addHistoryEntry, updateRubricItem, getCategoriesInOrder } from "@/utils/rubricUtils";
 
 interface EvaluationCriteriaEditorProps {
@@ -23,7 +23,7 @@ export default function EvaluationCriteriaEditor({
   const [editingValue, setEditingValue] = useState<string>("");
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [dragTarget, setDragTarget] = useState<string | null>(null);
-  const [focusedItem, setFocusedItem] = useState<string | null>(null);
+  const [focusedItem] = useState<string | null>(null);
 
   const stableCategoryOrder = [
     "Theory Application",
@@ -435,7 +435,7 @@ export default function EvaluationCriteriaEditor({
                     </div>
                     <p className="text-lg font-medium mb-2">No criteria in this category yet.</p>
                     <p className="text-sm opacity-75">
-                      Click "Add Criteria" to get started with your evaluation framework.
+                      Click &quot;Add Criteria&quot; to get started with your evaluation framework.
                     </p>
                   </div>
                 )}

@@ -298,7 +298,7 @@ export default function ConfigurationPanel({
                                 <div className="text-center text-gray-500 py-6">
                                   <div className="text-2xl mb-2">📝</div>
                                   <p className="text-sm">No test cases yet</p>
-                                  <p className="text-xs text-gray-400">Click "Add Test Case" to get started</p>
+                                  <p className="text-xs text-gray-400">Click &quot;Add Test Case&quot; to get started</p>
                                 </div>
                               )}
                             </div>
