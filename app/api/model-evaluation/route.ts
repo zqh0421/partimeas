@@ -19,26 +19,7 @@ const MODEL_CONFIGS = {
     provider: 'openai',
     model: 'gpt-4o',
   },
-  'gpt-4.1': {
-    provider: 'openai',
-    model: 'gpt-4.1',
-  },
-  'gpt-4.5': {
-    provider: 'openai',
-    model: 'gpt-4.5',
-  },
-  'gpt-4.1-mini': {
-    provider: 'openai',
-    model: 'gpt-4.1-mini',
-  },
-  'gpt-5': {
-    provider: 'openai',
-    model: 'gpt-5',
-  },
-  'gpt-5-mini': {
-    provider: 'openai',
-    model: 'gpt-5-mini',
-  },
+
   'o1-mini': {
     provider: 'openai',
     model: 'o1-mini',
@@ -127,7 +108,14 @@ const getModelInstance = async (modelId: string) => {
 };
 
 // Fixed models to generate outputs - modify this array as needed
-const OUTPUT_GENERATION_MODELS = ['gpt-4o-mini', 'gpt-5-mini', 'gpt-3.5-turbo'];
+// Using reliable, commonly available models for better success rate
+const OUTPUT_GENERATION_MODELS = [
+  'gpt-4o-mini', 
+  'gpt-4o', 
+  'gpt-3.5-turbo',
+  'claude-3-sonnet',
+  'claude-3-opus'
+];
 
 // Fixed model for evaluation - modify this as needed
 const EVALUATION_MODEL = 'gpt-4o-mini';
@@ -407,8 +395,11 @@ const getSystemPrompt = (useCaseType: string): string => {
 // Helper function to generate output from a single model
 const generateModelOutput = async (modelId: string, testCase: any, useCaseTypeOverride?: string) => {
   try {
+    console.log(`🚀 Starting generation for model: ${modelId}`);
+    
     // Get model instance
     const model = await getModelInstance(modelId);
+    console.log(`✅ Model instance created successfully for: ${modelId}`);
 
     // Use the provided use case type, or fall back to auto-detection
     const useCaseType = useCaseTypeOverride || determineUseCase(testCase);
@@ -648,11 +639,14 @@ export async function POST(request: NextRequest) {
         const modelId = OUTPUT_GENERATION_MODELS[i];
         
         if (result.status === 'fulfilled') {
+          console.log(`✅ Model ${modelId} generated output successfully`);
           outputs.push(result.value);
         } else {
+          const errorMessage = result.reason instanceof Error ? result.reason.message : 'Unknown error';
+          console.error(`❌ Model ${modelId} failed: ${errorMessage}`);
           errors.push({
             modelId,
-            error: result.reason instanceof Error ? result.reason.message : 'Unknown error'
+            error: errorMessage
           });
         }
       }

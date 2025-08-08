@@ -211,6 +211,30 @@ export function useAnalysisHandlers(
     setShouldStartEvaluation(true);
   };
 
+  const handleRestart = () => {
+    // Reset all analysis state
+    setTestCases([]);
+    setTestCasesWithModelOutputs([]);
+    setCriteria([]);
+    setOutcomes([]);
+    setOutcomesWithModelComparison([]);
+    setSelectedUseCaseId('');
+    setSelectedScenarioCategory('');
+    setSelectedCriteriaId('');
+    setSelectedTestCaseIndex(0);
+    setCurrentTestCaseIndex(0);
+    setEvaluationProgress(0);
+    setShouldStartEvaluation(false);
+    setIsLoading(false);
+    setValidationError('');
+    
+    // Go back to sync step
+    setCurrentStep('sync');
+    
+    // Refresh the page to ensure clean state
+    window.location.reload();
+  };
+
   return {
     handleEvaluationComplete,
     handleModelComparisonEvaluationComplete,
@@ -228,5 +252,6 @@ export function useAnalysisHandlers(
     handleTestCaseSelect,
     handleBackToSync,
     handleStartEvaluation,
+    handleRestart,
   };
 } 

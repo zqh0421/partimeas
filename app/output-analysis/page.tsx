@@ -116,7 +116,6 @@ export default function OutputAnalysisPage() {
             validationError={validationError}
             onUseCaseSelected={handlers.handleUseCaseSelected}
             onScenarioCategorySelected={handlers.handleScenarioCategorySelected}
-            onMultiLevelSelectionChange={handlers.handleMultiLevelSelectionChange}
             onUseCaseDataLoaded={handlers.handleUseCaseDataLoaded}
             onCriteriaSelected={handlers.handleCriteriaSelected}
             onCriteriaLoaded={handlers.handleCriteriaLoaded}
@@ -153,6 +152,7 @@ export default function OutputAnalysisPage() {
                 selectedTestCaseIndex={selectedTestCaseIndex}
                 onTestCaseSelect={handlers.handleTestCaseSelect}
                 onBackToSync={handlers.handleBackToSync}
+                onRestart={handlers.handleRestart}
                 isLoading={isLoading}
               />
             ) : isLoading ? (
@@ -161,6 +161,7 @@ export default function OutputAnalysisPage() {
                 selectedTestCaseIndex={0}
                 onTestCaseSelect={handlers.handleTestCaseSelect}
                 onBackToSync={handlers.handleBackToSync}
+                onRestart={handlers.handleRestart}
                 isLoading={true}
               />
             ) : null}

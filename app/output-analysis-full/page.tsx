@@ -140,6 +140,7 @@ export default function OutputAnalysisFullPage() {
           onEvaluationProgress={handlers.handleEvaluationProgress}
           onStartEvaluation={handlers.handleStartEvaluation}
           onTestCaseSelect={handlers.handleTestCaseSelect}
+          onRestart={handlers.handleRestart}
           setValidationError={setValidationError}
         />
       </div>

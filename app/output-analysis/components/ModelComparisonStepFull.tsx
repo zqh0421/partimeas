@@ -216,6 +216,7 @@ interface ModelComparisonStepProps {
   selectedTestCaseIndex: number;
   onTestCaseSelect: (index: number) => void;
   onBackToSync: () => void;
+  onRestart?: () => void;
   isLoading?: boolean;
 }
 
@@ -224,6 +225,7 @@ export default function ModelComparisonStep({
   selectedTestCaseIndex,
   onTestCaseSelect,
   onBackToSync,
+  onRestart,
   isLoading = false,
 }: ModelComparisonStepProps) {
   const [showComparisonTool, setShowComparisonTool] = useState(true);
@@ -242,19 +244,64 @@ export default function ModelComparisonStep({
     });
   };
 
-  // Loading state - Simplified
+  // Enhanced Loading state with progress tracking
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-xl font-medium text-gray-900 mb-2">
             Model Comparison
           </h2>
-          <p className="text-gray-600">Processing results...</p>
+          <p className="text-gray-600">Generating outputs from multiple AI models...</p>
         </div>
         
-        <div className="bg-white border rounded-lg p-4">
-          <div className="text-gray-500">Loading...</div>
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="text-center py-8">
+            {/* Loading spinner */}
+            <div className="flex justify-center mb-4">
+              <div className="w-8 h-8 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin"></div>
+            </div>
+            
+            {/* Progress information */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-medium text-gray-900">
+                Processing Test Cases
+              </h3>
+              
+              {totalTestCases > 0 && (
+                <div>
+                  <div className="flex justify-center text-sm text-gray-600 mb-2">
+                    Test Case {currentTestCaseIndex + 1} of {totalTestCases}
+                  </div>
+                  <div className="w-full max-w-md mx-auto bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max(10, ((currentTestCaseIndex + 1) / totalTestCases) * 100)}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {Math.round(((currentTestCaseIndex + 1) / totalTestCases) * 100)}% complete
+                  </div>
+                </div>
+              )}
+              
+              {evaluationProgress && evaluationProgress.message && (
+                <p className="text-sm text-blue-700">
+                  {evaluationProgress.message}
+                </p>
+              )}
+              
+              <div className="text-sm text-gray-500 space-y-1">
+                <p>• Generating responses from multiple AI models</p>
+                <p>• Evaluating outputs using rubric criteria</p>
+                <p>• Preparing comparison results</p>
+              </div>
+              
+              <div className="mt-4 text-xs text-gray-400">
+                This may take a few minutes depending on the number of models and test cases.
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -512,14 +559,25 @@ export default function ModelComparisonStep({
         </div>
       )}
 
-      {/* Back Button - Simplified */}
-      <div className="text-center">
+      {/* Action Buttons */}
+      <div className="flex justify-center space-x-4">
         <button
           onClick={onBackToSync}
           className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
         >
           Back to Configuration
         </button>
+        {onRestart && (
+          <button
+            onClick={onRestart}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center space-x-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Restart Analysis</span>
+          </button>
+        )}
       </div>
     </div>
   );

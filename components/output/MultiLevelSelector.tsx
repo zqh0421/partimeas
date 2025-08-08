@@ -69,11 +69,6 @@ export default function MultiLevelSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Initialize use cases
-  useEffect(() => {
-    setUseCases(USE_CASE_SHEETS);
-  }, []);
-
   const organizeDataHierarchically = (testCases: any[], useCaseId: string): HierarchicalData => {
     const hierarchical: HierarchicalData = { useCases: {} };
     
@@ -213,7 +208,7 @@ export default function MultiLevelSelector({
   };
 
   const getSelectionSummary = (): string => {
-    if (selections.length === 0) return "Select a set of test cases to proceed...";
+    if (selections.length === 0) return "Select test cases to analyze...";
     
     const totalCategories = selections.reduce((sum, s) => sum + s.scenarioCategoryIds.length, 0);
     return `${selections.length} use case${selections.length !== 1 ? 's' : ''}, ${totalCategories} categor${totalCategories !== 1 ? 'ies' : 'y'}`;
@@ -225,9 +220,13 @@ export default function MultiLevelSelector({
     onDataLoaded([]);
   };
 
+  // Initialize use cases
+  useEffect(() => {
+    setUseCases(USE_CASE_SHEETS);
+  }, []);
+
   return (
     <div className="space-y-4">
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
         <div className="p-6">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
@@ -340,7 +339,6 @@ export default function MultiLevelSelector({
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }
