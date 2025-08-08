@@ -4,37 +4,35 @@ A modern web application for creating and refining rubrics to evaluate LLM outpu
 
 ## Features
 
-### 🎯 Core Functionality
-- **System Prompt Setup**: Configure evaluation criteria and context for LLM assessment
-- **Rubric Items (1-5 Scale)**: Define detailed criteria for each evaluation level
-- **Test Cases Management**: Add input examples to validate rubric effectiveness
+- **Real Model Integration**: Powered by LangChain for actual model calls to OpenAI, Anthropic, and Google AI
+- **Dynamic Model Comparison**: Compare outputs from multiple AI models side-by-side
+- **Intelligent Content Analysis**: Automatic keyword extraction and similarity analysis
+- **Visual Comparison Tools**: Color-coded keywords and similarity indicators
+- **Comprehensive Evaluation**: Multi-criteria rubric-based assessment
 - **Version Control**: Save and manage different rubric versions
-- **API Key Management**: Secure configuration for multiple LLM providers
+- **API Management**: Secure API key configuration and testing
 
-### 🔧 Technical Features
-- **Multi-Provider Support**: OpenAI, Anthropic, and Google AI integration
-- **Real-time Validation**: Test API keys and rubric configurations
-- **Export Capabilities**: Download rubric versions as JSON files
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
-- **Modern UI**: Clean, intuitive interface with Tailwind CSS
+## Prerequisites
 
-## Getting Started
+1. Node.js 18+ and npm/pnpm
+2. API keys for at least one of the supported providers:
+   - OpenAI API key (for GPT-4, GPT-3.5-turbo)
+   - Anthropic API key (for Claude models)
+   - Google AI API key (for Gemini models)
 
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-
-### Installation
+## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-repo/rubric-refiner.git
-cd rubric-refiner
+git clone <repository-url>
+cd partimeas
 ```
 
 2. Install dependencies:
 ```bash
 npm install
+# or
+pnpm install
 ```
 
 3. Set up environment variables:
@@ -44,9 +42,13 @@ cp .env.local.example .env.local
 
 Edit `.env.local` and add your API keys:
 ```env
+# Required for real model calls
 OPENAI_API_KEY=your_openai_api_key_here
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 GOOGLE_API_KEY=your_google_api_key_here
+
+# Optional: Google Cloud Service Account (for use case data)
+GCP_KEY_FILE=path_to_your_service_account_key.json
 ```
 
 4. Run the development server:

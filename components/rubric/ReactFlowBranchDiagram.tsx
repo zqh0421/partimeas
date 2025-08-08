@@ -56,18 +56,6 @@ interface CustomNodeProps {
 }
 
 const CustomNode = ({ data, selected }: CustomNodeProps) => {
-  const getActionIcon = (action: string) => {
-    switch (action) {
-      case 'created': return '✨';
-      case 'modified': return '✏️';
-      case 'merged': return '🔀';
-      case 'star': return '⭐';
-      case 'unstared': return '🌟';
-      case 'current': return '🎯';
-      default: return '📝';
-    }
-  };
-
   const getActionColor = (action: string) => {
     switch (action) {
       case 'created': return 'bg-green-100 border-green-500';

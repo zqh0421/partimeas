@@ -39,7 +39,7 @@ export default function RubricComparison({
   const [highlightChanges, setHighlightChanges] = useState(true);
 
   // Mock evaluation results for demonstration
-  const mockEvaluationResults: EvaluationResult[] = [
+  const mockEvaluationResults = useMemo((): EvaluationResult[] => [
     {
       id: 'eval-1',
       rubricVersionId: '1',
@@ -72,7 +72,7 @@ export default function RubricComparison({
       evaluatedAt: new Date('2024-01-21T14:30:00'),
       evaluator: 'Prof. Michael Chen'
     }
-  ];
+  ], []);
 
   const allResults = useMemo(() => [...evaluationResults, ...mockEvaluationResults], [evaluationResults, mockEvaluationResults]);
 
