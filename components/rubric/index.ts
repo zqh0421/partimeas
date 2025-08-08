@@ -15,6 +15,3 @@ export { default as RubricVersioning } from './RubricVersioning';
 export { default as RubricItems } from './RubricItems';
 export { default as CategoryManager } from './CategoryManager';
 export { default as TestCases } from './TestCases';
-
-// Load section components
-export { default as ModelSelector } from '../output/ModelSelector'; 

@@ -101,6 +101,27 @@ export function useAnalysisHandlers(
     console.log('Scenario category selected:', categoryId);
   };
 
+  // New handler for multi-level multi-select functionality
+  const handleMultiLevelSelectionChange = (selections: Array<{
+    useCaseId: string;
+    scenarioCategoryIds: string[];
+  }>) => {
+    setValidationError(''); // Clear any previous validation errors
+    console.log('Multi-level selections changed:', selections);
+    
+    // For backward compatibility, set the first selection as primary
+    if (selections.length > 0) {
+      const firstSelection = selections[0];
+      setSelectedUseCaseId(firstSelection.useCaseId);
+      if (firstSelection.scenarioCategoryIds.length > 0) {
+        setSelectedScenarioCategory(firstSelection.scenarioCategoryIds[0]);
+      }
+    } else {
+      setSelectedUseCaseId('');
+      setSelectedScenarioCategory('');
+    }
+  };
+
   const handleUseCaseDataLoaded = (useCaseTestCases: Array<{
     id: string;
     input: string;
@@ -197,6 +218,7 @@ export function useAnalysisHandlers(
     handleEvaluationError,
     handleUseCaseSelected,
     handleScenarioCategorySelected,
+    handleMultiLevelSelectionChange,
     handleUseCaseDataLoaded,
     handleCriteriaSelected,
     handleCriteriaLoaded,

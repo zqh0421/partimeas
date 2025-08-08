@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import UseCaseSelectorFull from '@/components/output/UseCaseSelectorFull';
+import MultiLevelSelector from '@/components/output/MultiLevelSelector';
 import RubricEvaluator from '@/components/output/RubricEvaluator';
 import ModelComparisonEvaluator from './ModelComparisonEvaluator';
 import VerticalStepper from './VerticalStepper';
@@ -264,6 +265,10 @@ interface UnifiedAnalysisViewProps {
   // Event handlers
   onUseCaseSelected: (useCaseId: string) => void;
   onScenarioCategorySelected: (categoryId: string) => void;
+  onMultiLevelSelectionChange?: (selections: Array<{
+    useCaseId: string;
+    scenarioCategoryIds: string[];
+  }>) => void;
   onUseCaseDataLoaded: (testCases: TestCase[]) => void;
   onUseCaseError: (error: string) => void;
   onEvaluationComplete: (results: any[]) => void;
@@ -298,6 +303,7 @@ export default function UnifiedAnalysisView({
   validationError,
   onUseCaseSelected,
   onScenarioCategorySelected,
+  onMultiLevelSelectionChange,
   onUseCaseDataLoaded,
   onUseCaseError,
   onEvaluationComplete,
@@ -365,11 +371,20 @@ export default function UnifiedAnalysisView({
       isCollapsed: isStep1Collapsed,
       content: (
         <div className="space-y-6">
-          {/* Use Case Selection */}
+          {/* Use Case & Scenario Category Selection */}
           <div>
-            <UseCaseSelectorFull
-              onUseCaseSelected={onUseCaseSelected}
-              onScenarioCategorySelected={onScenarioCategorySelected}
+            <MultiLevelSelector
+              onSelectionChange={(selections) => {
+                onMultiLevelSelectionChange?.(selections);
+                // For backward compatibility, still call individual handlers
+                if (selections.length > 0) {
+                  const firstSelection = selections[0];
+                  onUseCaseSelected(firstSelection.useCaseId);
+                  if (firstSelection.scenarioCategoryIds.length > 0) {
+                    onScenarioCategorySelected(firstSelection.scenarioCategoryIds[0]);
+                  }
+                }
+              }}
               onDataLoaded={(testCases: any[]) => onUseCaseDataLoaded(testCases)}
               onError={onUseCaseError}
               testCases={testCases}
@@ -803,78 +818,6 @@ export default function UnifiedAnalysisView({
 
       {/* Vertical Stepper */}
       <VerticalStepper steps={steps} />
-
-      {/* Detailed Results View - Only show when completed and expanded */}
-      {analysisStep === 'complete' && outcomesWithModelComparison.length > 0 && outcomesWithModelComparison[selectedTestCaseIndex] && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Detailed Results - Test Case {selectedTestCaseIndex + 1}
-          </h2>
-          
-          <div className="space-y-6">
-            {/* Input and Expected Output */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div>
-                <h3 className="font-medium text-gray-900 mb-2">Input</h3>
-                <div className="bg-gray-50 p-3 rounded text-sm">
-                  {outcomesWithModelComparison[selectedTestCaseIndex].testCase.input}
-                </div>
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-900 mb-2">Expected Output</h3>
-                <div className="bg-gray-50 p-3 rounded text-sm">
-                  {outcomesWithModelComparison[selectedTestCaseIndex].testCase.expectedOutput}
-                </div>
-              </div>
-            </div>
-
-            {/* Model Outputs */}
-            <div>
-              <h3 className="font-medium text-gray-900 mb-3">Model Outputs & Scores</h3>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {outcomesWithModelComparison[selectedTestCaseIndex].testCase.modelOutputs.map((output, idx) => (
-                  <div key={idx} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-gray-900">{output.modelName}</h4>
-                      {output.rubricScores && Object.keys(output.rubricScores).length > 0 && (
-                        <span className="text-sm font-bold text-blue-600">
-                          {(Object.values(output.rubricScores).reduce((a: number, b: number) => a + b, 0) / Object.values(output.rubricScores).length).toFixed(1)}/5
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="text-sm text-gray-600 mb-3">
-                      {output.output ? (
-                        output.output.length > 150 
-                          ? output.output.substring(0, 150) + '...'
-                          : output.output
-                      ) : 'No output available'}
-                    </div>
-
-                    {output.rubricScores && Object.keys(output.rubricScores).length > 0 && (
-                      <div className="space-y-1 mb-3">
-                        {Object.entries(output.rubricScores).map(([criteria, score]) => (
-                          <div key={criteria} className="flex justify-between text-xs">
-                            <span className="text-gray-600 capitalize">{criteria}</span>
-                            <span className="font-medium">{score}/5</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {output.feedback && (
-                      <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                        <strong>Feedback:</strong> {output.feedback.substring(0, 120)}
-                        {output.feedback.length > 120 && '...'}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -272,12 +272,6 @@ export default function ModelComparisonStep({
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-xl font-medium text-gray-900 mb-2">
-          Results Review
-        </h2>
-        <p className="text-gray-600">Review and compare model performance</p>
-      </div>
 
       {/* Test Case Navigation */}
       <div className="flex justify-center space-x-2 mb-8">

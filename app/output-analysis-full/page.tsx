@@ -131,6 +131,7 @@ export default function OutputAnalysisFullPage() {
           // Event handlers
           onUseCaseSelected={handlers.handleUseCaseSelected}
           onScenarioCategorySelected={handlers.handleScenarioCategorySelected}
+          onMultiLevelSelectionChange={handlers.handleMultiLevelSelectionChange}
           onUseCaseDataLoaded={handlers.handleUseCaseDataLoaded}
           onUseCaseError={handlers.handleUseCaseError}
           onEvaluationComplete={handlers.handleEvaluationComplete}
