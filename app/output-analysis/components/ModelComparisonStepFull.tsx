@@ -268,27 +268,21 @@ export default function ModelComparisonStep({
                 Processing Test Cases
               </h3>
               
-              {totalTestCases > 0 && (
+              {outcomes.length > 0 && (
                 <div>
                   <div className="flex justify-center text-sm text-gray-600 mb-2">
-                    Test Case {currentTestCaseIndex + 1} of {totalTestCases}
+                    Test Case {selectedTestCaseIndex + 1} of {outcomes.length}
                   </div>
                   <div className="w-full max-w-md mx-auto bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.max(10, ((currentTestCaseIndex + 1) / totalTestCases) * 100)}%` }}
+                      style={{ width: `${Math.max(10, ((selectedTestCaseIndex + 1) / outcomes.length) * 100)}%` }}
                     ></div>
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {Math.round(((currentTestCaseIndex + 1) / totalTestCases) * 100)}% complete
+                    {Math.round(((selectedTestCaseIndex + 1) / outcomes.length) * 100)}% analyzed
                   </div>
                 </div>
-              )}
-              
-              {evaluationProgress && evaluationProgress.message && (
-                <p className="text-sm text-blue-700">
-                  {evaluationProgress.message}
-                </p>
               )}
               
               <div className="text-sm text-gray-500 space-y-1">
