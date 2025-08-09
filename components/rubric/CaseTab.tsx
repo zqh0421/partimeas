@@ -58,7 +58,7 @@ export default function CaseTab({
     }
   };
 
-  const handleUpdateTestCase = (useCaseId: string, testCaseId: string, field: 'input' | 'expectedOutput', value: string) => {
+  const handleUpdateTestCase = (useCaseId: string, testCaseId: string, field: 'input' | 'context', value: string) => {
     const updatedUseCases = [...(currentVersion.useCases || [])];
     const useCaseIndex = updatedUseCases.findIndex(uc => uc.id === useCaseId);
     if (useCaseIndex !== -1) {

@@ -14,7 +14,7 @@ interface TestCaseManagerProps {
   title: string;
   onAddTestCase: () => void;
   onDeleteTestCase: (testIndex: number) => void;
-  onUpdateTestCase: (testCaseId: string, field: 'input' | 'expectedOutput', value: string) => void;
+  onUpdateTestCase: (testCaseId: string, field: 'input' | 'context', value: string) => void;
   parseInput?: (input: string) => { useContext: string; userInput: string };
   combineInput?: (useContext: string, userInput: string) => string;
   showUseContext?: boolean;

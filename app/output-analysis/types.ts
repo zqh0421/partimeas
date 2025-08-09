@@ -1,8 +1,7 @@
 export interface TestCase {
   id: string;
+  context: string;
   input: string;
-  expectedOutput: string;
-  actualOutput: string;
   rubricScores: {
     [criteriaId: string]: number;
   };
@@ -29,7 +28,7 @@ export interface ModelOutput {
 export interface TestCaseWithModelOutputs {
   id: string;
   input: string;
-  expectedOutput: string;
+  context: string;
   modelOutputs: ModelOutput[];
   useCase?: string;
   scenarioCategory?: string;

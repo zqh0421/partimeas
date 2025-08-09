@@ -8,8 +8,7 @@ interface EvaluationResult {
   rubricVersionId: string;
   testCaseId: string;
   input: string;
-  expectedOutput: string;
-  actualOutput: string;
+  context: string;
   scores: {
     [criteriaId: string]: number;
   };
@@ -45,8 +44,7 @@ export default function RubricComparison({
       rubricVersionId: '1',
       testCaseId: '1',
       input: 'A 4-year-old child is having difficulty transitioning from playtime to cleanup time in preschool.',
-      expectedOutput: 'Response should demonstrate understanding of child development theories and provide practical strategies.',
-      actualOutput: 'The child is showing typical 4-year-old behavior. Use visual timers and positive reinforcement.',
+      context: 'Response should demonstrate understanding of child development theories and provide practical strategies.',
       scores: {
         '1': 4, // Theoretical Accuracy
         '2': 5, // Safety & Ethics
@@ -61,8 +59,7 @@ export default function RubricComparison({
       rubricVersionId: '1',
       testCaseId: '2',
       input: 'A parent is concerned about their 2-year-old\'s speech development.',
-      expectedOutput: 'Response should include assessment guidance and family-centered approaches.',
-      actualOutput: 'Consider consulting a speech therapist and engaging in daily language activities.',
+      context: 'Response should include assessment guidance and family-centered approaches.',
       scores: {
         '1': 3, // Theoretical Accuracy
         '2': 4, // Safety & Ethics

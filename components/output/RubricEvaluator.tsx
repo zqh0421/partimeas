@@ -23,8 +23,7 @@ export interface RubricEvaluatorProps {
   testCases: Array<{
     id: string;
     input: string;
-    expectedOutput: string;
-    actualOutput: string;
+    context: string;
   }>;
   onEvaluationComplete: (results: EvaluationResult[]) => void;
   onError: (error: string) => void;
@@ -169,28 +168,29 @@ export default function RubricEvaluator({
     const scores: { [key: string]: number } = {};
     
     defaultCriteria.forEach(criteria => {
-      // Simulate scoring based on content analysis
+      // Simulate scoring based on input and context analysis
       const baseScore = Math.floor(Math.random() * 3) + 3; // 3-5 range
-      const contentLength = testCase.actualOutput.length;
-      const inputMatch = testCase.actualOutput.toLowerCase().includes(testCase.input.toLowerCase()) ? 1 : 0;
+      const inputLength = testCase.input.length;
+      const contextLength = testCase.context.length;
+      const hasContext = testCase.context && testCase.context.length > 0 ? 1 : 0;
       
       let score = baseScore;
       
       switch (criteria.id) {
         case 'accuracy':
-          score = Math.min(5, baseScore + inputMatch);
+          score = Math.min(5, baseScore + hasContext);
           break;
         case 'relevance':
-          score = Math.min(5, baseScore + (contentLength > 100 ? 1 : 0));
+          score = Math.min(5, baseScore + (inputLength > 50 ? 1 : 0));
           break;
         case 'clarity':
-          score = Math.min(5, baseScore + (testCase.actualOutput.includes('.') ? 1 : 0));
+          score = Math.min(5, baseScore + (contextLength > 50 ? 1 : 0));
           break;
         case 'completeness':
-          score = Math.min(5, baseScore + (contentLength > 200 ? 1 : 0));
+          score = Math.min(5, baseScore + (inputLength > 100 ? 1 : 0));
           break;
         case 'creativity':
-          score = Math.min(5, baseScore + (testCase.actualOutput.includes('1.') || testCase.actualOutput.includes('•') ? 1 : 0));
+          score = Math.min(5, baseScore + (testCase.context.includes('creative') || testCase.context.includes('innovative') ? 1 : 0));
           break;
       }
       
@@ -267,16 +267,16 @@ export default function RubricEvaluator({
   const generateTestCaseSpecificSuggestions = (testCase: any, scores: { [key: string]: number }) => {
     const suggestions: string[] = [];
     
-    if (testCase.actualOutput.length < 100) {
-      suggestions.push('Consider adding criteria for response length or detail level');
+    if (testCase.input.length < 50) {
+      suggestions.push('Consider adding criteria for input complexity or detail level');
     }
     
-    if (!testCase.actualOutput.includes(testCase.expectedOutput.toLowerCase())) {
-      suggestions.push('Add criteria for alignment with expected output patterns');
+    if (!testCase.context || testCase.context.length < 20) {
+      suggestions.push('Add more detailed context to improve evaluation accuracy');
     }
     
-    if (testCase.actualOutput.split('.').length < 3) {
-      suggestions.push('Consider evaluating response structure and organization');
+    if (testCase.input.split(' ').length < 10) {
+      suggestions.push('Consider evaluating more complex input scenarios');
     }
     
     return suggestions;

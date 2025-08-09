@@ -250,7 +250,7 @@ export default function ModelComparisonStep({
       <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-xl font-medium text-gray-900 mb-2">
-            Model Comparison
+            Possible Responses
           </h2>
           <p className="text-gray-600">Generating outputs from multiple AI models...</p>
         </div>
@@ -334,30 +334,23 @@ export default function ModelComparisonStep({
       {/* Shared Input and Context Section */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8">
         <h3 className="text-xl font-semibold text-gray-900 mb-6">
-          Test Case {selectedTestCaseIndex + 1} - Shared Input & Context
+          Test Case {selectedTestCaseIndex + 1}
         </h3>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-            <h4 className="font-medium text-gray-900 mb-2">Context</h4>
-            <div className="bg-gray-50 p-3 rounded text-sm">
-              {testCase.expectedOutput}
-            </div>
-          </div>
+        <div className="grid grid-cols-1 gap-6">
           <div>
-            <h4 className="font-medium text-gray-900 mb-2">Input</h4>
             <div className="bg-gray-50 p-3 rounded text-sm">
-              {testCase.input}
+              <p className="text-gray-600 mt-1 font-bold">{testCase.context || 'No context available'}</p>
+              <p className="text-gray-600 mt-1">{testCase.input || 'No input available'}</p>
             </div>
           </div>
-          
-        </div>
+          </div>
       </div>
 
       {/* Model Outputs Comparison - Simplified */}
       <div className="bg-white border rounded-lg p-4">
         <h3 className="text-lg font-medium text-gray-900 mb-4">
-          Model Comparison ({testCase.modelOutputs.length} models)
+        {testCase.modelOutputs.length} Possible Responses
         </h3>
 
         {/* Grouped Content Display */}

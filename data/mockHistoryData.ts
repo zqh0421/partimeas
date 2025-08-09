@@ -183,12 +183,12 @@ export const mockCurrentVersion: RubricVersion = {
     {
       id: '1',
       input: 'A 4-year-old child is having difficulty transitioning from playtime to cleanup time in preschool.',
-      expectedOutput: 'Response should demonstrate understanding of child development theories and provide practical strategies.'
+      context: 'Response should demonstrate understanding of child development theories and provide practical strategies.'
     },
     {
       id: '2',
       input: 'A parent is concerned about their 2-year-old\'s speech development.',
-      expectedOutput: 'Response should include assessment guidance and family-centered approaches.'
+      context: 'Response should include assessment guidance and family-centered approaches.'
     }
   ],
   useCases: [
@@ -200,13 +200,13 @@ export const mockCurrentVersion: RubricVersion = {
         {
           id: 'test-1-1',
           input: 'A teacher wants to help students reflect on their learning process',
-          expectedOutput: 'Response should include open-ended questions that encourage self-reflection and metacognition',
+          context: 'Response should include open-ended questions that encourage self-reflection and metacognition',
           useCaseId: 'usecase-1'
         },
         {
           id: 'test-1-2',
           input: 'A counselor needs questions to help clients process their emotions',
-          expectedOutput: 'Response should provide therapeutic questions that promote emotional awareness and processing',
+          context: 'Response should provide therapeutic questions that promote emotional awareness and processing',
           useCaseId: 'usecase-1'
         }
       ]
@@ -219,13 +219,13 @@ export const mockCurrentVersion: RubricVersion = {
         {
           id: 'test-2-1',
           input: 'A parent asks about their 3-year-old\'s social development',
-          expectedOutput: 'Response should include typical social milestones and strategies for supporting social growth',
+          context: 'Response should include typical social milestones and strategies for supporting social growth',
           useCaseId: 'usecase-2'
         },
         {
           id: 'test-2-2',
           input: 'A teacher needs strategies for supporting a child with learning differences',
-          expectedOutput: 'Response should provide inclusive teaching strategies and accommodation suggestions',
+          context: 'Response should provide inclusive teaching strategies and accommodation suggestions',
           useCaseId: 'usecase-2'
         }
       ]
@@ -238,13 +238,13 @@ export const mockCurrentVersion: RubricVersion = {
         {
           id: 'test-3-1',
           input: 'A child is having tantrums during transitions',
-          expectedOutput: 'Response should provide strategies for smooth transitions and emotional regulation',
+          context: 'Response should provide strategies for smooth transitions and emotional regulation',
           useCaseId: 'usecase-3'
         },
         {
           id: 'test-3-2',
           input: 'A student is struggling with attention in class',
-          expectedOutput: 'Response should offer classroom management strategies and attention-building activities',
+          context: 'Response should offer classroom management strategies and attention-building activities',
           useCaseId: 'usecase-3'
         }
       ]
@@ -257,13 +257,13 @@ export const mockCurrentVersion: RubricVersion = {
         {
           id: 'test-4-1',
           input: 'A parent wants to create learning activities for their 4-year-old',
-          expectedOutput: 'Response should suggest age-appropriate educational activities that are engaging and developmentally suitable',
+          context: 'Response should suggest age-appropriate educational activities that are engaging and developmentally suitable',
           useCaseId: 'usecase-4'
         },
         {
           id: 'test-4-2',
           input: 'A teacher needs ideas for hands-on science activities for preschoolers',
-          expectedOutput: 'Response should provide safe, engaging science experiments that teach basic concepts',
+          context: 'Response should provide safe, engaging science experiments that teach basic concepts',
           useCaseId: 'usecase-4'
         }
       ]
@@ -276,55 +276,55 @@ export const mockCurrentVersion: RubricVersion = {
         {
           id: 'test-5-1',
           input: 'Use Context: A student frequently interrupts or talks over peers during group activities.\n\nScenario: During a group discussion, Marcus keeps blurting out answers without raising his hand. Instead of addressing the behavior directly, the teacher turns to the class and says with a smirk, "Well, I guess Marcus is running the lesson today." A few students laugh uncomfortably while Marcus grins, not realizing he\'s being mocked. The tone sets an unclear boundary and leaves the rest of the group unsure how to engage.',
-          expectedOutput: 'Response should provide reflective questions that help the teacher examine their response to student interruptions, including questions about the impact of sarcasm on classroom dynamics, alternative approaches to managing interruptions, and how to maintain authority while being respectful.',
+          context: 'Response should provide reflective questions that help the teacher examine their response to student interruptions, including questions about the impact of sarcasm on classroom dynamics, alternative approaches to managing interruptions, and how to maintain authority while being respectful.',
           useCaseId: 'usecase-5'
         },
         {
           id: 'test-5-2',
           input: 'Use Context: A child becomes withdrawn or shuts down when given constructive feedback.\n\nScenario: When Lily turns in her math worksheet with multiple errors, the teacher glances at it and immediately starts erasing answers without saying a word. Lily watches silently as the teacher redoes her work, offering no explanation or encouragement. "There," the teacher mutters, placing it back on Lily\'s desk. Lily folds her arms and doesn\'t touch her pencil for the rest of the lesson, feeling invisible.',
-          expectedOutput: 'Response should provide reflective questions that help the teacher examine their feedback delivery methods, including questions about the emotional impact of silent corrections, how to provide constructive feedback that builds confidence, and strategies for maintaining student engagement during corrections.',
+          context: 'Response should provide reflective questions that help the teacher examine their feedback delivery methods, including questions about the emotional impact of silent corrections, how to provide constructive feedback that builds confidence, and strategies for maintaining student engagement during corrections.',
           useCaseId: 'usecase-5'
         },
         {
           id: 'test-5-3',
           input: 'Use Context: Two students repeatedly argue or escalate minor disagreements into conflicts.\n\nScenario: Jayden and Amira start arguing during a group activity, but the teacher only steps in to scold Amira. "Jayden\'s been doing all the work — maybe you should listen for once," she snaps, ignoring Amira\'s side of the story. Amira goes quiet, clearly upset, while Jayden smirks and continues without her. The favoritism reinforces tension between the two and increases the likelihood of future conflicts.',
-          expectedOutput: 'Response should provide reflective questions that help the teacher examine their conflict resolution approach, including questions about the impact of taking sides, how to remain neutral while addressing conflicts, and strategies for fostering collaborative problem-solving between students.',
+          context: 'Response should provide reflective questions that help the teacher examine their conflict resolution approach, including questions about the impact of taking sides, how to remain neutral while addressing conflicts, and strategies for fostering collaborative problem-solving between students.',
           useCaseId: 'usecase-5'
         },
         {
           id: 'test-5-4',
           input: 'Use Context: A student displays difficulty transitioning between activities, often becoming agitated or disruptive.\n\nScenario: As the class moves from lunch to quiet reading time, Daniel refuses to sit at his desk, pacing instead. The teacher pretends not to notice, saying in a strained voice, "We\'ll all just wait for Daniel to be ready, I guess." The whole class turns to stare at him, and Daniel\'s face flushes red. Rather than helping him ease into the transition, the public spotlight makes him more anxious and defiant.',
-          expectedOutput: 'Response should provide reflective questions that help the teacher examine their transition management strategies, including questions about the impact of public pressure on students with transition difficulties, alternative approaches to supporting smooth transitions, and how to maintain classroom flow while supporting individual needs.',
+          context: 'Response should provide reflective questions that help the teacher examine their transition management strategies, including questions about the impact of public pressure on students with transition difficulties, alternative approaches to supporting smooth transitions, and how to maintain classroom flow while supporting individual needs.',
           useCaseId: 'usecase-5'
         },
         {
           id: 'test-5-5',
           input: 'Use Context: A child shows signs of anxiety or stress during academic challenges, such as refusing to participate.\n\nScenario: When Sofia expresses frustration about a timed reading quiz, saying, "I\'m going to mess this up," the teacher, clearly overwhelmed, responds with a flat tone: "Just do your best," without looking up. Sofia hesitates, then puts her head down on the desk. The teacher continues grading papers without following up. The lack of emotional presence deepens Sofia\'s anxiety and sense of isolation.',
-          expectedOutput: 'Response should provide reflective questions that help the teacher examine their response to student anxiety, including questions about the importance of emotional presence during challenging moments, how to validate student feelings while encouraging participation, and strategies for supporting anxious students without enabling avoidance.',
+          context: 'Response should provide reflective questions that help the teacher examine their response to student anxiety, including questions about the importance of emotional presence during challenging moments, how to validate student feelings while encouraging participation, and strategies for supporting anxious students without enabling avoidance.',
           useCaseId: 'usecase-5'
         },
         {
           id: 'test-5-6',
           input: 'Use Context: Conflict in a small group\n\nScenario: Two students at a shared table begin speaking over each other while working on a math activity. One student raises their voice, while the other crosses their arms and looks away. The teacher walks past, glances at the group, and briefly nods at one of the students without saying anything.',
-          expectedOutput: 'Response should provide reflective questions that help the teacher examine their strengths in noticing student dynamics, including questions about what they observed in the interaction, how their brief acknowledgment might have supported the students, and ways to build on this strength to provide more comprehensive support.',
+          context: 'Response should provide reflective questions that help the teacher examine their strengths in noticing student dynamics, including questions about what they observed in the interaction, how their brief acknowledgment might have supported the students, and ways to build on this strength to provide more comprehensive support.',
           useCaseId: 'usecase-5'
         },
         {
           id: 'test-5-7',
           input: 'Use Context: A student needing reassurance before reading aloud\n\nScenario: A student hesitates when it\'s their turn to read aloud and looks toward the teacher. The teacher remains seated at the back of the room and raises a thumb in the student\'s direction. The student looks back at their book and begins reading.',
-          expectedOutput: 'Response should provide reflective questions that help the teacher examine their strength in providing non-verbal support, including questions about how their gesture conveyed confidence to the student, what made this approach effective, and ways to expand this strength to support other students in similar situations.',
+          context: 'Response should provide reflective questions that help the teacher examine their strength in providing non-verbal support, including questions about how their gesture conveyed confidence to the student, what made this approach effective, and ways to expand this strength to support other students in similar situations.',
           useCaseId: 'usecase-5'
         },
         {
           id: 'test-5-8',
           input: 'Use Context: A child upset over losing a game at recess\n\nScenario: After recess, a student enters the classroom with furrowed brows and their arms crossed. As the class settles in, the teacher says aloud, "It\'s okay to feel upset sometimes," while looking toward the group. No further comment is made, and the lesson continues.',
-          expectedOutput: 'Response should provide reflective questions that help the teacher examine their strength in normalizing emotions, including questions about how their acknowledgment might have helped the student feel seen, what made this approach appropriate for the situation, and ways to build on this strength to support emotional regulation.',
+          context: 'Response should provide reflective questions that help the teacher examine their strength in normalizing emotions, including questions about how their acknowledgment might have helped the student feel seen, what made this approach appropriate for the situation, and ways to build on this strength to support emotional regulation.',
           useCaseId: 'usecase-5'
         },
         {
           id: 'test-5-9',
           input: 'Use Context: A student distracted and doodling during instruction\n\nScenario: While the teacher reads a story aloud to the class, one student looks down at their desk and draws in the corner of a notebook. After finishing the page, the teacher says, "I notice some creative drawing—are you thinking about what\'s happening in the story?" and looks at the student with a neutral expression.',
-          expectedOutput: 'Response should provide reflective questions that help the teacher examine their strength in reframing behavior positively, including questions about how their approach might have engaged the student differently than a reprimand, what made this response effective, and ways to apply this strength to other situations where students appear disengaged.',
+          context: 'Response should provide reflective questions that help the teacher examine their strength in reframing behavior positively, including questions about how their approach might have engaged the student differently than a reprimand, what made this response effective, and ways to apply this strength to other situations where students appear disengaged.',
           useCaseId: 'usecase-5'
         }
       ]
@@ -337,7 +337,7 @@ export const mockCurrentVersion: RubricVersion = {
         {
           id: 'test-6-4',
           input: 'I wanted reflective questions because I was feeling a disconnect between the way that I was framing our conversations and the teachers\' understanding (of my words and of the child). I don\'t want to include observations that don\'t directly involve M, but I\'d like some reflective questions to explore. I want them to tie in with M and his history and experiences while also addressing the classroom environment and social and emotional supports.',
-          expectedOutput: `Reflective Questions: Exploring the Environment & Emotional Supports
+          context: `Reflective Questions: Exploring the Environment & Emotional Supports
 \nCo-Regulation & Trauma Sensitivity:
 
 How can we continue using co-regulating adult presence to help Messiah sustain attention and manage transitions, especially during less structured times like centers?
@@ -372,7 +372,7 @@ Are there opportunities to shift from directive language ("Don't do that") to re
         {
           id: 'test-6-5',
           input: 'Please ground my report in the lenses of the polyvagal theory and neuroequential model to better understand the child\'s worldview: Ever since K, a four-year-old child, moved from his previous classroom, Ms. S. has provided a more structured environment that seems to offer him a greater sense of safety. K can have emotional tantrums that may last up to 30 minutes. Although Ms. S. has nine other students to attend to, she still gives him individual attention and offers her soothing presence. Her classroom, considered a programming room, has a more structured daily routine, which appears to support K\'s emotional regulation. Ms. S. is a very insightful and caring teacher. K has speech delays that often prevent him from expressing his needs and emotions effectively. He is in clear need of speech therapy. His family is experiencing financial difficulties, and his parents are divorced, which results in him moving between two homes. Despite these challenges, K responds well to encouragement. Ms. S. is intuitive and nurturing, offering him opportunities to build autonomy. K struggles with problem-solving and is developmentally behind compared to his peers. He thrives in routine; however, any disruption in that routine can be very dysregulating for him. His mother shared that she is in the process of signing him up for speech therapy. She also mentioned that he enjoys being outdoors and that she is working on encouraging more independence at home. During my observation, K appeared interactive. He smiled more and followed the lead of his peers, although he rarely initiated activities on his own. He enjoys being the helper in the classroom. Ms. S. frequently encourages him to communicate his needs by prompting him to "use your words." He experiences frequent meltdowns and often seeks connection and co-regulation in those moments. K enjoys coloring and tends to stay within the lines. He shows a strong interest in letters and numbers and loves dancing and singing. He is currently learning potty training but struggles to communicate when he needs to use the restroom and often does not indicate when he is wet. Ms. S. offers gentle encouragement and uses natural consequences such as having him sit beside her for five minutes to reflect on the situation. K frequently repeats instructions word for word if he does not fully understand them, and he often echoes sentences after Ms. S. The teacher consistently redirects his behavior in a calm and collected manner. She presents herself as a confident and gentle leader. K enjoys playing at various centers and has strong fine motor skills. He collaborates well with other children and is also capable of entertaining himself in solo play, often appearing to live in his own imaginative world. Ms. S. uses humor intentionally and encourages him to express his feelings. The current goals set for K are to develop self-regulation skills and to improve his ability to communicate his needs and feelings. The ultimate goal is to gradually shorten the duration of his tantrums.',
-          expectedOutput: `Certainly. Here's your report revised and expanded through the **lenses of the Polyvagal Theory (PVT)** and the **Neurosequential Model of Therapeutics (NMT)** to help better understand and contextualize K's behavior, needs, and relational patterns:
+          context: `Certainly. Here's your report revised and expanded through the **lenses of the Polyvagal Theory (PVT)** and the **Neurosequential Model of Therapeutics (NMT)** to help better understand and contextualize K's behavior, needs, and relational patterns:
 
 ---
 
@@ -420,7 +420,7 @@ Let me know if you'd like this restructured for a parent conference or simplifie
         {
           id: 'test-6-6',
           input: 'Please simplify the language of the report into practical and classroom appropriate language',
-          expectedOutput: `Absolutely. Here's a simplified, classroom-appropriate version of the report that retains the insights from the **Polyvagal Theory** and **Neurosequential Model**, but uses clear and practical language for teachers, aides, or school staff:
+          context: `Absolutely. Here's a simplified, classroom-appropriate version of the report that retains the insights from the **Polyvagal Theory** and **Neurosequential Model**, but uses clear and practical language for teachers, aides, or school staff:
 
 ---
 

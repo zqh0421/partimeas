@@ -603,7 +603,7 @@ export default function ModelComparisonStep({
       <div className="space-y-4">
         <div className="text-center">
           <h2 className="text-xl font-medium text-gray-900 mb-2">
-            Model Comparison
+            Possible Responses
           </h2>
           <p className="text-gray-600">Processing results...</p>
         </div>
@@ -661,7 +661,7 @@ export default function ModelComparisonStep({
         <div>
             <h4 className="font-medium text-gray-900 mb-2">Context</h4>
             <div className="bg-gray-50 p-3 rounded text-sm">
-              {testCase.expectedOutput}
+              {testCase.context}
             </div>
           </div>
           <div>
@@ -677,7 +677,7 @@ export default function ModelComparisonStep({
       {/* Model Outputs Comparison - Simplified */}
       <div className="bg-white border rounded-lg p-4">
         <h3 className="text-lg font-medium text-gray-900 mb-4">
-          Model Comparison ({testCase.modelOutputs.length} models)
+          {testCase.modelOutputs.length} Possible Responses
         </h3>
 
         {/* Grouped Content Display */}

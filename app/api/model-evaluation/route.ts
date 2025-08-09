@@ -614,9 +614,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!testCase.input || !testCase.expectedOutput) {
+    if (!testCase.input || !testCase.context) {
       return NextResponse.json(
-        { error: 'Missing required testCase fields: input and expectedOutput' },
+        { error: 'Missing required testCase fields: input and context' },
         { status: 400 }
       );
     }

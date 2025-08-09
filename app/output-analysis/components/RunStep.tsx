@@ -18,7 +18,7 @@ const createTestCasesWithModelOutputs = (
       testCasesWithOutputs.push({
         id: originalTestCase.id,
         input: originalTestCase.input,
-        expectedOutput: originalTestCase.expectedOutput,
+        context: originalTestCase.context,
         modelOutputs: result.value.outputs || [],
         useCase: originalTestCase.useCase,
         scenarioCategory: originalTestCase.scenarioCategory
@@ -28,7 +28,7 @@ const createTestCasesWithModelOutputs = (
       testCasesWithOutputs.push({
         id: originalTestCase.id,
         input: originalTestCase.input,
-        expectedOutput: originalTestCase.expectedOutput,
+        context: originalTestCase.context,
         modelOutputs: [],
         useCase: originalTestCase.useCase,
         scenarioCategory: originalTestCase.scenarioCategory
@@ -139,7 +139,7 @@ export default function RunStep({
           body: JSON.stringify({
             testCase: {
               input: testCase.input,
-              expectedOutput: testCase.expectedOutput,
+              context: testCase.context,
               useCase: selectedUseCaseId,
               useContext: selectedScenarioCategory
             },
@@ -245,7 +245,7 @@ export default function RunStep({
           body: JSON.stringify({
             testCase: {
               input: testCase.input,
-              expectedOutput: testCase.expectedOutput,
+              context: testCase.context,
               useCase: selectedUseCaseId,
               useContext: selectedScenarioCategory
             },

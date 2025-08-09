@@ -24,7 +24,7 @@ export interface RubricItem {
 export interface TestCase {
   id: string;
   input: string;
-  expectedOutput: string;
+  context: string;
   useCaseId?: string; // 关联到特定的用例
 }
 

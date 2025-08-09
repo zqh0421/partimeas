@@ -6,7 +6,7 @@ interface TestCase {
   id: string;
   name: string;
   input: string;
-  expectedOutput?: string;
+  context?: string;
   category: string;
 }
 
@@ -25,7 +25,7 @@ export default function TestCases({ rubricData, setRubricData }: TestCasesProps)
   const [newTestCase, setNewTestCase] = useState<Partial<TestCase>>({
     name: '',
     input: '',
-    expectedOutput: '',
+    context: '',
     category: 'General'
   });
 
@@ -35,7 +35,7 @@ export default function TestCases({ rubricData, setRubricData }: TestCasesProps)
         id: Date.now().toString(),
         name: newTestCase.name,
         input: newTestCase.input,
-        expectedOutput: newTestCase.expectedOutput || '',
+        context: newTestCase.context || '',
         category: newTestCase.category || 'General'
       };
       
@@ -49,7 +49,7 @@ export default function TestCases({ rubricData, setRubricData }: TestCasesProps)
       setNewTestCase({
         name: '',
         input: '',
-        expectedOutput: '',
+        context: '',
         category: 'General'
       });
     }
@@ -69,19 +69,19 @@ export default function TestCases({ rubricData, setRubricData }: TestCasesProps)
       name: "Code Review - Simple Function",
       input: "function add(a, b) { return a + b; }",
       category: "Code Review",
-      expectedOutput: "Basic function implementation"
+      context: "Basic function implementation"
     },
     {
       name: "Essay - Thesis Statement",
       input: "Climate change is a pressing global issue that requires immediate action from governments and individuals alike.",
       category: "Essay Evaluation",
-      expectedOutput: "Clear thesis with scope and stance"
+      context: "Clear thesis with scope and stance"
     },
     {
       name: "Business Analysis - Market Research",
       input: "Our analysis shows that the target market for our new product is growing at 15% annually, with high demand in urban areas.",
       category: "Business Analysis",
-      expectedOutput: "Data-driven analysis with clear conclusions"
+      context: "Data-driven analysis with clear conclusions"
     }
   ];
 
@@ -150,8 +150,8 @@ export default function TestCases({ rubricData, setRubricData }: TestCasesProps)
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Describe what a good response should include..."
-                value={newTestCase.expectedOutput}
-                onChange={(e) => setNewTestCase({ ...newTestCase, expectedOutput: e.target.value })}
+                value={newTestCase.context}
+                onChange={(e) => setNewTestCase({ ...newTestCase, context: e.target.value })}
               />
             </div>
 
@@ -188,9 +188,9 @@ export default function TestCases({ rubricData, setRubricData }: TestCasesProps)
                     <strong>Input:</strong> {testCase.input.substring(0, 100)}{testCase.input.length > 100 ? '...' : ''}
                   </div>
                   
-                  {testCase.expectedOutput && (
+                  {testCase.context && (
                     <div className="text-sm text-gray-600 mb-3">
-                      <strong>Expected:</strong> {testCase.expectedOutput.substring(0, 100)}{testCase.expectedOutput.length > 100 ? '...' : ''}
+                      <strong>Expected:</strong> {testCase.context.substring(0, 100)}{testCase.context.length > 100 ? '...' : ''}
                     </div>
                   )}
                   
@@ -224,7 +224,7 @@ export default function TestCases({ rubricData, setRubricData }: TestCasesProps)
               </div>
               
               <div className="text-sm text-gray-600">
-                <strong>Expected:</strong> {example.expectedOutput}
+                <strong>Expected:</strong> {example.context}
               </div>
             </div>
           ))}

@@ -75,8 +75,7 @@ export async function GET(request: NextRequest) {
         {
           id: 'mock-test-1',
           input: 'Marcus, a 5-year-old child, is sitting in circle time. The teacher asks the class to raise their hand if they have something to share about their weekend. Marcus immediately starts talking without raising his hand, disrupting the flow of the discussion.',
-          expectedOutput: 'Analysis should consider the child\'s developmental stage, classroom dynamics, and appropriate interventions.',
-          actualOutput: '',
+          context: 'Analysis should consider the child\'s developmental stage, classroom dynamics, and appropriate interventions.',
           modelName: 'Mock Model',
           timestamp: new Date().toISOString(),
           useCase: 'General Analysis',
@@ -85,8 +84,7 @@ export async function GET(request: NextRequest) {
         {
           id: 'mock-test-2',
           input: 'Sarah, a 4-year-old, has been having difficulty transitioning from free play to cleanup time. She often cries and refuses to put away toys, requiring individual attention from teachers.',
-          expectedOutput: 'Response should address transition strategies and emotional regulation support.',
-          actualOutput: '',
+          context: 'Response should address transition strategies and emotional regulation support.',
           modelName: 'Mock Model',
           timestamp: new Date().toISOString(),
           useCase: 'General Analysis',
@@ -95,8 +93,7 @@ export async function GET(request: NextRequest) {
         {
           id: 'mock-test-3',
           input: 'During snack time, 3-year-old Jake consistently takes food from other children\'s plates. When redirected, he becomes upset and sometimes hits the table.',
-          expectedOutput: 'Analysis should consider developmental appropriateness and guidance strategies.',
-          actualOutput: '',
+          context: 'Analysis should consider developmental appropriateness and guidance strategies.',
           modelName: 'Mock Model',
           timestamp: new Date().toISOString(),
           useCase: 'General Analysis',

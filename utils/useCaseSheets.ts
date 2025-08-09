@@ -22,8 +22,7 @@ export const USE_CASE_SHEETS: UseCaseSheet[] = USE_CASE_CONFIG.map(config => ({
 export interface TestCaseData {
   id: string;
   input: string;
-  expectedOutput: string;
-  actualOutput: string;
+  context: string;
   modelName?: string;
   timestamp?: string;
   scenarioCategory?: string;
@@ -132,8 +131,7 @@ export class UseCaseSheetManager {
       console.log('Converted test cases:', testCases.map(tc => ({
         id: tc.id,
         inputLength: tc.input.length,
-        expectedOutputLength: tc.expectedOutput.length,
-        actualOutputLength: tc.actualOutput.length
+        contextLength: tc.context.length
       })));
 
       return testCases;
@@ -202,24 +200,23 @@ export class UseCaseSheetManager {
     return rows.map((row, index) => {
       // Handle new table format with columns: use_case_index, use_case_title, use_case_description, scenario_category, context, input
       let input = '';
-      let expectedOutput = '';
-      let actualOutput = '';
+      let context = '';
       let scenarioCategory = '';
       let useCase = '';
       let useCaseDescription = '';
       let useCaseIndex = '';
       let useCaseTitle = '';
       
-      // Find input field - could be 'input' or 'context'
+      // Find input field
       const inputIndex = headerLower.indexOf('input');
       if (inputIndex >= 0) {
         input = row[inputIndex] || '';
       }
       
-      // Find context field for expected output
+      // Find context field
       const contextIndex = headerLower.indexOf('context');
       if (contextIndex >= 0) {
-        expectedOutput = row[contextIndex] || '';
+        context = row[contextIndex] || '';
       }
       
       // Find scenario_category field
@@ -252,20 +249,15 @@ export class UseCaseSheetManager {
         useCaseTitle = row[useCaseTitleIndex] || '';
       }
       
-      // For new format: use 'input' as actualOutput, context as expectedOutput
-      actualOutput = input;
-      
-      // Fallback to old format if needed
-      if (headerLower.indexOf('expected_output') >= 0 && headerLower.indexOf('actual_output') >= 0) {
-        expectedOutput = row[headerLower.indexOf('expected_output')] || '';
-        actualOutput = row[headerLower.indexOf('actual_output')] || '';
+      // Fallback to old format if needed - map expected_output to context
+      if (headerLower.indexOf('expected_output') >= 0) {
+        context = row[headerLower.indexOf('expected_output')] || '';
       }
       
       const testCase: TestCaseData = {
         id: `tc-${index + 1}`,
         input: input,
-        expectedOutput: expectedOutput,
-        actualOutput: actualOutput
+        context: context
       };
 
       // Add optional fields if they exist
@@ -339,22 +331,16 @@ export class UseCaseSheetManager {
       if (!testCase.input.trim()) {
         errors.push(`Test case ${index + 1}: Empty input field`);
       }
-      if (!testCase.expectedOutput.trim()) {
-        errors.push(`Test case ${index + 1}: Empty expected output field`);
-      }
-      if (!testCase.actualOutput.trim()) {
-        errors.push(`Test case ${index + 1}: Empty actual output field`);
+      if (!testCase.context.trim()) {
+        errors.push(`Test case ${index + 1}: Empty context field`);
       }
       
       // Add warnings for potentially problematic data
       if (testCase.input.length > 1000) {
         warnings.push(`Test case ${index + 1}: Input is very long (${testCase.input.length} characters)`);
       }
-      if (testCase.expectedOutput.length > 1000) {
-        warnings.push(`Test case ${index + 1}: Expected output is very long (${testCase.expectedOutput.length} characters)`);
-      }
-      if (testCase.actualOutput.length > 1000) {
-        warnings.push(`Test case ${index + 1}: Actual output is very long (${testCase.actualOutput.length} characters)`);
+      if (testCase.context.length > 1000) {
+        warnings.push(`Test case ${index + 1}: Context is very long (${testCase.context.length} characters)`);
       }
     });
 

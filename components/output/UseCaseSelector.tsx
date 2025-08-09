@@ -6,8 +6,7 @@ import { UseCaseSheet, USE_CASE_SHEETS } from '@/utils/useCaseSheets';
 interface TestCase {
   id: string;
   input: string;
-  expectedOutput: string;
-  actualOutput: string;
+  context: string;
   modelName?: string;
   timestamp?: string;
   useCase?: string;
@@ -104,8 +103,7 @@ export default function UseCaseSelector({
       const processedTestCase: TestCase = {
         id: testCase.id || `tc-${index + 1}`,
         input: testCase.input,
-        expectedOutput: testCase.expectedOutput,
-        actualOutput: testCase.actualOutput,
+        context: testCase.context || testCase.expectedOutput,
         modelName: testCase.modelName,
         timestamp: testCase.timestamp,
         useCase: useCaseId,

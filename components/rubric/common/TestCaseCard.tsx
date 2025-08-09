@@ -5,7 +5,7 @@ import React from 'react';
 interface TestCase {
   id: string;
   input: string;
-  expectedOutput: string;
+  context: string;
 }
 
 interface TestCaseCardProps {
@@ -90,8 +90,8 @@ export default function TestCaseCard({
           <textarea
             rows={2}
             className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-            value={testCase.expectedOutput}
-            onChange={(e) => onUpdate('expectedOutput', e.target.value)}
+            value={testCase.context}
+            onChange={(e) => onUpdate('context', e.target.value)}
           />
         </div>
       </div>

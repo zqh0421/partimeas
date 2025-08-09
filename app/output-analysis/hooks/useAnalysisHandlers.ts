@@ -27,8 +27,7 @@ export function useAnalysisHandlers(
       testCase: {
         id: result.testCaseId,
         input: testCases.find(tc => tc.id === result.testCaseId)?.input || '',
-        expectedOutput: testCases.find(tc => tc.id === result.testCaseId)?.expectedOutput || '',
-        actualOutput: testCases.find(tc => tc.id === result.testCaseId)?.actualOutput || '',
+        context: testCases.find(tc => tc.id === result.testCaseId)?.context || '',
         rubricScores: result.scores,
         feedback: result.feedback,
         suggestions: result.testCaseSpecificSuggestions
@@ -54,7 +53,7 @@ export function useAnalysisHandlers(
       testCase: {
         id: result.testCaseId,
         input: testCasesWithModelOutputs.find(tc => tc.id === result.testCaseId)?.input || '',
-        expectedOutput: testCasesWithModelOutputs.find(tc => tc.id === result.testCaseId)?.expectedOutput || '',
+        context: testCasesWithModelOutputs.find(tc => tc.id === result.testCaseId)?.context || '',
         modelOutputs: result.modelOutputs
       },
       rubricEffectiveness: result.rubricEffectiveness,
@@ -125,8 +124,7 @@ export function useAnalysisHandlers(
   const handleUseCaseDataLoaded = (useCaseTestCases: Array<{
     id: string;
     input: string;
-    expectedOutput: string;
-    actualOutput: string;
+    context: string;
     modelName?: string;
     timestamp?: string;
     use_case_title?: string;
@@ -138,8 +136,7 @@ export function useAnalysisHandlers(
     const processedTestCases: TestCase[] = useCaseTestCases.map(testCase => ({
       id: testCase.id,
       input: testCase.input,
-      expectedOutput: testCase.expectedOutput,
-      actualOutput: testCase.actualOutput,
+              context: testCase.context,
       rubricScores: {}, // Will be filled by evaluation
       feedback: '', // Will be filled by evaluation
       suggestions: [], // Will be filled by evaluation
@@ -153,7 +150,7 @@ export function useAnalysisHandlers(
     const processedTestCasesWithModelOutputs: TestCaseWithModelOutputs[] = useCaseTestCases.map(testCase => ({
       id: testCase.id,
       input: testCase.input,
-      expectedOutput: testCase.expectedOutput,
+              context: testCase.context,
       modelOutputs: [], // Will be filled by model comparison evaluation
       useCase: testCase.useCase,
       scenarioCategory: testCase.scenarioCategory,

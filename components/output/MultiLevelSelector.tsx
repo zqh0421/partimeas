@@ -7,8 +7,7 @@ import { UseCaseSheet, USE_CASE_SHEETS } from '@/utils/useCaseSheets';
 interface TestCase {
   id: string;
   input: string;
-  expectedOutput: string;
-  actualOutput: string;
+  context: string;
   modelName?: string;
   timestamp?: string;
   useCase?: string;
@@ -96,8 +95,7 @@ export default function MultiLevelSelector({
       const processedTestCase: TestCase = {
         id: testCase.id || `tc-${Math.random()}`,
         input: testCase.input || '',
-        expectedOutput: testCase.expectedOutput || testCase.context || '',
-        actualOutput: testCase.actualOutput || testCase.input || '',
+        context: testCase.context || testCase.expectedOutput || '',
         modelName: testCase.modelName,
         timestamp: testCase.timestamp,
         useCase: useCaseId,
