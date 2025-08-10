@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { USE_CASE_SHEETS } from '@/utils/useCaseSheets';
+import { USE_CASE_CONFIGS } from '@/config/useCases';
 import { ChevronDownIcon, ChevronRightIcon, CheckIcon } from '@/components/icons';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { TestCase } from '@/types';
@@ -101,7 +101,7 @@ export default function MultiLevelSelector({
       }
 
       const processedTestCase: TestCase = {
-        id: testCase.id || `tc-${Math.random()}`,
+        id: testCase.id || `tc-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         input: testCase.input || '',
         context: testCase.context || testCase.expectedOutput || '',
         modelName: testCase.modelName,
@@ -130,12 +130,12 @@ export default function MultiLevelSelector({
     }
     
     try {
-      const firstConfig = USE_CASE_SHEETS[0];
+      const firstConfig = USE_CASE_CONFIGS[0];
       if (!firstConfig) {
         throw new Error('No use case configuration found');
       }
 
-      const response = await fetch(`/api/use-case-data?useCaseId=${firstConfig.id}&dataType=test-cases`);
+      const response = await fetch(`/api/use-case-data?useCaseId=${firstConfig.id}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -248,19 +248,23 @@ export default function MultiLevelSelector({
       setSelections(newSelections);
       onSelectionChange(newSelections);
       
-      const allSelectedTestCases: TestCase[] = [];
+      // Create a Set to avoid duplicate test cases by ID
+      const uniqueTestCasesMap = new Map<string, TestCase>();
       newSelections.forEach(selection => {
         const useCase = useCaseData[selection.useCaseId];
         if (useCase) {
           selection.scenarioCategoryIds.forEach(categoryId => {
             const category = useCase.scenarioCategories[categoryId];
             if (category) {
-              allSelectedTestCases.push(...category.testCases);
+              category.testCases.forEach(testCase => {
+                uniqueTestCasesMap.set(testCase.id, testCase);
+              });
             }
           });
         }
       });
       
+      const allSelectedTestCases = Array.from(uniqueTestCasesMap.values());
       onDataLoaded(allSelectedTestCases);
     }
   };

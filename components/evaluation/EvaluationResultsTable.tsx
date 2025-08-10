@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-interface Subcriteria {
+export interface Subcriteria {
   id: string;
   name: string;
   description: string;
@@ -11,30 +11,26 @@ interface Subcriteria {
   };
 }
 
-interface Criteria {
+export interface Criteria {
   id: string;
   name: string;
   description: string;
   subcriteria: Subcriteria[];
 }
 
-interface ModelScore {
+export interface ModelScore {
   modelId: string;
   modelName: string;
   scores: Record<string, number>; // criteriaId -> score
 }
 
-interface EvaluationResultsTableProps {
-  criteria: Criteria[];
-  modelScores: ModelScore[];
-  title?: string;
-}
-
 export default function EvaluationResultsTable({
   criteria,
   modelScores,
-  title = "Evaluation Results"
-}: EvaluationResultsTableProps) {
+}: {
+  criteria: Criteria[];
+  modelScores: ModelScore[];
+}) {
   const [expandedCriteria, setExpandedCriteria] = useState<Set<string>>(new Set());
   const [expandedSubcriteria, setExpandedSubcriteria] = useState<Set<string>>(new Set());
 
@@ -76,11 +72,6 @@ export default function EvaluationResultsTable({
 
   return (
     <div className="space-y-4">
-      {title && (
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-        </div>
-      )}
       
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">

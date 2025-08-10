@@ -56,7 +56,7 @@ export default function OutputAnalysisPage() {
     // Validation
     validationError,
     setValidationError,
-  } = useAnalysisState('general_analysis'); // Use the sectioned version
+  } = useAnalysisState('provide_reflective_questions'); // Use the sectioned version
 
   const handlers = useAnalysisHandlers({
     stateSetters: {

@@ -55,7 +55,6 @@ export default function SetupStep({
           }}
           onDataLoaded={onUseCaseDataLoaded}
           onError={onUseCaseError}
-          testCases={testCases}
         />
       </div>
 

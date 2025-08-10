@@ -57,7 +57,7 @@ export default function OutputAnalysisFullPage() {
     // Validation
     validationError,
     setValidationError,
-  } = useAnalysisState('general_analysis_full'); // Use the full version
+  } = useAnalysisState('provide_reflective_questions'); // Use the full version
 
   // Analysis-specific internal state (previously in UnifiedAnalysis component)
   const [analysisStep, setAnalysisStep] = useState<'setup' | 'running' | 'complete'>('setup');
@@ -316,7 +316,6 @@ export default function OutputAnalysisFullPage() {
         <AnalysisStep
           testCases={testCases}
           testCasesWithModelOutputs={testCasesWithModelOutputs}
-          localTestCasesWithModelOutputs={localTestCasesWithModelOutputs}
           selectedTestCaseIndex={selectedTestCaseIndex}
           selectedSystemPrompt={selectedSystemPrompt}
           analysisStep={analysisStep}

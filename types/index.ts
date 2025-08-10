@@ -297,6 +297,12 @@ export interface CaseData {
 // Utility types for working with the new rubric structure
 export type RubricScoreRange = 0 | 1 | 2;
 
+export interface ModelScore {
+  modelId: string;
+  modelName: string;
+  scores: Record<string, number>; // criteriaId -> score
+}
+
 export interface RubricUtilityTypes {
   // Helper for creating score levels
   createScoreLevel: (score: RubricScoreRange, meaning: string, examples: string[]) => ScoreLevel;

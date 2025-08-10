@@ -212,8 +212,15 @@ export function useAnalysisHandlers({
       useCase?: string;
       scenarioCategory?: string;
     }>) => {
+      // Remove duplicates by ID to prevent multiple loading of same test cases
+      const uniqueTestCasesMap = new Map<string, any>();
+      useCaseTestCases.forEach(testCase => {
+        uniqueTestCasesMap.set(testCase.id, testCase);
+      });
+      const uniqueUseCaseTestCases = Array.from(uniqueTestCasesMap.values());
+      
       // Convert use case data to internal format
-      const processedTestCases: TestCase[] = useCaseTestCases.map(testCase => ({
+      const processedTestCases: TestCase[] = uniqueUseCaseTestCases.map(testCase => ({
         id: testCase.id,
         input: testCase.input,
         context: testCase.context,
@@ -227,7 +234,7 @@ export function useAnalysisHandlers({
       }));
       
       // Also create test cases with model outputs for comparison
-      const processedTestCasesWithModelOutputs: TestCaseWithModelOutputs[] = useCaseTestCases.map(testCase => ({
+      const processedTestCasesWithModelOutputs: TestCaseWithModelOutputs[] = uniqueUseCaseTestCases.map(testCase => ({
         id: testCase.id,
         input: testCase.input,
         context: testCase.context,
@@ -240,7 +247,7 @@ export function useAnalysisHandlers({
       
       setTestCases(processedTestCases);
       setTestCasesWithModelOutputs(processedTestCasesWithModelOutputs);
-      console.log('Test cases loaded:', processedTestCases.length);
+      console.log('Test cases loaded (after deduplication):', processedTestCases.length);
       
       // Update system prompt based on loaded test cases (if function provided)
       if (updateSystemPromptForUseCase) {

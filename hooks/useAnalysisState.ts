@@ -114,7 +114,7 @@ export interface UseAnalysisStateReturn {
   updateSystemPromptForUseCase: (testCases: TestCase[]) => void;
 }
 
-export function useAnalysisState(useCaseType: string = 'general_analysis'): UseAnalysisStateReturn {
+export function useAnalysisState(useCaseType: string = 'provide_reflective_questions'): UseAnalysisStateReturn {
   // Grouped state for better organization
   const [uiState, setUIState] = useState<UIState>({
     currentStep: 'sync',
@@ -177,7 +177,7 @@ export function useAnalysisState(useCaseType: string = 'general_analysis'): UseA
   // Optimized use case detection with exact matching
   const determineUseCase = useMemo(() => {
     return (testCases: TestCase[]): string => {
-      if (!testCases?.length) return 'general_analysis';
+      if (!testCases?.length) return 'provide_reflective_questions';
       
       const firstTestCase = testCases[0];
       
@@ -197,13 +197,13 @@ export function useAnalysisState(useCaseType: string = 'general_analysis'): UseA
         }
       }
       
-      return 'general_analysis';
+      return 'provide_reflective_questions';
     };
   }, [useCaseConfig]);
 
   // Simplified update function
   const updateSystemPromptForUseCase = (testCases: TestCase[]) => {
-    if (useCaseType !== 'general_analysis') return;
+    if (useCaseType !== 'provide_reflective_questions') return;
     
     const detectedUseCase = determineUseCase(testCases);
     const prompt = useCaseConfig.USE_CASE_PROMPTS[detectedUseCase as keyof typeof useCaseConfig.USE_CASE_PROMPTS];

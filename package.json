@@ -15,6 +15,7 @@
     "@langchain/core": "^0.2.36",
     "@langchain/google-genai": "^0.0.12",
     "@langchain/openai": "^0.0.20",
+    "@neondatabase/serverless": "^1.0.1",
     "@types/react-beautiful-dnd": "^13.1.8",
     "google-auth-library": "^10.2.1",
     "langchain": "^0.2.20",
@@ -33,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.4.5",
     "tailwindcss": "^4",
+    "tsx": "^4.20.3",
     "typescript": "^5"
   }
 }

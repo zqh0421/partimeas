@@ -6,6 +6,8 @@ import { createPrettifiedMarkdown } from '@/utils/markdownUtils';
 import { useStepLoading } from '@/components/steps/VerticalStepper';
 import TestCaseNavigation from '@/components/TestCaseNavigation';
 import { ModelEvaluationCard, EvaluationResultsTable } from '@/components/evaluation';
+import RealCriteriaTable from '@/components/evaluation/RealCriteriaTable';
+import DebugCriteria from '@/components/evaluation/DebugCriteria';
 
 // Helper function to determine grid columns based on model count
 const getGridCols = (count: number) => {
@@ -41,6 +43,7 @@ export default function ModelOutputsGrid({
 }) {
   const [viewMode, setViewMode] = useState<'enhanced' | 'simple'>('enhanced');
   const [evaluationViewMode, setEvaluationViewMode] = useState<'cards' | 'table'>('cards');
+  const [useRealCriteria, setUseRealCriteria] = useState(false);
   
   // Register loading state if stepId is provided
   useStepLoading(stepId || '', isLoading);
@@ -129,34 +132,8 @@ export default function ModelOutputsGrid({
         {/* Header with view toggle */}
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900">
-            Evaluation Results
+            Evaluation Results (using mock scores for now)
           </h3>
-          
-          {/* Evaluation View Toggle */}
-          {!isLoading && modelOutputs && modelOutputs.length > 0 && (
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setEvaluationViewMode('cards')}
-                className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                  evaluationViewMode === 'cards'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Cards
-              </button>
-              <button
-                onClick={() => setEvaluationViewMode('table')}
-                className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                  evaluationViewMode === 'table'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Table
-              </button>
-            </div>
-          )}
         </div>
 
         {showEvaluationFeatures && (
@@ -166,7 +143,7 @@ export default function ModelOutputsGrid({
               <div className="flex items-center justify-center py-8">
                 <div className="text-center">
                   <div className="w-6 h-6 border-2 border-transparent border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
-                  <p className="text-sm text-slate-600">Waiting for responses to be ready</p>
+                  <p className="text-sm text-slate-600">Waiting for responses to be ready ...</p>
                 </div>
               </div>
             )}
@@ -183,72 +160,18 @@ export default function ModelOutputsGrid({
 
             {/* Evaluation Results - When responses are ready */}
             {!isLoading && modelOutputs && modelOutputs.length > 0 && (
-              <>
-                {evaluationViewMode === 'cards' ? (
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    {modelOutputs.map((modelOutput, index) => (
-                      <ModelEvaluationCard 
-                        key={modelOutput.modelId}
-                        modelOutput={modelOutput}
-                        showDetailedRubric={true}
-                        responseIndex={index}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <EvaluationResultsTable
-                    criteria={[
-                      {
-                        id: 'overall',
-                        name: 'Overall Response Quality',
-                        description: 'Comprehensive evaluation of the model response',
-                        subcriteria: [
-                          {
-                            id: 'relevance',
-                            name: 'Relevance to Question',
-                            description: 'How well the response addresses the given question',
-                            scoreLevels: {
-                              0: 'Completely irrelevant or off-topic',
-                              1: 'Partially relevant but misses key points',
-                              2: 'Highly relevant and directly addresses the question'
-                            }
-                          },
-                          {
-                            id: 'accuracy',
-                            name: 'Accuracy of Information',
-                            description: 'Factual correctness and reliability of content',
-                            scoreLevels: {
-                              0: 'Contains significant factual errors',
-                              1: 'Mostly accurate with minor inaccuracies',
-                              2: 'Completely accurate and reliable'
-                            }
-                          },
-                          {
-                            id: 'completeness',
-                            name: 'Completeness of Response',
-                            description: 'Whether the response covers all necessary aspects',
-                            scoreLevels: {
-                              0: 'Incomplete or missing key information',
-                              1: 'Partially complete with some gaps',
-                              2: 'Comprehensive and complete coverage'
-                            }
-                          }
-                        ]
-                      }
-                    ]}
-                    modelScores={modelOutputs.map((modelOutput, index) => ({
-                      modelId: modelOutput.modelId,
-                      modelName: `Score (Response ${index + 1})`,
-                      scores: {
-                        relevance: modelOutput.rubricScores?.relevance || 0,
-                        accuracy: modelOutput.rubricScores?.accuracy || 0,
-                        completeness: modelOutput.rubricScores?.completeness || 0
-                      }
-                    }))}
-                    title=""
-                  />
-                )}
-              </>
+              <RealCriteriaTable
+                modelScores={modelOutputs.map((modelOutput, index) => ({
+                  modelId: modelOutput.modelId,
+                  modelName: `Response ${index + 1} (${modelOutput.modelId})`,
+                  scores: {
+                    // Pass the actual rubricScores for mapping
+                    relevance: modelOutput.rubricScores?.relevance || 0,
+                    accuracy: modelOutput.rubricScores?.accuracy || 0,
+                    completeness: modelOutput.rubricScores?.completeness || 0
+                  }
+                }))}
+              />
             )}
 
             {/* No responses available */}
