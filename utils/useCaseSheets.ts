@@ -1,4 +1,4 @@
-import { UseCaseConfig, USE_CASE_CONFIG, CRITERIA_CONFIG } from '@/config/useCaseConfig';
+import { mockUseCaseConfig, mockCriteriaConfig } from '@/data/mockData';
 
 export interface UseCaseSheet {
   id: string;
@@ -10,7 +10,7 @@ export interface UseCaseSheet {
 }
 
 // Convert config to internal format
-export const USE_CASE_SHEETS: UseCaseSheet[] = USE_CASE_CONFIG.map(config => ({
+export const USE_CASE_SHEETS: UseCaseSheet[] = mockUseCaseConfig.map(config => ({
   id: config.id,
   name: config.name,
   description: config.description,
@@ -61,7 +61,7 @@ export class UseCaseSheetManager {
 
   // Get criteria by ID
   getCriteria(criteriaId: string): any {
-    const criteria = CRITERIA_CONFIG.find(c => c.id === criteriaId);
+    const criteria = mockCriteriaConfig.find(c => c.id === criteriaId);
     if (!criteria) {
       // Return default criteria if not found
       return {

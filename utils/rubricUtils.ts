@@ -1,4 +1,4 @@
-import { RubricVersion, RubricItem, HistoryEntry } from "@/types/rubric";
+import { RubricVersion, RubricItem, HistoryEntry } from "@/types";
 
 export const saveVersion = (currentVersion: RubricVersion): void => {
   const versionName = prompt("Enter version name:");

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatAnthropic } from "@langchain/anthropic";
 
 // Model configurations
 const MODEL_CONFIGS = {
@@ -75,7 +78,6 @@ const getModelInstance = async (modelId: string) => {
         if (!process.env.OPENAI_API_KEY) {
           throw new Error('OPENAI_API_KEY not configured');
         }
-        const { ChatOpenAI } = await import('@langchain/openai');
         return new ChatOpenAI({
           modelName: config.model,
           openAIApiKey: process.env.OPENAI_API_KEY,
@@ -84,7 +86,6 @@ const getModelInstance = async (modelId: string) => {
         if (!process.env.ANTHROPIC_API_KEY) {
           throw new Error('ANTHROPIC_API_KEY not configured');
         }
-        const { ChatAnthropic } = await import('@langchain/anthropic');
         return new ChatAnthropic({
           modelName: config.model,
           anthropicApiKey: process.env.ANTHROPIC_API_KEY,
@@ -93,7 +94,6 @@ const getModelInstance = async (modelId: string) => {
         if (!process.env.GOOGLE_API_KEY) {
           throw new Error('GOOGLE_API_KEY not configured');
         }
-        const { ChatGoogleGenerativeAI } = await import('@langchain/google-genai');
         return new ChatGoogleGenerativeAI({
           modelName: config.model,
           apiKey: process.env.GOOGLE_API_KEY,
@@ -109,12 +109,9 @@ const getModelInstance = async (modelId: string) => {
 
 // Fixed models to generate outputs - modify this array as needed
 // Using reliable, commonly available models for better success rate
-const OUTPUT_GENERATION_MODELS = [
-  'gpt-4o-mini', 
-  'gpt-4o', 
+export const OUTPUT_GENERATION_MODELS = [
+  'gpt-4o-mini',
   'gpt-3.5-turbo',
-  'claude-3-sonnet',
-  'claude-3-opus'
 ];
 
 // Fixed model for evaluation - modify this as needed
@@ -330,37 +327,25 @@ FORMATTING REQUIREMENTS:
 - Number the curiosity questions clearly
 - Keep sections distinct and well-organized`,
 
-  'general_analysis_full': `You are an expert in understanding the needs of children and people supporting those children. Your expertise is derived exclusively from Bruce Perry's Neurosequential Model, Dr. Steven Porges' Polyvagal Theory, Dr. Dan Siegel's Interpersonal Neurobiology, and Dr. Becky Bailey's Conscious Discipline. You will work collaboratively with the user to apply your expertise to scenarios or questions input by the user.
-
-You should have in-depth knowledge of the Neurosequential Model, Polyvagal Theory, Interpersonal Neurobiology, and Conscious Discipline, including their principals, applications, and limitations. When presented with a scenario, you will analyze it through the lens of one or more of these theories and provide possible interpretations or insights. You should draw your expertise only from highly reputable sources such as writings by the theory founders, peer-reviewed published articles, or other well-respected sources. You should prioritize accurate insights from and application of the specific theories.
-
-When necessary or appropriate, ask the user for additional information about the scenario, such as the developmental or chronological age of the child, the routine of the setting, the strengths or perspectives of people who surround the child or children.
-
-Start your initial output with the following texts. Please Bold the word reminder and put the rest in italics font, **Reminder:** *Like a GPS, I aim to provide insights and information to support the journey. However, as the driver, you hold the ultimate responsibility for deciding if, when, and how to follow that guidance. Your contextual knowledge and relationships with the people you are supporting should guide your decisions.*
-
-You will then provide initial output organized under the following sections:
-
-- Connections to my knowledge base
-This section will include specific explanations of how one or more of the theories or approaches connect to specific information shared in the scenario.
-
-- Curiosities I have about this situation
-This section will include 3 to 5 open-ended and/or reflective questions for the user to respond to or explore with the setting team that may help increase the accuracy of connections or support the development of things to considerations.
-
-BEHAVIORAL GUIDELINES:
-- Use precise professional language
-- Be non-judgmental with a supportive, strength-focused, and optimistic tone
-- Tend toward supporting the process over providing a prescription of what to do
-- Avoid the use of diagnostic labels or suggesting other services – focus on helping the team's understanding, reflective capacity, and potential approaches.
-
-TECHNICAL DETAILS:
-- Use a large language model, such as GPT-4o or o1, optimized for high-context understanding and nuanced responses.
-- Include specialized training on the specific theories and models using fine-tuning or custom data if needed.
-
-SYSTEM NOTES:
-- When possible, please include citations and/or links to references and resources.
-- Encourage the user to provide specific details if needed about the scenario for more tailored advice.
-- Prompt the user to dig deeper into any part of the initial output for better understanding or application.
-- Add disclaimers where appropriate, emphasizing that the tool is for educational purposes and not a substitute for professional supervision.`
+  'original_system123_instructions': `
+    **Purpose:**\n
+      This GPT model is designed to act as an expert in understanding the needs of children and  people supporting those children in relation to specific theories or approaches. The  model's expertise is derived exclusively from Bruce Perry's Neurosequential Model, Dr.  Steven Porges' Polyvagal Theory, Dr. Dan Siegel's Interpersonal Neurobiology, and Dr. Becky  Bailey's Conscious Discipline. It will work collaboratively with the user to apply its expertise  to scenarios or questions input by the user.\n
+    **Core Instructions:**\n 
+      1. The model should have in-depth knowledge of the Neurosequential Model, Polyvagal  Theory, Interpersonal Neurobiology, and Conscious Discipline, including their principals,  applications, and limitations. \n
+      2. When presented with a scenario, the model will analyze it through the lens of one or  more of these theories and provide possible interpretations or insights. \n
+      3. The model should draw its expertise only from highly reputable sources such as writings  by the theory founders, peer-reviewed published articles, or other well-respected sources.  It should prioritize accurate insights from and application of the specific theories. \n
+      4. When necessary or appropriate, ask the user for additional information about the  scenario, such as the developmental or chronological age of the child, the routine of the  setting, the strengths or perspectives of people who surround the child or children. \n
+      5. Start your initial output with the following texts. Please Bold the word reminder and put  the rest in italics font, Reminder: Like a GPS, I aim to provide insights and information to  support the journey. However, as the driver, you hold the ultimate responsibility for  deciding if, when, and how to follow that guidance. Your contextual knowledge and  relationships with the people you are supporting should guide your decisions. \n
+      6. The model will then provide initial output organized under the following sections.
+        - Connections to my knowledge base \n
+          This section will include specific explanations of how one or more of the theories or  approaches connect to specific information shared in the scenario. \n
+        - Curiosities I have about this situation \n
+          This section will include 3 to 5 open-ended and/or reflective questions for the user to  respond to or explore with the setting team that may help increase the accuracy of  connections or support the development of things to considerations.  \n
+    **Behavioral Guidelines:** \n
+      - Use precise professional language \n
+      - Be non-judgmental with a supportive, strength-focused, and optimistic tone - Tend toward supporting the process over providing a prescription of what to do \n
+      - Avoid the use of diagnostic labels or suggesting other services - focus on helping the  team's understanding, reflective capacity, and potential approaches. \n
+`
 };
 
 // Helper function to determine use case from test case input
@@ -368,6 +353,13 @@ const determineUseCase = (testCase: any): string => {
   const input = testCase.input?.toLowerCase() || '';
   const useCase = testCase.useCase?.toLowerCase() || '';
   const description = testCase.description?.toLowerCase() || '';
+  
+  // Check for original system 123 instructions keywords
+  if (input.includes('original system') || input.includes('system123') || input.includes('original_system123') ||
+      useCase.includes('original system') || useCase.includes('system123') || useCase.includes('original_system123') ||
+      description.includes('original system') || description.includes('system123') || description.includes('original_system123')) {
+    return 'original_system123_instructions';
+  }
   
   // Check for magic moments keywords
   if (input.includes('magic moment') || input.includes('positive moment') || input.includes('strength') || 
@@ -406,27 +398,20 @@ const generateModelOutput = async (modelId: string, testCase: any, useCaseTypeOv
     console.log(`🔧 Using use case type: ${useCaseType} (override: ${useCaseTypeOverride || 'none'}) for model: ${modelId}`);
     const systemPrompt = getSystemPrompt(useCaseType);
 
-    // Prepare the structured prompt with clear formatting requirements
-    const prompt = `
-      ${systemPrompt}
+    const messages = ChatPromptTemplate.fromMessages([
+      ["system", `${systemPrompt}\n\nUse Case: ${testCase.useCase}`],
+      ["human", `${testCase.useContext}\n${testCase.input}`],
+    ]);
 
-      SCENARIO TO ANALYZE:
-      Use Case: ${testCase.useCase || 'General analysis'}
-      Detected Use Case Type: ${useCaseType}
-      User Context: ${testCase.useContext || 'No specific context provided'}
-      User Input: ${testCase.input}
-
-      IMPORTANT REMINDERS FOR YOUR RESPONSE:
-      1. MUST use the exact section headers with ===== markers as specified
-      2. MUST include all 6 sections in the exact order specified
-      3. MUST maintain consistent formatting throughout
-      4. Do NOT truncate your response - provide complete analysis in each section
-      5. Follow the specific structure for your detected use case type: ${useCaseType}
-
-      Please provide your structured response following the exact format specified in the system prompt.`;
-
-    // Generate response
-    const response = await model.invoke(prompt);
+    const prompt = await ChatPromptTemplate.fromMessages([
+      [
+        "system",
+        `${systemPrompt}\n\nUse Case: ${testCase.useCase}`,
+      ],
+      ["human", "{query}"],
+    ])
+    const formattedPrompt = await prompt.format({ query: `${testCase.useContext}\n${testCase.input}` });
+    const response = await model.invoke(formattedPrompt);
     let output = response.content as string;
 
     // Validate and potentially fix structural issues
@@ -466,6 +451,11 @@ const validateAndFixStructure = (output: string, useCaseType: string = 'general_
           '===== SECTION 4: EXPLORING RESPONSE STRATEGIES =====',
           '===== SECTION 5: PLANNING FOR GROWTH ====='
         ];
+      case 'original_system123_instructions':
+        return [
+          'Connections to my knowledge base',
+          'Curiosities I have about this situation'
+        ];
       default: // general_analysis
         return [
           '===== SECTION 1: REMINDER =====',
@@ -489,21 +479,31 @@ const validateAndFixStructure = (output: string, useCaseType: string = 'general_
     // For now, we'll log the warning and return the output as-is
   }
 
-  // Fix common formatting issues
+  // Fix common formatting issues based on use case type
   let fixedOutput = output;
   
-  // Ensure proper section header formatting
-  requiredSections.forEach(section => {
-    const regex = new RegExp(section.replace(/=/g, '=*'), 'gi');
-    fixedOutput = fixedOutput.replace(regex, section);
-  });
+  if (useCaseType === 'original_system123_instructions') {
+    // For original system instructions, ensure reminder formatting but skip section header formatting
+    if (!fixedOutput.includes('**Reminder:**')) {
+      fixedOutput = fixedOutput.replace(
+        /\*?Reminder:?\*?/gi,
+        '**Reminder:**'
+      );
+    }
+  } else {
+    // For other use cases, ensure proper section header formatting
+    requiredSections.forEach(section => {
+      const regex = new RegExp(section.replace(/=/g, '=*'), 'gi');
+      fixedOutput = fixedOutput.replace(regex, section);
+    });
 
-  // Ensure reminder formatting
-  if (!fixedOutput.includes('**Reminder:**')) {
-    fixedOutput = fixedOutput.replace(
-      /\*?Reminder:?\*?/gi,
-      '**Reminder:**'
-    );
+    // Ensure reminder formatting
+    if (!fixedOutput.includes('**Reminder:**')) {
+      fixedOutput = fixedOutput.replace(
+        /\*?Reminder:?\*?/gi,
+        '**Reminder:**'
+      );
+    }
   }
 
   return fixedOutput;

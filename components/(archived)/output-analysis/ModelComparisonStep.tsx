@@ -1,0 +1,960 @@
+import { useState } from 'react';
+import { RubricOutcomeWithModelComparison } from '@/types/types';
+import { createPrettifiedMarkdown } from '@/utils/markdownUtils';
+
+// Unified section styling configuration
+const UNIFIED_SECTION_STYLES = {
+  // Base colors for consistent theming
+  primary: {
+    bg: 'bg-gray-50',
+    border: 'border-gray-200',
+    text: 'text-gray-800',
+    accent: 'text-gray-600',
+    highlight: 'bg-gray-100'
+  },
+  // Content type styling
+  listItem: 'flex items-start mb-2 p-2 bg-gray-50 rounded border-l-2 border-gray-300',
+  bulletPoint: 'flex items-start mb-1',
+  emphasis: 'font-semibold text-gray-900',
+  subtle: 'italic text-gray-700',
+  container: 'space-y-2'
+};
+
+// Type definitions for better type safety
+interface StructuredSection {
+  header: string;
+  content: string;
+  paragraphs: string[];
+}
+
+// Helper function to safely calculate average score from rubric scores
+const calculateSafeAverageScore = (rubricScores: any): number => {
+  if (!rubricScores || typeof rubricScores !== 'object') {
+    return 0;
+  }
+  const scores = Object.values(rubricScores) as number[];
+  return scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+};
+
+// Helper function to get responsive grid classes based on model count
+const getResponsiveGridClasses = (modelCount: number): string => {
+  if (modelCount === 1) {
+    return 'grid-cols-1 max-w-2xl mx-auto';
+  }
+  if (modelCount === 2) {
+    return 'grid-cols-1 lg:grid-cols-2';
+  }
+  if (modelCount === 3) {
+    return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+  }
+  if (modelCount === 4) {
+    return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+  }
+  if (modelCount === 5) {
+    return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
+  }
+  if (modelCount === 6) {
+    return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6';
+  }
+  // For 7+ models, use a responsive layout that works well with many cards
+  return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
+};
+
+// Helper function to get consistent model display info
+const getModelDisplayInfo = (modelId: string, modelName: string) => {
+  // Define consistent color scheme and display names for models
+  const modelDisplayMap: { [key: string]: { color: string, displayName: string, shortName: string } } = {
+    'claude-4-sonnet': { 
+      color: 'bg-purple-500', 
+      displayName: 'Claude 4 Sonnet', 
+      shortName: 'Claude-4'
+    },
+    'claude-3-sonnet': { 
+      color: 'bg-purple-400', 
+      displayName: 'Claude 3 Sonnet', 
+      shortName: 'Claude-3'
+    },
+    'claude-3-opus': { 
+      color: 'bg-purple-600', 
+      displayName: 'Claude 3 Opus', 
+      shortName: 'Claude-3-Opus'
+    },
+    'gpt-4o': { 
+      color: 'bg-green-500', 
+      displayName: 'GPT-4o', 
+      shortName: 'GPT-4o'
+    },
+    'gpt-4o-mini': { 
+      color: 'bg-green-400', 
+      displayName: 'GPT-4o Mini', 
+      shortName: 'GPT-4o-mini'
+    },
+    'gpt-4': { 
+      color: 'bg-blue-500', 
+      displayName: 'GPT-4', 
+      shortName: 'GPT-4'
+    },
+    'gpt-4.1': { 
+      color: 'bg-blue-600', 
+      displayName: 'GPT-4.1', 
+      shortName: 'GPT-4.1'
+    },
+    'gpt-4.5': { 
+      color: 'bg-blue-700', 
+      displayName: 'GPT-4.5', 
+      shortName: 'GPT-4.5'
+    },
+    'gpt-4.1-mini': { 
+      color: 'bg-blue-300', 
+      displayName: 'GPT-4.1 Mini', 
+      shortName: 'GPT-4.1-mini'
+    },
+    'gpt-5': { 
+      color: 'bg-emerald-600', 
+      displayName: 'GPT-5', 
+      shortName: 'GPT-5'
+    },
+    'gpt-5-mini': { 
+      color: 'bg-emerald-400', 
+      displayName: 'GPT-5 Mini', 
+      shortName: 'GPT-5-mini'
+    },
+    'gpt-3.5-turbo': { 
+      color: 'bg-blue-400', 
+      displayName: 'GPT-3.5 Turbo', 
+      shortName: 'GPT-3.5'
+    },
+    'o1': { 
+      color: 'bg-orange-500', 
+      displayName: 'OpenAI o1', 
+      shortName: 'o1'
+    },
+    'o1-mini': { 
+      color: 'bg-orange-400', 
+      displayName: 'OpenAI o1-mini', 
+      shortName: 'o1-mini'
+    },
+    'o3-mini': { 
+      color: 'bg-orange-600', 
+      displayName: 'OpenAI o3-mini', 
+      shortName: 'o3-mini'
+    },
+    'o3-pro': { 
+      color: 'bg-orange-700', 
+      displayName: 'OpenAI o3-pro', 
+      shortName: 'o3-pro'
+    },
+    'o4': { 
+      color: 'bg-amber-600', 
+      displayName: 'OpenAI o4', 
+      shortName: 'o4'
+    },
+    'o4-mini': { 
+      color: 'bg-amber-400', 
+      displayName: 'OpenAI o4-mini', 
+      shortName: 'o4-mini'
+    },
+    'gemini-pro': { 
+      color: 'bg-red-500', 
+      displayName: 'Gemini Pro', 
+      shortName: 'Gemini'
+    }
+  };
+
+  // Check if we have a specific mapping for this model
+  const mappedInfo = modelDisplayMap[modelId] || modelDisplayMap[modelName];
+  if (mappedInfo) {
+    return mappedInfo;
+  }
+
+  // Fallback: generate info based on model name with expanded color palette
+  const fallbackColors = [
+    'bg-gray-500', 'bg-indigo-500', 'bg-pink-500', 'bg-yellow-500', 'bg-teal-500',
+    'bg-cyan-500', 'bg-rose-500', 'bg-violet-500', 'bg-lime-500', 'bg-fuchsia-500',
+    'bg-sky-500', 'bg-emerald-500', 'bg-amber-500', 'bg-slate-500', 'bg-zinc-500'
+  ];
+  const hash = modelId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+  const colorIndex = hash % fallbackColors.length;
+
+  return {
+    color: fallbackColors[colorIndex],
+    displayName: modelName || modelId,
+    shortName: (modelName || modelId).length > 12 ? (modelName || modelId).substring(0, 12) + '...' : (modelName || modelId)
+  };
+};
+
+// Helper function to check if evaluation is in progress for a model output
+const isEvaluationInProgress = (rubricScores: any): boolean => {
+  if (!rubricScores || typeof rubricScores !== 'object') {
+    return false; // No scores available, not evaluated yet
+  }
+  const scores = Object.values(rubricScores) as number[];
+  return scores.length === 0; // Empty scores object means evaluation in progress
+};
+
+// Helper function to check if a model output has been evaluated
+const hasBeenEvaluated = (rubricScores: any): boolean => {
+  if (!rubricScores || typeof rubricScores !== 'object') {
+    return false;
+  }
+  const scores = Object.values(rubricScores) as number[];
+  return scores.length > 0 && scores.every(score => typeof score === 'number' && !isNaN(score));
+};
+
+interface ParsedContent {
+  paragraphs: string[];
+  sentences: string[];
+  structuredSections: StructuredSection[];
+  isStructured: boolean;
+}
+
+interface GroupItem {
+  modelId: string;
+  modelName: string;
+  content: string;
+  index: number;
+  sectionName?: string;
+}
+
+interface GroupedContent {
+  group: GroupItem[];
+  groupIndex: number;
+  isStructuredSection?: boolean;
+  sectionName?: string;
+}
+
+// Utility functions for content analysis and comparison
+const parseContent = (content: string): ParsedContent => {
+  // Enhanced parsing that recognizes structured sections with ===== markers
+  const structuredSections = content.split(/=====[^=]*=====/);
+  
+  // If structured sections are found, parse each section separately
+  if (structuredSections.length > 1) {
+    const sections: StructuredSection[] = [];
+    const sectionHeaders = content.match(/=====[^=]*=====/g) || [];
+    
+    for (let i = 0; i < sectionHeaders.length && i < structuredSections.length - 1; i++) {
+      const sectionContent = structuredSections[i + 1].trim();
+      if (sectionContent) {
+        sections.push({
+          header: sectionHeaders[i].replace(/=/g, '').trim(),
+          content: sectionContent,
+          paragraphs: sectionContent.split(/\n\s*\n/).filter(p => p.trim())
+        });
+      }
+    }
+    
+    // Combine all paragraphs for overall analysis
+    const allParagraphs = sections.flatMap(section => section.paragraphs);
+    
+    return { 
+      paragraphs: allParagraphs, 
+      sentences: content.split(/[.!?]+/).filter(s => s.trim()),
+      structuredSections: sections,
+      isStructured: true
+    };
+  } else {
+    // Fallback to traditional paragraph splitting
+    const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim());
+    const sentences = content.split(/[.!?]+/).filter(s => s.trim());
+    return { 
+      paragraphs, 
+      sentences, 
+      structuredSections: [],
+      isStructured: false
+    };
+  }
+};
+
+// Removed keyword extraction functionality
+
+// Removed all keyword and semantic analysis functions
+
+// Helper function to format section content based on section type
+const formatSectionContent = (sectionName: string, content: string) => {
+  if (!content) return content;
+
+  // Clean section name for comparison
+  const cleanSectionName = sectionName.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+  
+  // Format based on section type
+  switch (true) {
+    case cleanSectionName.includes('reminder'):
+      return formatReminderSection(content);
+    
+    case cleanSectionName.includes('developmental analysis') || cleanSectionName.includes('theoretical analysis'):
+      return formatAnalysisSection(content);
+    
+    case cleanSectionName.includes('key insights'):
+      return formatInsightsSection(content);
+    
+    case cleanSectionName.includes('curiosities'):
+      return formatCuriositiesSection(content);
+    
+    case cleanSectionName.includes('practical considerations'):
+      return formatPracticalSection(content);
+    
+    case cleanSectionName.includes('resources') || cleanSectionName.includes('next steps'):
+      return formatResourcesSection(content);
+    
+    default:
+      return formatGeneralSection(content);
+  }
+};
+
+// Format reminder section with unified styling
+const formatReminderSection = (content: string): string => {
+  let formatted = content;
+  
+  // Handle **Reminder:** *text* format
+  formatted = formatted.replace(
+    /\*\*Reminder:\*\*\s*\*([^*]+)\*/gi,
+    `<div class="${UNIFIED_SECTION_STYLES.listItem}"><div class="flex items-start"><div class="flex-shrink-0"><svg class="w-5 h-5 ${UNIFIED_SECTION_STYLES.primary.accent} mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg></div><div class="ml-3"><span class="text-sm ${UNIFIED_SECTION_STYLES.emphasis}">Reminder:</span> <span class="text-sm ${UNIFIED_SECTION_STYLES.subtle}">$1</span></div></div></div>`
+  );
+  
+  return formatted;
+};
+
+// Format analysis section with unified styling
+const formatAnalysisSection = (content: string): string => {
+  let formatted = content;
+  
+  // Format bullet points
+  formatted = formatted.replace(/^-\s*(.+)$/gm, `<div class="${UNIFIED_SECTION_STYLES.bulletPoint}"><span class="${UNIFIED_SECTION_STYLES.primary.accent} mr-2 mt-1">•</span><span class="${UNIFIED_SECTION_STYLES.primary.text}">$1</span></div>`);
+  
+  // Format bold key concepts
+  formatted = formatted.replace(/\*\*([^*]+)\*\*/g, `<span class="${UNIFIED_SECTION_STYLES.emphasis} ${UNIFIED_SECTION_STYLES.primary.highlight} px-1 rounded">$1</span>`);
+  
+  // Add structure for paragraphs
+  const paragraphs = formatted.split(/\n\s*\n/);
+  formatted = paragraphs.map(p => p.trim() ? `<div class="mb-4">${p}</div>` : '').join('');
+  
+  return `<div class="${UNIFIED_SECTION_STYLES.container}">${formatted}</div>`;
+};
+
+// Format insights section with unified styling
+const formatInsightsSection = (content: string): string => {
+  let formatted = content;
+  
+  // Split into insights (assume numbered or bulleted)
+  const insights = formatted.split(/\n(?=\d+\.|\d+\)|•|-)/);
+  
+  if (insights.length > 1) {
+    formatted = insights.map((insight, index) => {
+      if (insight.trim()) {
+        const cleanInsight = insight.replace(/^\d+\.?\s*|\d+\)\s*|•\s*|-\s*/, '').trim();
+        return `<div class="${UNIFIED_SECTION_STYLES.listItem}">
+          <div class="flex-shrink-0 w-6 h-6 ${UNIFIED_SECTION_STYLES.primary.highlight} ${UNIFIED_SECTION_STYLES.primary.text} rounded-full flex items-center justify-center text-sm font-bold mr-3 mt-0.5">${index + 1}</div>
+          <div class="${UNIFIED_SECTION_STYLES.primary.text}">${cleanInsight}</div>
+        </div>`;
+      }
+      return '';
+    }).join('');
+  }
+  
+  return `<div class="${UNIFIED_SECTION_STYLES.container}">${formatted}</div>`;
+};
+
+// Format curiosities section with unified styling
+const formatCuriositiesSection = (content: string): string => {
+  let formatted = content;
+  
+  // Format numbered questions
+  formatted = formatted.replace(/^(\d+\.?\s*)(.+?)(\?*)$/gm, 
+    `<div class="${UNIFIED_SECTION_STYLES.listItem}"><div class="flex items-start"><span class="${UNIFIED_SECTION_STYLES.emphasis} mr-2 mt-0.5">Q$1</span><span class="${UNIFIED_SECTION_STYLES.subtle}">$2?</span></div></div>`
+  );
+  
+  // Handle bullet point questions
+  formatted = formatted.replace(/^[-•]\s*(.+?)(\?*)$/gm,
+    `<div class="${UNIFIED_SECTION_STYLES.listItem}"><div class="flex items-start"><span class="${UNIFIED_SECTION_STYLES.primary.accent} mr-2 mt-1">🤔</span><span class="${UNIFIED_SECTION_STYLES.subtle}">$1?</span></div></div>`
+  );
+  
+  return `<div class="${UNIFIED_SECTION_STYLES.container}">${formatted}</div>`;
+};
+
+// Format practical considerations with unified styling
+const formatPracticalSection = (content: string): string => {
+  let formatted = content;
+  
+  // Format bullet points as action items
+  formatted = formatted.replace(/^[-•]\s*(.+)$/gm, 
+    `<div class="${UNIFIED_SECTION_STYLES.listItem}"><span class="${UNIFIED_SECTION_STYLES.primary.accent} mr-2 mt-1">→</span><span class="${UNIFIED_SECTION_STYLES.primary.text}">$1</span></div>`
+  );
+  
+  // Format numbered items
+  formatted = formatted.replace(/^(\d+\.?\s*)(.+)$/gm,
+    `<div class="${UNIFIED_SECTION_STYLES.listItem}"><span class="${UNIFIED_SECTION_STYLES.emphasis} mr-2 mt-0.5">$1</span><span class="${UNIFIED_SECTION_STYLES.primary.text}">$2</span></div>`
+  );
+  
+  return `<div class="${UNIFIED_SECTION_STYLES.container}">${formatted}</div>`;
+};
+
+// Format resources section with unified styling
+const formatResourcesSection = (content: string): string => {
+  let formatted = content;
+  
+  // Format bullet points
+  formatted = formatted.replace(/^[-•]\s*(.+)$/gm, 
+    `<div class="${UNIFIED_SECTION_STYLES.bulletPoint}"><span class="${UNIFIED_SECTION_STYLES.primary.accent} mr-2 mt-1">📚</span><span class="${UNIFIED_SECTION_STYLES.primary.text}">$1</span></div>`
+  );
+  
+  // Format disclaimers or important notes
+  formatted = formatted.replace(/^(.*disclaimer.*|.*educational purposes.*|.*not professional.*)$/gmi,
+    `<div class="mt-4 ${UNIFIED_SECTION_STYLES.listItem}"><span class="text-sm ${UNIFIED_SECTION_STYLES.subtle}">$1</span></div>`
+  );
+  
+  return `<div class="${UNIFIED_SECTION_STYLES.container}">${formatted}</div>`;
+};
+
+// Format general sections with unified styling
+const formatGeneralSection = (content: string): string => {
+  let formatted = content;
+  
+  // Format bold text
+  formatted = formatted.replace(/\*\*([^*]+)\*\*/g, `<span class="${UNIFIED_SECTION_STYLES.emphasis}">$1</span>`);
+  
+  // Format italic text
+  formatted = formatted.replace(/\*([^*]+)\*/g, `<span class="${UNIFIED_SECTION_STYLES.subtle}">$1</span>`);
+  
+  // Format bullet points
+  formatted = formatted.replace(/^[-•]\s*(.+)$/gm, 
+    `<div class="${UNIFIED_SECTION_STYLES.bulletPoint}"><span class="${UNIFIED_SECTION_STYLES.primary.accent} mr-2 mt-1">•</span><span class="${UNIFIED_SECTION_STYLES.primary.text}">$1</span></div>`
+  );
+  
+  // Add paragraph structure
+  const paragraphs = formatted.split(/\n\s*\n/);
+  formatted = paragraphs.map(p => p.trim() ? `<div class="mb-3">${p}</div>` : '').join('');
+  
+  return formatted;
+};
+
+
+
+// Component for displaying grouped and compared content
+const GroupedContentDisplay = ({ modelOutputs }: { modelOutputs: any[] }) => {
+  if (modelOutputs.length < 2) return null;
+
+  // Group similar content by analyzing structure and similarity
+  const groupSimilarContent = (): GroupedContent[] => {
+    const allParsedContent = modelOutputs.map(mo => parseContent(mo.output));
+    
+    // Check if we have structured content to compare
+    const hasStructuredContent = allParsedContent.some(pc => pc.isStructured);
+    
+    if (hasStructuredContent) {
+      // Compare by structured sections
+      const sectionNames = new Set<string>();
+      allParsedContent.forEach(pc => {
+        pc.structuredSections.forEach(section => {
+          sectionNames.add(section.header);
+        });
+      });
+      
+      const groupedContent: GroupedContent[] = [];
+      Array.from(sectionNames).forEach((sectionName, index) => {
+        const group: GroupItem[] = modelOutputs.map((mo, modelIndex) => {
+          const parsedContent = allParsedContent[modelIndex];
+          const section = parsedContent.structuredSections.find(s => s.header === sectionName);
+          return {
+            modelId: mo.modelId,
+            modelName: mo.modelName,
+            content: section ? section.content : '',
+            sectionName: sectionName,
+            index: index
+          };
+        });
+      
+        
+        groupedContent.push({
+          group,
+          groupIndex: index,
+          isStructuredSection: true,
+          sectionName: sectionName
+        });
+      });
+      
+      return groupedContent;
+    } else {
+      // Fallback to paragraph-based comparison
+      const allParagraphs = allParsedContent.map(pc => pc.paragraphs);
+      const maxParagraphs = Math.max(...allParagraphs.map(p => p.length));
+      
+      const groupedContent: GroupedContent[] = [];
+      for (let i = 0; i < maxParagraphs; i++) {
+        const group: GroupItem[] = modelOutputs.map((mo, index) => ({
+          modelId: mo.modelId,
+          modelName: mo.modelName,
+          content: allParagraphs[index][i] || '',
+          index: i
+        }));
+        groupedContent.push({
+          group,
+          groupIndex: i,
+          isStructuredSection: false
+        });
+      }
+      return groupedContent;
+    }
+  };
+
+  const groupedContent = groupSimilarContent();
+
+  return (
+    <div className="mb-6">
+      <h5 className="font-medium text-gray-900 mb-3 flex items-center">
+        <span className="mr-2">🔍</span>
+        Content Comparison & Analysis
+      </h5>
+      
+      {/* Concept analysis removed as requested */}
+
+      {/* Grouped Content Display */}
+      <div className="space-y-6">
+        {groupedContent.map(({ group, groupIndex, isStructuredSection, sectionName }) => (
+          <div key={groupIndex} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div className="flex items-center justify-between mb-3">
+              <h6 className="font-medium text-gray-900 flex items-center">
+                <span className="mr-2">{isStructuredSection ? '📋' : '📄'}</span>
+                {isStructuredSection && sectionName ? (
+                  <>{sectionName}</>
+                ) : (
+                  <>Content Group {groupIndex + 1}</>
+                )}
+              </h6>
+            </div>
+            
+            <div className={`grid gap-4 ${
+              group.length === 1 
+                ? 'grid-cols-1 max-w-lg mx-auto'
+                : group.length === 2 
+                  ? 'grid-cols-1 lg:grid-cols-2' 
+                  : group.length === 3
+                    ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                    : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+            }`}>
+              {group.map((item: GroupItem) => {
+                const modelInfo = getModelDisplayInfo(item.modelId, item.modelName);
+                
+                // Format content based on section type
+                const formattedContent = item.sectionName ? 
+                  formatSectionContent(item.sectionName, item.content) : 
+                  formatGeneralSection(item.content);
+                
+                return (
+                  <div key={item.modelId} className="bg-white p-3 rounded border shadow-sm">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <div className={`w-2 h-2 rounded-full ${modelInfo.color}`}></div>
+                      <span className="text-sm font-medium text-gray-700">{modelInfo.displayName}</span>
+                    </div>
+                    
+                    <div className="text-sm leading-relaxed">
+                      {item.content ? (
+                        <div 
+                          dangerouslySetInnerHTML={{ __html: formattedContent }}
+                        />
+                      ) : (
+                        <span className="text-gray-400 italic">No content in this section</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+interface ModelComparisonStepProps {
+  outcomes: RubricOutcomeWithModelComparison[];
+  selectedTestCaseIndex: number;
+  onTestCaseSelect: (index: number) => void;
+  onBackToSync: () => void;
+  onRestart?: () => void;
+  isLoading?: boolean;
+}
+
+export default function ModelComparisonStep({
+  outcomes,
+  selectedTestCaseIndex,
+  onTestCaseSelect,
+  onBackToSync,
+  onRestart,
+  isLoading = false,
+}: ModelComparisonStepProps) {
+  const [showComparisonTool, setShowComparisonTool] = useState(true);
+  const [expandedOutputs, setExpandedOutputs] = useState<Set<string>>(new Set());
+  const [expandedOriginalText, setExpandedOriginalText] = useState<Set<string>>(new Set());
+
+  // Helper function to toggle output expansion
+  const toggleOutputExpansion = (modelId: string) => {
+    setExpandedOutputs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(modelId)) {
+        newSet.delete(modelId);
+      } else {
+        newSet.add(modelId);
+      }
+      return newSet;
+    });
+  };
+
+  // Helper function to toggle original text expansion
+  const toggleOriginalTextExpansion = (modelId: string) => {
+    setExpandedOriginalText(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(modelId)) {
+        newSet.delete(modelId);
+      } else {
+        newSet.add(modelId);
+      }
+      return newSet;
+    });
+  };
+
+  // Loading state - Simplified
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="text-center">
+          <h2 className="text-xl font-medium text-gray-900 mb-2">
+            Possible Responses
+          </h2>
+          <p className="text-gray-600">Processing results...</p>
+        </div>
+        
+        <div className="bg-white border rounded-lg p-4">
+          <div className="text-gray-500">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!outcomes[selectedTestCaseIndex]) {
+    return null;
+  }
+
+  const currentOutcome = outcomes[selectedTestCaseIndex];
+  const { testCase } = currentOutcome;
+
+  // Model outputs for display
+  const allModelOutputs = testCase.modelOutputs;
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-xl font-medium text-gray-900 mb-2">
+          Results Review
+        </h2>
+        <p className="text-gray-600">Review and compare model performance</p>
+      </div>
+
+      {/* Test Case Navigation */}
+      <div className="flex justify-center space-x-2 mb-8">
+        {outcomes.map((outcome, index) => (
+          <button
+            key={outcome.testCaseId}
+            onClick={() => onTestCaseSelect(index)}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              selectedTestCaseIndex === index
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Test Case {index + 1}
+          </button>
+        ))}
+      </div>
+
+      {/* Shared Input and Context Section */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8">
+        <h3 className="text-xl font-semibold text-gray-900 mb-6">
+          Test Case {selectedTestCaseIndex + 1} - Shared Input & Context
+        </h3>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+            <h4 className="font-medium text-gray-900 mb-2">Context</h4>
+            <div className="bg-gray-50 p-3 rounded text-sm">
+              {testCase.context}
+            </div>
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-900 mb-2">Input</h4>
+            <div className="bg-gray-50 p-3 rounded text-sm">
+              {testCase.input}
+            </div>
+          </div>
+          
+        </div>
+      </div>
+
+      {/* Model Outputs Comparison - Simplified */}
+      <div className="bg-white border rounded-lg p-4">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">
+          {testCase.modelOutputs.length} Possible Responses
+        </h3>
+
+        {/* Grouped Content Display */}
+        {testCase.modelOutputs.length > 1 && (
+          <GroupedContentDisplay modelOutputs={testCase.modelOutputs} />
+        )}
+
+        {testCase.modelOutputs.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            No model outputs available for comparison.
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {testCase.modelOutputs.map((modelOutput, index) => {
+              const modelInfo = getModelDisplayInfo(modelOutput.modelId, modelOutput.modelName);
+              return (
+              <div key={modelOutput.modelId} className="border rounded-lg p-4 bg-white">
+                {/* Model Header - Simplified */}
+                <div className="flex items-center justify-between mb-3 pb-2 border-b">
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-2 h-2 rounded-full ${modelInfo.color}`}></div>
+                    <h4 className="font-medium text-gray-900">
+                      {modelInfo.displayName}
+                    </h4>
+                  </div>
+                </div>
+
+                {/* Rubric Scores - Simplified */}
+                <div className="mb-4">
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">Scores</h5>
+                  {modelOutput.rubricScores && Object.keys(modelOutput.rubricScores).length > 0 ? (
+                    <div className="space-y-1">
+                      {Object.entries(modelOutput.rubricScores).map(([criteria, score]) => (
+                        <div key={criteria} className="flex justify-between items-center py-1">
+                          <span className="text-sm text-gray-600 capitalize">{criteria}</span>
+                          <span className="text-sm font-medium">{score}/5</span>
+                        </div>
+                      ))}
+                      {testCase.modelOutputs.length > 1 && (
+                        <div className="pt-1 mt-2 border-t border-gray-200">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-700">Average</span>
+                            <span className="text-sm font-bold text-blue-600">
+                              {calculateSafeAverageScore(modelOutput.rubricScores).toFixed(1)}/5
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-400">No scores available</div>
+                  )}
+                </div>
+
+                {/* Feedback - Simplified */}
+                <div className="mb-4">
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">Feedback</h5>
+                  <div className="text-sm text-gray-600 leading-relaxed">
+                    {modelOutput.feedback || 'No feedback available'}
+                  </div>
+                </div>
+
+                {/* Suggestions - Simplified */}
+                <div className="mb-4">
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">Suggestions</h5>
+                  {modelOutput.suggestions && modelOutput.suggestions.length > 0 ? (
+                    <ul className="space-y-1">
+                      {modelOutput.suggestions.map((suggestion, suggestionIndex) => (
+                        <li key={suggestionIndex} className="text-sm text-gray-600">
+                          • {suggestion}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-sm text-gray-400">No suggestions available</div>
+                  )}
+                </div>
+
+                {/* Output Display - Enhanced with Prettified Markdown */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-sm font-medium text-gray-700">Full Output</h5>
+                    <button
+                      onClick={() => toggleOutputExpansion(modelOutput.modelId)}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      {expandedOutputs.has(modelOutput.modelId) ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  
+                  {expandedOutputs.has(modelOutput.modelId) && modelOutput.output && (
+                    <div className="space-y-4">
+                      {/* Prettified Markdown Output */}
+                      <div className="bg-white border rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center mb-3">
+                          <span className="text-sm font-medium text-gray-800 flex items-center">
+                            <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Formatted Output
+                          </span>
+                        </div>
+                        <div 
+                          className="text-base leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: createPrettifiedMarkdown(modelOutput.output) }}
+                        />
+                      </div>
+                      
+                      {/* Original Text - Collapsible */}
+                      <div className="bg-gray-50 border rounded-lg">
+                        <div 
+                          className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => toggleOriginalTextExpansion(modelOutput.modelId)}
+                        >
+                          <span className="text-sm font-medium text-gray-700 flex items-center">
+                            <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            Original Text
+                          </span>
+                          <svg 
+                            className={`w-4 h-4 text-gray-500 transition-transform ${
+                              expandedOriginalText.has(modelOutput.modelId) ? 'transform rotate-180' : ''
+                            }`} 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                        
+                        {expandedOriginalText.has(modelOutput.modelId) && (
+                          <div className="border-t border-gray-200 p-3">
+                            <div className="text-base text-gray-700 leading-relaxed whitespace-pre-wrap font-mono bg-white p-3 rounded border max-h-80 overflow-y-auto">
+                              {modelOutput.output}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>);
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Floating Comparison Tool */}
+      {testCase.modelOutputs.length > 1 && showComparisonTool && (
+        <div className={`fixed bottom-6 right-6 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50 ${
+          testCase.modelOutputs.length > 6 ? 'max-w-md' : 'max-w-sm'
+        }`}>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-medium text-gray-900 flex items-center">
+              <span className="mr-2">🔍</span>
+              Live Comparison ({testCase.modelOutputs.length})
+            </h4>
+            <button 
+              onClick={() => setShowComparisonTool(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className={`space-y-2 ${
+            testCase.modelOutputs.length > 8 ? 'max-h-64 overflow-y-auto' : ''
+          }`}>
+            {testCase.modelOutputs.map((modelOutput, index) => {
+              const isEvaluated = hasBeenEvaluated(modelOutput.rubricScores);
+              const isInProgress = isEvaluationInProgress(modelOutput.rubricScores);
+              const avgScore = calculateSafeAverageScore(modelOutput.rubricScores);
+              const maxScore = Math.max(...testCase.modelOutputs.map(mo => calculateSafeAverageScore(mo.rubricScores)));
+              const isBest = isEvaluated && avgScore === maxScore && avgScore > 0;
+              const modelInfo = getModelDisplayInfo(modelOutput.modelId, modelOutput.modelName);
+              
+              return (
+                <div key={modelOutput.modelId} className={`flex items-center justify-between p-2 rounded border ${
+                  isBest ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${modelInfo.color}`}></div>
+                    <span className="text-sm font-medium">{modelInfo.shortName}</span>
+                    {isBest && <span className="text-xs bg-green-100 text-green-800 px-1 rounded">Best</span>}
+                  </div>
+                  {isInProgress ? (
+                    <div className="flex items-center space-x-1">
+                      <div className="w-4 h-4 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin"></div>
+                      <span className="text-xs text-gray-500">Evaluating...</span>
+                    </div>
+                  ) : isEvaluated ? (
+                    <span className={`font-bold text-sm ${
+                      isBest ? 'text-green-600' : 'text-gray-600'
+                    }`}>
+                      {avgScore.toFixed(1)}/5
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400">Not evaluated</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Show Comparison Tool Button */}
+      {testCase.modelOutputs.length > 1 && !showComparisonTool && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <button 
+            onClick={() => setShowComparisonTool(true)}
+            className="bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+            title="Show Comparison Tool"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Refinement Suggestions - Simplified */}
+      {currentOutcome.refinementSuggestions.length > 0 && (
+        <div className="bg-white border rounded-lg p-4">
+          <h3 className="text-lg font-medium text-gray-900 mb-3">
+            Suggestions for Improvement
+          </h3>
+          <ul className="space-y-1">
+            {currentOutcome.refinementSuggestions.map((suggestion, index) => (
+              <li key={index} className="text-sm text-gray-600">
+                • {suggestion}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex justify-center space-x-4">
+        <button
+          onClick={onBackToSync}
+          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          Back to Configuration
+        </button>
+        {onRestart && (
+          <button
+            onClick={onRestart}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center space-x-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Restart Analysis</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+} 

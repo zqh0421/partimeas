@@ -18,47 +18,16 @@ export default function Home() {
             className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-blue-600 text-white gap-2 hover:bg-blue-700 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
             href="/rubric"
           >
-            🎯 Start Rubric Builder
-          </Link>
-          <Link
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-green-600 text-white gap-2 hover:bg-green-700 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="/output-analysis"
-          >
-            📊 Analysis (Sectioned)
+            Rubric Builder
           </Link>
           <Link
             className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-blue-500 text-white gap-2 hover:bg-blue-600 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="/output-analysis-full"
+            href="/workshop-assistant"
           >
-            📈 Analysis (Full)
+            Workshop Assistant
           </Link>
         </div>
       </main>
-      
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="/rubric"
-        >
-          🎯 Rubric Builder
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://github.com/your-repo/rubric-refiner"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          📖 Documentation
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://github.com/your-repo/rubric-refiner/issues"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          🐛 Report Issues
-        </a>
-      </footer>
     </div>
   );
 }

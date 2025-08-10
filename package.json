@@ -12,6 +12,7 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@langchain/anthropic": "^0.1.21",
+    "@langchain/core": "^0.2.36",
     "@langchain/google-genai": "^0.0.12",
     "@langchain/openai": "^0.0.20",
     "@types/react-beautiful-dnd": "^13.1.8",
