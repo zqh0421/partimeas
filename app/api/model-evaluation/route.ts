@@ -86,7 +86,7 @@ const determineUseCase = (testCase: any): string => {
 
 // Get dynamic system prompt based on use case
 const getSystemPrompt = (useCaseType: string): string => {
-  return USE_CASE_PROMPTS[useCaseType as keyof typeof USE_CASE_PROMPTS] || USE_CASE_PROMPTS.provide_reflective_questions;
+  return USE_CASE_PROMPTS[useCaseType as keyof typeof USE_CASE_PROMPTS] || USE_CASE_PROMPTS.original_system123_instructions;
 };
 
 // Helper function to generate output from a single model
@@ -131,7 +131,7 @@ const generateModelOutput = async (modelId: string, testCase: any, useCaseTypeOv
 };
 
 // Helper function to validate and fix structural issues in output
-const validateAndFixStructure = (output: string, useCaseType: string = 'provide_reflective_questions'): string => {
+const validateAndFixStructure = (output: string, useCaseType: string = 'original_system123_instructions'): string => {
   // Define required sections based on use case type
   const getSectionsByUseCase = (type: string): string[] => {
     switch (type) {
@@ -143,7 +143,7 @@ const validateAndFixStructure = (output: string, useCaseType: string = 'provide_
           '===== SECTION 4: CURIOSITIES FOR EXPLORATION =====',
           '===== SECTION 5: NEXT STEPS & RESOURCES ====='
         ];
-      case 'provide_reflective_questions':
+      case 'original_system123_instructions':
         return [];
       case 'general_analysis':
       default:

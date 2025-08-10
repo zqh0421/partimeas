@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useAnalysisState } from '@/hooks/useAnalysisState';
 import { useAnalysisHandlers } from '@/hooks/useAnalysisHandlers';
+import { USE_CASE_PROMPTS } from '@/app/api/shared/constants';
 import AnalysisHeader from '@/components/(archived)/output-analysis/AnalysisHeader';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import SyncStep from '@/components/(archived)/output-analysis/SyncStep';
@@ -56,7 +57,7 @@ export default function OutputAnalysisPage() {
     // Validation
     validationError,
     setValidationError,
-  } = useAnalysisState('provide_reflective_questions'); // Use the sectioned version
+  } = useAnalysisState(); // Use dynamic default from USE_CASE_PROMPTS
 
   const handlers = useAnalysisHandlers({
     stateSetters: {
@@ -102,7 +103,6 @@ export default function OutputAnalysisPage() {
         {isLoading && (
           <LoadingSpinner
             currentStep={currentStep}
-            currentTestCaseIndex={currentTestCaseIndex}
             testCasesLength={testCases.length}
             evaluationProgress={evaluationProgress}
             testCasesWithModelOutputs={testCasesWithModelOutputs}

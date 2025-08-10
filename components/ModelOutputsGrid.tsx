@@ -7,7 +7,6 @@ import { useStepLoading } from '@/components/steps/VerticalStepper';
 import TestCaseNavigation from '@/components/TestCaseNavigation';
 import { ModelEvaluationCard, EvaluationResultsTable } from '@/components/evaluation';
 import RealCriteriaTable from '@/components/evaluation/RealCriteriaTable';
-import DebugCriteria from '@/components/evaluation/DebugCriteria';
 
 // Helper function to determine grid columns based on model count
 const getGridCols = (count: number) => {

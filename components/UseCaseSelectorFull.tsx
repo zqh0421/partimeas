@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { UseCaseSheet, USE_CASE_SHEETS } from '@/utils/useCaseSheets';
-import { TestCase } from '@/types';
+import { USE_CASE_CONFIGS } from '@/config/useCases';
+import { TestCase, UseCaseConfig } from '@/types';
 
 interface UseCaseSelectorProps {
   onUseCaseSelected: (useCaseId: string) => void;
@@ -40,7 +40,7 @@ export default function UseCaseSelector({
   const [selectedUseCase, setSelectedUseCase] = useState<string>('');
   const [selectedScenarioCategory, setSelectedScenarioCategory] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-  const [useCases, setUseCases] = useState<UseCaseSheet[]>([]);
+  const [useCases, setUseCases] = useState<UseCaseConfig[]>([]);
   const [hierarchicalData, setHierarchicalData] = useState<HierarchicalData>({ useCases: {} });
 
   const handleUseCaseSelect = useCallback(async (useCaseId: string) => {
@@ -49,7 +49,7 @@ export default function UseCaseSelector({
     setIsLoading(true);
 
     try {
-      const response = await fetch(`/api/use-case-data?useCaseId=${useCaseId}&dataType=test-cases`);
+      const response = await fetch(`/api/use-case-data?useCaseId=${useCaseId}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -72,7 +72,7 @@ export default function UseCaseSelector({
   }, [onUseCaseSelected, onError]);
 
   const organizeDataHierarchically = (testCases: any[], useCaseId: string): HierarchicalData => {
-    const useCase = USE_CASE_SHEETS.find(uc => uc.id === useCaseId);
+    const useCase = USE_CASE_CONFIGS.find(uc => uc.id === useCaseId);
     const useCaseName = useCase?.name || useCaseId;
     const useCaseDescription = useCase?.description || '';
 
@@ -100,32 +100,18 @@ export default function UseCaseSelector({
       const processedTestCase: TestCase = {
         id: testCase.id || `tc-${index + 1}`,
         input: testCase.input || '',
-        context: testCase.context || testCase.expectedOutput || '',
-        modelName: testCase.modelName,
-        timestamp: testCase.timestamp,
-        useCase: useCaseId,
-        scenarioCategory: scenarioCategory,
-        use_case_title: testCase.use_case_title,
-        use_case_index: testCase.use_case_index
+        context: testCase.context || ''
       };
 
+      // Add optional fields if they exist
+      if (testCase.modelName) processedTestCase.modelName = testCase.modelName;
+      if (testCase.timestamp) processedTestCase.timestamp = testCase.timestamp;
+      if (testCase.scenarioCategory) processedTestCase.scenarioCategory = testCase.scenarioCategory;
+      if (testCase.useCase) processedTestCase.useCase = testCase.useCase;
+      if (testCase.use_case_index) processedTestCase.use_case_index = testCase.use_case_index;
+      if (testCase.use_case_title) processedTestCase.use_case_title = testCase.use_case_title;
+
       scenarioCategories[scenarioCategory].testCases.push(processedTestCase);
-    });
-
-    // Extract sheet-provided identifiers/descriptions if available
-    const firstTestCase = testCases[0] || {};
-    const sheetUseCaseId = firstTestCase.useCase || useCaseId;
-    const sheetUseCaseDescription = firstTestCase.useCaseDescription || firstTestCase.use_case_description || useCaseDescription;
-    const sheetUseCaseTitle = firstTestCase.use_case_title || '';
-    const sheetUseCaseIndex = firstTestCase.use_case_index || '';
-
-    // Debug logging for extracted data
-    console.log('Extracted sheet data:', {
-      sheetUseCaseId,
-      sheetUseCaseDescription,
-      sheetUseCaseTitle,
-      sheetUseCaseIndex,
-      scenarioCategoriesKeys: Object.keys(scenarioCategories)
     });
 
     return {
@@ -133,10 +119,10 @@ export default function UseCaseSelector({
         [useCaseId]: {
           name: useCaseName,
           description: useCaseDescription,
-          sheetUseCaseId,
-          sheetUseCaseDescription,
-          sheetUseCaseTitle,
-          sheetUseCaseIndex,
+          sheetUseCaseId: useCaseId,
+          sheetUseCaseDescription: useCaseDescription,
+          sheetUseCaseTitle: useCaseName,
+          sheetUseCaseIndex: useCaseId,
           scenarioCategories
         }
       }
@@ -145,7 +131,7 @@ export default function UseCaseSelector({
 
   // Initialize use cases on component mount
   useEffect(() => {
-    setUseCases(USE_CASE_SHEETS);
+    setUseCases(USE_CASE_CONFIGS);
   }, []);
 
   // Auto-select first use case when use cases are loaded

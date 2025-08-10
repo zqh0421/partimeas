@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { UseCaseSheet, USE_CASE_SHEETS } from '@/utils/useCaseSheets';
+import { UseCaseConfig } from '@/types';
+import { USE_CASE_CONFIGS } from '@/config/useCases';
 import { TestCase } from '@/types';
 
 interface UseCaseSelectorProps {
@@ -40,7 +41,7 @@ export default function UseCaseSelector({
   const [selectedScenarioCategory, setSelectedScenarioCategory] = useState<string>('');
   const [selectedTestCases, setSelectedTestCases] = useState<TestCase[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [useCases, setUseCases] = useState<UseCaseSheet[]>([]);
+  const [useCases, setUseCases] = useState<UseCaseConfig[]>([]);
   const [hierarchicalData, setHierarchicalData] = useState<HierarchicalData>({ useCases: {} });
   const [isTestCasesSummaryOpen, setIsTestCasesSummaryOpen] = useState(false);
 
@@ -51,7 +52,7 @@ export default function UseCaseSelector({
     setIsLoading(true);
 
     try {
-      const response = await fetch(`/api/use-case-data?useCaseId=${useCaseId}&dataType=test-cases`);
+      const response = await fetch(`/api/use-case-data?useCaseId=${useCaseId}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -74,7 +75,7 @@ export default function UseCaseSelector({
   }, [onUseCaseSelected, onError]);
 
   const organizeDataHierarchically = (testCases: any[], useCaseId: string): HierarchicalData => {
-    const useCase = USE_CASE_SHEETS.find(uc => uc.id === useCaseId);
+    const useCase = USE_CASE_CONFIGS.find(uc => uc.id === useCaseId);
     const useCaseName = useCase?.name || useCaseId;
     const useCaseDescription = useCase?.description || '';
 
@@ -125,11 +126,11 @@ export default function UseCaseSelector({
 
   // Initialize use cases on component mount
   useEffect(() => {
-    setUseCases(USE_CASE_SHEETS);
+    setUseCases(USE_CASE_CONFIGS);
     
     // Auto-select the first use case if available
-    if (USE_CASE_SHEETS.length > 0) {
-      const firstUseCase = USE_CASE_SHEETS[0];
+    if (USE_CASE_CONFIGS.length > 0) {
+      const firstUseCase = USE_CASE_CONFIGS[0];
       console.log('Auto-selecting first use case:', firstUseCase.id);
       setSelectedUseCase(firstUseCase.id);
       handleUseCaseSelect(firstUseCase.id);

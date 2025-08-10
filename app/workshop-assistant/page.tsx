@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAnalysisState } from '@/hooks/useAnalysisState';
 import { useAnalysisHandlers } from '@/hooks/useAnalysisHandlers';
+import { USE_CASE_PROMPTS } from '@/app/api/shared/constants';
 import VerticalStepper from '@/components/steps/VerticalStepper';
 import SetupStep from '@/components/steps/SetupStep';
 import AnalysisStep from '@/components/steps/AnalysisStep';
@@ -57,7 +58,7 @@ export default function OutputAnalysisFullPage() {
     // Validation
     validationError,
     setValidationError,
-  } = useAnalysisState('provide_reflective_questions'); // Use the full version
+  } = useAnalysisState(); // Use dynamic default from USE_CASE_PROMPTS
 
   // Analysis-specific internal state (previously in UnifiedAnalysis component)
   const [analysisStep, setAnalysisStep] = useState<'setup' | 'running' | 'complete'>('setup');

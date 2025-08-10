@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { TestCase, RubricOutcome, CriteriaData, AnalysisStep, TestCaseWithModelOutputs, RubricOutcomeWithModelComparison } from '@/types';
+import { USE_CASE_PROMPTS } from '@/app/api/shared/constants';
 
 // Types for better organization
 interface UIState {
@@ -114,7 +115,7 @@ export interface UseAnalysisStateReturn {
   updateSystemPromptForUseCase: (testCases: TestCase[]) => void;
 }
 
-export function useAnalysisState(useCaseType: string = 'provide_reflective_questions'): UseAnalysisStateReturn {
+export function useAnalysisState(useCaseType: string = Object.keys(USE_CASE_PROMPTS)[0] || 'original_system123_instructions'): UseAnalysisStateReturn {
   // Grouped state for better organization
   const [uiState, setUIState] = useState<UIState>({
     currentStep: 'sync',
@@ -146,38 +147,20 @@ export function useAnalysisState(useCaseType: string = 'provide_reflective_quest
     currentUseCaseType: useCaseType,
   });
 
-  // Memoized use case configuration
+  // Memoized use case configuration - uses shared constants
   const useCaseConfig = useMemo(() => {
-    const USE_CASE_PROMPTS = {
-      'original_system123_instructions': `
-    **Purpose:**\n
-      This GPT model is designed to act as an expert in understanding the needs of children and  people supporting those children in relation to specific theories or approaches. The  model's expertise is derived exclusively from Bruce Perry's Neurosequential Model, Dr.  Steven Porges' Polyvagal Theory, Dr. Dan Siegel's Interpersonal Neurobiology, and Dr. Becky  Bailey's Conscious Discipline. It will work collaboratively with the user to apply its expertise  to scenarios or questions input by the user.\n
-    **Core Instructions:**\n 
-      1. The model should have in-depth knowledge of the Neurosequential Model, Polyvagal  Theory, Interpersonal Neurobiology, and Conscious Discipline, including their principals,  applications, and limitations. \n
-      2. When presented with a scenario, the model will analyze it through the lens of one or  more of these theories and provide possible interpretations or insights. \n
-      3. The model should draw its expertise only from highly reputable sources such as writings  by the theory founders, peer-reviewed published articles, or other well-respected sources.  It should prioritize accurate insights from and application of the specific theories. \n
-      4. When necessary or appropriate, ask the user for additional information about the  scenario, such as the developmental or chronological age of the child, the routine of the  setting, the strengths or perspectives of people who surround the child or children. \n
-      5. Start your initial output with the following texts. Please Bold the word reminder and put  the rest in italics font, Reminder: Like a GPS, I aim to provide insights and information to  support the journey. However, as the driver, you hold the ultimate responsibility for  deciding if, when, and how to follow that guidance. Your contextual knowledge and  relationships with the people you are supporting should guide your decisions. \n
-      6. The model will then provide initial output organized under the following sections.
-        - Connections to my knowledge base \n
-          This section will include specific explanations of how one or more of the theories or  approaches connect to specific information shared in the scenario. \n
-        - Curiosities I have about this situation \n
-          This section will include 3 to 5 open-ended and/or reflective questions for the user to  respond to or explore with the setting team that may help increase the accuracy of  connections or support the development of things to considerations.  \n
-      **Behavioral Guidelines:** \n
-        - Use precise professional language \n
-        - Be non-judgmental with a supportive, strength-focused, and optimistic tone - Tend toward supporting the process over providing a prescription of what to do \n
-        - Avoid the use of diagnostic labels or suggesting other services - focus on helping the  team's understanding, reflective capacity, and potential approaches. \n
-`
+    // Use exact matching based on USE_CASE_PROMPTS keys from shared constants
+    return { 
+      USE_CASE_PROMPTS, 
+      USE_CASE_TYPES: Object.keys(USE_CASE_PROMPTS),
+      DEFAULT_USE_CASE: Object.keys(USE_CASE_PROMPTS)[0] || 'original_system123_instructions'
     };
-
-    // Use exact matching based on USE_CASE_PROMPTS keys
-    return { USE_CASE_PROMPTS, USE_CASE_TYPES: Object.keys(USE_CASE_PROMPTS) };
   }, []);
 
   // Optimized use case detection with exact matching
   const determineUseCase = useMemo(() => {
     return (testCases: TestCase[]): string => {
-      if (!testCases?.length) return 'provide_reflective_questions';
+      if (!testCases?.length) return useCaseConfig.DEFAULT_USE_CASE;
       
       const firstTestCase = testCases[0];
       
@@ -197,13 +180,14 @@ export function useAnalysisState(useCaseType: string = 'provide_reflective_quest
         }
       }
       
-      return 'provide_reflective_questions';
+      return useCaseConfig.DEFAULT_USE_CASE;
     };
   }, [useCaseConfig]);
 
-  // Simplified update function
+  // Simplified update function - now works with any use case
   const updateSystemPromptForUseCase = (testCases: TestCase[]) => {
-    if (useCaseType !== 'provide_reflective_questions') return;
+    // Check if current use case type exists in available use case prompts
+    if (!useCaseConfig.USE_CASE_TYPES.includes(useCaseType)) return;
     
     const detectedUseCase = determineUseCase(testCases);
     const prompt = useCaseConfig.USE_CASE_PROMPTS[detectedUseCase as keyof typeof useCaseConfig.USE_CASE_PROMPTS];

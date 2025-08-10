@@ -37,37 +37,22 @@ export default function RubricComparison({
   const [showDifferences, setShowDifferences] = useState(true);
   const [highlightChanges, setHighlightChanges] = useState(true);
 
-  // Mock evaluation results for demonstration
+  // Example evaluation results - replace with real data from your evaluation system
   const mockEvaluationResults = useMemo((): EvaluationResult[] => [
     {
-      id: 'eval-1',
+      id: 'example-eval',
       rubricVersionId: '1',
       testCaseId: '1',
-      input: 'A 4-year-old child is having difficulty transitioning from playtime to cleanup time in preschool.',
-      context: 'Response should demonstrate understanding of child development theories and provide practical strategies.',
+      input: 'Example test case input - replace with real data',
+      context: 'Example context - replace with real data',
       scores: {
-        '1': 4, // Theoretical Accuracy
-        '2': 5, // Safety & Ethics
-      },
-      overallScore: 4.5,
-      feedback: 'Good understanding of child development principles with appropriate safety considerations.',
-      evaluatedAt: new Date('2024-01-20T10:00:00'),
-      evaluator: 'Dr. Sarah Johnson'
-    },
-    {
-      id: 'eval-2',
-      rubricVersionId: '1',
-      testCaseId: '2',
-      input: 'A parent is concerned about their 2-year-old\'s speech development.',
-      context: 'Response should include assessment guidance and family-centered approaches.',
-      scores: {
-        '1': 3, // Theoretical Accuracy
-        '2': 4, // Safety & Ethics
+        '1': 4, // Example score
+        '2': 3, // Example score
       },
       overallScore: 3.5,
-      feedback: 'Basic understanding shown, but could provide more specific guidance.',
-      evaluatedAt: new Date('2024-01-21T14:30:00'),
-      evaluator: 'Prof. Michael Chen'
+      feedback: 'Example feedback - replace with real evaluation feedback',
+      evaluatedAt: new Date(),
+      evaluator: 'Example Evaluator'
     }
   ], []);
 

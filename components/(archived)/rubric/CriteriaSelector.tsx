@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';  
-import mockData from '@/data/mockData';
+// Mock data import removed - use real configuration instead
 import GenericSelector from './GenericSelector';
 
 interface CriteriaSelectorProps {
@@ -25,7 +25,7 @@ export default function CriteriaSelector({ onCriteriaSelected, onCriteriaLoaded,
   const [selectedCriteria, setSelectedCriteria] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [sheetNames, setSheetNames] = useState<{[key: string]: string}>({});
-  const criteriaConfig = mockData.criteriaConfig;
+  const criteriaConfig: any[] = []; // Empty array - configure with real data
 
   useEffect(() => {
     // Load sheet names for all criteria

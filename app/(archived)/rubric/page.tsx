@@ -10,9 +10,7 @@ import {
   EvaluationCriteriaEditor,
   ResultsComparisonCard,
 } from "@/components";
-import {
-  mockCurrentVersion,
-} from "@/data/mockData";
+// Mock data import removed - use real configuration instead
 import {
   RubricItem,
   RubricVersion,
@@ -23,7 +21,17 @@ import { saveVersion } from "@/utils/rubricUtils";
 export default function RubricPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentVersion, setCurrentVersion] =
-    useState<RubricVersion>(mockCurrentVersion);
+    useState<RubricVersion>({
+      id: '1',
+      version: 'v1.0',
+      name: 'Default Rubric Version',
+      systemPrompt: 'Configure your system prompt here',
+      evaluationPrompt: 'Configure your evaluation prompt here',
+      rubricItems: [],
+      testCases: [],
+      createdAt: new Date(),
+      history: []
+    });
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedCriteriaForHistory, setSelectedCriteriaForHistory] =
     useState<RubricItem | null>(null);

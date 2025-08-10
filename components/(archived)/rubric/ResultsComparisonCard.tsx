@@ -52,81 +52,22 @@ export default function ResultsComparisonCard({
     }));
   };
 
-  // Mock evaluation results for demonstration - wrapped in useMemo to prevent dependency changes
+  // Example evaluation results - replace with real data from your evaluation system
   const mockEvaluationResults = useMemo((): EvaluationResult[] => [
     {
-      id: 'eval-4',
-      testCaseInput: 'I wanted reflective questions because I was feeling a disconnect between the way that I was framing our conversations and the teachers\' understanding (of my words and of the child). I don\'t want to include observations that don\'t directly involve M, but I\'d like some reflective questions to explore. I want them to tie in with M and his history and experiences while also addressing the classroom environment and social and emotional supports.',
-      llmResponse: `Reflective Questions: Exploring the Environment & Emotional Supports
-
-Co-Regulation & Trauma Sensitivity:
-
-How can we continue using co-regulating adult presence to help Messiah sustain attention and manage transitions, especially during less structured times like centers?
-
-Given Messiah's history of trauma and the potential for hypervigilance, how can we create a classroom rhythm that balances stimulation and calm moments, helping him feel safe without needing to be "on alert"?
-
-Social Problem-Solving & Peer Dynamics:
-
-How can we strengthen peer problem-solving skills in ways that reduce "policing" behaviors and instead foster empathy and collaboration?
-
-What language or modeling can help peers support Messiah in moments of dysregulation without triggering feelings of shame or exclusion?
-
-Emotional Expression & Repair:
-
-When Messiah expresses frustration (e.g., "Lunch is boring!"), how can we validate his emotions while guiding him toward alternative ways of expressing them?
-
-How can we use everyday moments to model emotional repair (e.g., "It looks like you didn't mean to splash me. What could we do to fix it?") instead of relying on scripted apologies?
-
-Classroom Regulation Spaces:
-
-Does Messiah view spaces like the sensory table or cozy corner as tools for regulation?
-
-How might we adjust the use of these spaces to ensure they are always framed as supportive, not punitive, especially for children with trauma histories who may be sensitive to perceived exclusion?
-
-Supporting Autonomy & Boundaries:
-
-In moments of dysregulation, how can we offer Messiah choices that give him a sense of control while still maintaining classroom boundaries?
-
-Are there opportunities to shift from directive language ("Don't do that") to reflective or choice-based prompts ("I see you want to splash—what's another way we can play with the water?")?`,
+      id: 'example-eval',
+      testCaseInput: 'Example test case input - replace with real data',
+      llmResponse: 'Example LLM response - replace with real evaluation results',
       scores: {
-        '1': 5, // Theoretical Accuracy
-        '2': 5, // Safety & Ethics
-        '3': 5, // Practical Application
-        '4': 5, // Assessment & Observation
-        '5': 4, // Communication & Collaboration
-        '6': 5, // Professional Development
+        '1': 4, // Example score
+        '2': 3, // Example score
       },
-      overallScore: 5.0,
-      feedback: 'Exceptional response that demonstrates deep understanding of trauma-informed practices, co-regulation strategies, and child-centered approaches. The questions are comprehensive, practical, and address the specific needs mentioned in the context.',
-      evaluatedAt: new Date('2024-01-23T11:45:00'),
-      evaluator: 'LLM-as-a-Judge',
-      modelName: 'GPT-4',
-      criteriaVersion: 'v2.1'
-    },
-    {
-      id: 'eval-5',
-      testCaseInput: 'Please ground my report in the lenses of the polyvagal theory and neuroequential model to better understand the child\'s worldview: Ever since K, a four-year-old child, moved from his previous classroom, Ms. S. has provided a more structured environment that seems to offer him a greater sense of safety...',
-      llmResponse: `Absolutely. Here's a simplified, classroom-appropriate version of the report that retains the insights from the **Polyvagal Theory** and **Neurosequential Model**, but uses clear and practical language for teachers, aides, or school staff:
-
----
-
-**Simplified Report on K — Understanding Through a Brain-Based Lens**
-
-Since K moved into Ms. S.'s classroom, he seems to feel safer and more at ease. The daily routines and clear structure help him know what to expect, which is very important for his sense of safety and ability to learn. When the classroom feels calm and predictable, it helps K stay in a "ready to learn" state. This idea comes from something called the **Polyvagal Theory**, which teaches us that kids need to feel safe and connected before they can focus, play, or learn.`,
-      scores: {
-        '1': 4, // Theoretical Accuracy
-        '2': 5, // Safety & Ethics
-        '3': 4, // Practical Application
-        '4': 5, // Assessment & Observation
-        '5': 4, // Communication & Collaboration
-        '6': 4, // Professional Development
-      },
-      overallScore: 4.3,
-      feedback: 'Good response that effectively translates complex theoretical concepts into practical classroom language while maintaining the scientific foundation.',
-      evaluatedAt: new Date('2024-01-23T12:15:00'),
-      evaluator: 'LLM-as-a-Judge',
-      modelName: 'Claude-3',
-      criteriaVersion: 'v2.1'
+      overallScore: 3.5,
+      feedback: 'Example feedback - replace with real evaluation feedback',
+      evaluatedAt: new Date(),
+      evaluator: 'Example Evaluator',
+      modelName: 'Example Model',
+      criteriaVersion: 'v1.0'
     }
   ], []);
 

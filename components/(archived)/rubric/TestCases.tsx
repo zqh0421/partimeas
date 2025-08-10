@@ -64,28 +64,18 @@ export default function TestCases({ rubricData, setRubricData }: TestCasesProps)
     });
   };
 
+  // Example test cases - replace with real data from your configuration
   const exampleTestCases = [
     {
-      name: "Code Review - Simple Function",
-      input: "function add(a, b) { return a + b; }",
-      category: "Code Review",
-      context: "Basic function implementation"
-    },
-    {
-      name: "Essay - Thesis Statement",
-      input: "Climate change is a pressing global issue that requires immediate action from governments and individuals alike.",
-      category: "Essay Evaluation",
-      context: "Clear thesis with scope and stance"
-    },
-    {
-      name: "Business Analysis - Market Research",
-      input: "Our analysis shows that the target market for our new product is growing at 15% annually, with high demand in urban areas.",
-      category: "Business Analysis",
-      context: "Data-driven analysis with clear conclusions"
+      name: "Example Test Case",
+      input: "Enter your test input here",
+      category: "General",
+      context: "Describe the context and expected output"
     }
   ];
 
-  const categories = ['General', 'Code Review', 'Essay Evaluation', 'Business Analysis', 'Technical Writing', 'Creative Writing'];
+  // Categories - replace with real categories from your configuration
+  const categories = ['General'];
 
   return (
     <div className="space-y-6">
