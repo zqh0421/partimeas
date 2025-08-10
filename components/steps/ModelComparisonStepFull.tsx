@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { RubricOutcomeWithModelComparison } from '@/types';
 import { CloseIcon, ChartBarIcon, RestartIcon } from '@/components/icons';
+import { MODEL_COLORS, themeUtils } from '@/utils/theme';
+import ModelEvaluationCard from '@/components/evaluation/ModelEvaluationCard';
+import EvaluationSummary from '@/components/evaluation/EvaluationSummary';
+import RubricDisplay from '@/components/evaluation/RubricDisplay';
 
 // Helper function to safely calculate average score from rubric scores
 const calculateSafeAverageScore = (rubricScores: any): number => {
@@ -11,102 +15,109 @@ const calculateSafeAverageScore = (rubricScores: any): number => {
   return scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
 };
 
-// Helper function to get consistent model display info
+// Helper function to get consistent model display info using new theme system
 const getModelDisplayInfo = (modelId: string, modelName: string) => {
-  // Define consistent color scheme and display names for models
+  // Enhanced model display mapping with theme system integration
   const modelDisplayMap: { [key: string]: { color: string, displayName: string, shortName: string } } = {
+    // Claude models - using purple theme
     'claude-4-sonnet': { 
-      color: 'bg-purple-500', 
+      color: MODEL_COLORS.claude.background, 
       displayName: 'Claude 4 Sonnet', 
       shortName: 'Claude-4'
     },
     'claude-3-sonnet': { 
-      color: 'bg-purple-400', 
+      color: 'bg-models-claude-400', 
       displayName: 'Claude 3 Sonnet', 
       shortName: 'Claude-3'
     },
     'claude-3-opus': { 
-      color: 'bg-purple-600', 
+      color: 'bg-models-claude-600', 
       displayName: 'Claude 3 Opus', 
       shortName: 'Claude-3-Opus'
     },
+    
+    // GPT models - using green theme
     'gpt-4o': { 
-      color: 'bg-green-500', 
+      color: MODEL_COLORS.gpt.background, 
       displayName: 'GPT-4o', 
       shortName: 'GPT-4o'
     },
     'gpt-4o-mini': { 
-      color: 'bg-green-400', 
+      color: 'bg-models-gpt-400', 
       displayName: 'GPT-4o Mini', 
       shortName: 'GPT-4o-mini'
     },
     'gpt-4': { 
-      color: 'bg-blue-500', 
+      color: 'bg-models-gpt-600', 
       displayName: 'GPT-4', 
       shortName: 'GPT-4'
     },
     'gpt-4.1': { 
-      color: 'bg-blue-600', 
+      color: 'bg-models-gpt-700', 
       displayName: 'GPT-4.1', 
       shortName: 'GPT-4.1'
     },
     'gpt-4.5': { 
-      color: 'bg-blue-700', 
+      color: 'bg-models-gpt-800', 
       displayName: 'GPT-4.5', 
       shortName: 'GPT-4.5'
     },
     'gpt-4.1-mini': { 
-      color: 'bg-blue-300', 
+      color: 'bg-models-gpt-300', 
       displayName: 'GPT-4.1 Mini', 
       shortName: 'GPT-4.1-mini'
     },
     'gpt-5': { 
-      color: 'bg-emerald-600', 
+      color: 'bg-models-gpt-600', 
       displayName: 'GPT-5', 
       shortName: 'GPT-5'
     },
     'gpt-5-mini': { 
-      color: 'bg-emerald-400', 
+      color: 'bg-models-gpt-400', 
       displayName: 'GPT-5 Mini', 
       shortName: 'GPT-5-mini'
     },
     'gpt-3.5-turbo': { 
-      color: 'bg-blue-400', 
+      color: 'bg-models-gpt-300', 
       displayName: 'GPT-3.5 Turbo', 
       shortName: 'GPT-3.5'
     },
+    
+    // OpenAI o-series models - using orange theme
     'o1': { 
-      color: 'bg-orange-500', 
+      color: MODEL_COLORS.o1.background, 
       displayName: 'OpenAI o1', 
       shortName: 'o1'
     },
     'o1-mini': { 
-      color: 'bg-orange-400', 
+      color: 'bg-models-o1-400', 
       displayName: 'OpenAI o1-mini', 
       shortName: 'o1-mini'
     },
     'o3-mini': { 
-      color: 'bg-orange-600', 
+      color: 'bg-models-o1-600', 
       displayName: 'OpenAI o3-mini', 
       shortName: 'o3-mini'
     },
     'o3-pro': { 
-      color: 'bg-orange-700', 
+      color: 'bg-models-o1-700', 
       displayName: 'OpenAI o3-pro', 
       shortName: 'o3-pro'
     },
     'o4': { 
-      color: 'bg-amber-600', 
+      color: 'bg-models-o1-600', 
       displayName: 'OpenAI o4', 
       shortName: 'o4'
     },
     'o4-mini': { 
-      color: 'bg-amber-400', 
+      color: 'bg-models-o1-400', 
       displayName: 'OpenAI o4-mini', 
       shortName: 'o4-mini'
     },
+    
+    // Other models
     'gemini-pro': { 
-      color: 'bg-red-500', 
+      color: 'bg-error-500', 
       displayName: 'Gemini Pro', 
       shortName: 'Gemini'
     }
@@ -231,6 +242,7 @@ export default function ModelComparisonStep({
 }: ModelComparisonStepProps) {
   const [showComparisonTool, setShowComparisonTool] = useState(true);
   const [expandedOutputs, setExpandedOutputs] = useState<Set<string>>(new Set());
+  const [showRubricDetails, setShowRubricDetails] = useState(false);
 
   // Helper function to toggle output expansion
   const toggleOutputExpansion = (modelId: string) => {
@@ -348,11 +360,56 @@ export default function ModelComparisonStep({
           </div>
       </div>
 
-      {/* Model Outputs Comparison - Simplified */}
-      <div className="bg-white border rounded-lg p-4">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
-        {testCase.modelOutputs.length} Possible Responses
-        </h3>
+      {/* Evaluation Summary */}
+      {testCase.modelOutputs.length > 1 && (
+        <div className="mb-6">
+          <EvaluationSummary 
+            modelOutputs={testCase.modelOutputs}
+            showDetailedBreakdown={true}
+          />
+        </div>
+      )}
+
+      {/* Rubric Structure Display */}
+      <div className="mb-6">
+        <div className="bg-white border rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <span className="mr-2">📋</span>
+              Evaluation Rubric Structure
+            </h3>
+            <button
+              onClick={() => setShowRubricDetails(!showRubricDetails)}
+              className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+            >
+              {showRubricDetails ? 'Hide Rubric Details' : 'Show Rubric Details'}
+            </button>
+          </div>
+          <div className="text-sm text-gray-600 mb-4">
+            This multi-level rubric structure defines how each model response is evaluated across different criteria and sub-criteria.
+          </div>
+          {showRubricDetails && (
+            <RubricDisplay 
+              showExamples={true}
+              expandedByDefault={false}
+              highlightedScores={{}}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Model Outputs with Enhanced Evaluation */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold text-gray-900">
+            {testCase.modelOutputs.length} Possible Responses with Evaluation
+          </h3>
+          {testCase.modelOutputs.length > 1 && (
+            <div className="text-sm text-gray-600">
+              Showing detailed evaluation for each model response
+            </div>
+          )}
+        </div>
 
         {/* Grouped Content Display */}
         {testCase.modelOutputs.length > 1 && (
@@ -364,94 +421,14 @@ export default function ModelComparisonStep({
             No model outputs available for comparison.
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {testCase.modelOutputs.map((modelOutput, index) => {
-              const modelInfo = getModelDisplayInfo(modelOutput.modelId, modelOutput.modelName);
-              return (
-              <div key={modelOutput.modelId} className="border rounded-lg p-4 bg-white">
-                {/* Model Header - Simplified */}
-                <div className="flex items-center justify-between mb-3 pb-2 border-b">
-                  <div className="flex items-center space-x-2">
-                    <div className={`w-2 h-2 rounded-full ${modelInfo.color}`}></div>
-                    <h4 className="font-medium text-gray-900">
-                      {modelInfo.displayName}
-                    </h4>
-                  </div>
-                </div>
-
-                {/* Rubric Scores - Simplified */}
-                <div className="mb-4">
-                  <h5 className="text-sm font-medium text-gray-700 mb-2">Scores</h5>
-                  {modelOutput.rubricScores && Object.keys(modelOutput.rubricScores).length > 0 ? (
-                    <div className="space-y-1">
-                      {Object.entries(modelOutput.rubricScores).map(([criteria, score]) => (
-                        <div key={criteria} className="flex justify-between items-center py-1">
-                          <span className="text-sm text-gray-600 capitalize">{criteria}</span>
-                          <span className="text-sm font-medium">{score}/5</span>
-                        </div>
-                      ))}
-                      {testCase.modelOutputs.length > 1 && (
-                        <div className="pt-1 mt-2 border-t border-gray-200">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-700">Average</span>
-                            <span className="text-sm font-bold text-blue-600">
-                              {calculateSafeAverageScore(modelOutput.rubricScores).toFixed(1)}/5
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-400">No scores available</div>
-                  )}
-                </div>
-
-                {/* Feedback - Simplified */}
-                <div className="mb-4">
-                  <h5 className="text-sm font-medium text-gray-700 mb-2">Feedback</h5>
-                  <div className="text-sm text-gray-600 leading-relaxed">
-                    {modelOutput.feedback || 'No feedback available'}
-                  </div>
-                </div>
-
-                {/* Suggestions - Simplified */}
-                <div className="mb-4">
-                  <h5 className="text-sm font-medium text-gray-700 mb-2">Suggestions</h5>
-                  {modelOutput.suggestions && modelOutput.suggestions.length > 0 ? (
-                    <ul className="space-y-1">
-                      {modelOutput.suggestions.map((suggestion, suggestionIndex) => (
-                        <li key={suggestionIndex} className="text-sm text-gray-600">
-                          • {suggestion}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="text-sm text-gray-400">No suggestions available</div>
-                  )}
-                </div>
-
-                {/* Output Display - Simplified */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h5 className="text-sm font-medium text-gray-700">Full Output</h5>
-                    <button
-                      onClick={() => toggleOutputExpansion(modelOutput.modelId)}
-                      className="text-xs text-blue-600 hover:text-blue-800"
-                    >
-                      {expandedOutputs.has(modelOutput.modelId) ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                  
-                  {expandedOutputs.has(modelOutput.modelId) && modelOutput.output && (
-                    <div className="bg-gray-50 border rounded p-3 max-h-80 overflow-y-auto">
-                      <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-                        {modelOutput.output}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>);
-            })}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {testCase.modelOutputs.map((modelOutput) => (
+              <ModelEvaluationCard 
+                key={modelOutput.modelId}
+                modelOutput={modelOutput}
+                showDetailedRubric={true}
+              />
+            ))}
           </div>
         )}
       </div>

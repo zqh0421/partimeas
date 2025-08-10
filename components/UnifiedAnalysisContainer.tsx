@@ -54,7 +54,6 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
   const [analysisStep, setAnalysisStep] = useState<'setup' | 'running' | 'complete'>('setup');
   const [hasStartedEvaluation, setHasStartedEvaluation] = useState(false);
   const [isStep1Collapsed, setIsStep1Collapsed] = useState(false);
-  const [localTestCasesWithModelOutputs, setLocalTestCasesWithModelOutputs] = useState<TestCaseWithModelOutputs[]>([]);
   const [isGeneratingOutputs, setIsGeneratingOutputs] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'generating' | 'evaluating' | 'complete'>('generating');
 
@@ -161,9 +160,6 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
         }
       }
       
-      console.log('📋 Created testCasesWithModelOutputs:', processedTestCases);
-      
-      setLocalTestCasesWithModelOutputs(processedTestCases);
       setCurrentPhase('evaluating');
       
       // Now start the evaluation phase with the generated outputs
@@ -258,7 +254,6 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
         <AnalysisStep
           testCases={props.testCases}
           testCasesWithModelOutputs={props.testCasesWithModelOutputs}
-          localTestCasesWithModelOutputs={localTestCasesWithModelOutputs}
           selectedTestCaseIndex={props.selectedTestCaseIndex}
           selectedSystemPrompt={props.selectedSystemPrompt}
           analysisStep={analysisStep}
@@ -284,7 +279,7 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
         <div className="flex justify-center">
           <button
             onClick={props.onRestart}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
+            className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-slate-700 font-medium"
           >
             <RefreshIcon className="w-5 h-5" />
             Start Over

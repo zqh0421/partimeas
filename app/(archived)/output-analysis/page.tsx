@@ -58,26 +58,30 @@ export default function OutputAnalysisPage() {
     setValidationError,
   } = useAnalysisState('general_analysis'); // Use the sectioned version
 
-  const handlers = useAnalysisHandlers(
-    setTestCases,
-    setTestCasesWithModelOutputs,
-    setCriteria,
-    setOutcomes,
-    setOutcomesWithModelComparison,
-    setIsLoading,
-    setCurrentStep,
-    setSelectedUseCaseId,
-    setSelectedScenarioCategory,
-    setSelectedCriteriaId,
-    setValidationError,
-    setShouldStartEvaluation,
-    setSelectedTestCaseIndex,
-    setCurrentTestCaseIndex,
-    setEvaluationProgress,
-    testCases,
-    testCasesWithModelOutputs,
-    updateSystemPromptForUseCase
-  );
+  const handlers = useAnalysisHandlers({
+    stateSetters: {
+      setTestCases,
+      setTestCasesWithModelOutputs,
+      setCriteria,
+      setOutcomes,
+      setOutcomesWithModelComparison,
+      setIsLoading,
+      setCurrentStep,
+      setSelectedUseCaseId,
+      setSelectedScenarioCategory,
+      setSelectedCriteriaId,
+      setValidationError,
+      setShouldStartEvaluation,
+      setSelectedTestCaseIndex,
+      setCurrentTestCaseIndex,
+      setEvaluationProgress
+    },
+    data: {
+      testCases,
+      testCasesWithModelOutputs,
+      updateSystemPromptForUseCase
+    }
+  });
 
   // Ensure we navigate to outcomes once results are available
   useEffect(() => {

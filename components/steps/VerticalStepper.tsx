@@ -2,6 +2,7 @@
 
 import { ReactNode, createContext, useContext, useState, useEffect } from 'react';
 import { CheckIcon } from '@/components/icons';
+import { STEP_COLORS, ANIMATIONS, themeUtils } from '@/utils/theme';
 
 // Type definitions
 interface LoadingContextType {
@@ -23,22 +24,29 @@ interface Step {
   isLoading?: boolean;
 }
 
-// Style constants
+// Style constants using new theme system
 const STEP_STYLES = {
   upcoming: {
-    circle: 'bg-gray-200 text-gray-600',
-    title: 'text-gray-500',
-    description: 'text-gray-500'
+    circle: STEP_COLORS.pending.circle,
+    title: STEP_COLORS.pending.text,
+    description: STEP_COLORS.pending.text,
+    background: STEP_COLORS.pending.background,
+    border: STEP_COLORS.pending.border,
   },
   current: {
-    circle: 'bg-blue-600 text-white',
-    title: 'text-blue-900',
-    description: 'text-blue-700'
+    circle: STEP_COLORS.current.circle,
+    title: STEP_COLORS.current.text,
+    description: STEP_COLORS.current.textSecondary,
+    background: STEP_COLORS.current.background,
+    border: STEP_COLORS.current.border,
+    ring: STEP_COLORS.current.ring,
   },
   completed: {
-    circle: 'bg-green-600 text-white',
-    title: 'text-green-900',
-    description: 'text-green-700'
+    circle: STEP_COLORS.completed.circle,
+    title: STEP_COLORS.completed.text,
+    description: STEP_COLORS.completed.textSecondary,
+    background: STEP_COLORS.completed.background,
+    border: STEP_COLORS.completed.border,
   }
 } as const;
 
@@ -60,13 +68,20 @@ const StepIndicator = ({ step, index, shouldShowLoading }: {
       <div className="relative">
         {/* Loading spinner */}
         {shouldShowLoading && step.status === 'current' && (
-          <div className="absolute -inset-1 w-10 h-10">
-            <div className="w-full h-full border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+          <div className="absolute -inset-2 w-12 h-12 flex items-center justify-center">
+            <div className={themeUtils.cn(
+              "w-full h-full border-2 rounded-full animate-spin",
+              "border-blue-200 border-t-blue-600"
+            )}></div>
           </div>
         )}
         
         {/* Step circle */}
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium relative ${styles.circle}`}>
+        <div className={themeUtils.cn(
+          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium relative",
+          ANIMATIONS.transition,
+          styles.circle
+        )}>
           {step.status === 'completed' ? (
             <CheckIcon className="w-5 h-5" />
           ) : (
@@ -83,11 +98,19 @@ const StepHeader = ({step}: {step: Step}) => {
   
   return (
     <div className="mb-2">
-      <h3 className={`text-lg font-medium ${styles.title}`}>
+      <h3 className={themeUtils.cn(
+        "text-lg font-medium",
+        ANIMATIONS.transition,
+        styles.title
+      )}>
         {step.title}
       </h3>
       {step.description && (
-        <p className={`text-sm ${styles.description}`}>
+        <p className={themeUtils.cn(
+          "text-sm mt-1",
+          ANIMATIONS.transition,
+          styles.description
+        )}>
           {step.description}
         </p>
       )}
@@ -164,12 +187,16 @@ export default function VerticalStepper({ steps, className = '' }: { steps: Step
         {steps.map((step, index) => {
           const isLast = index === steps.length - 1;
           const shouldShowLoading = step.isLoading || (step.status === 'current' && loadingContext.isStepLoading(step.id));
+          const styles = getStepStyles(step.status);
         
           return (
             <div key={step.id} className="relative">
               {/* Connector line */}
               {!isLast && (
-                <div className="absolute left-4 top-10 w-0.5 h-[calc(100%-1.5rem)] bg-gray-200" />
+                <div className={themeUtils.cn(
+                  "absolute left-[15px] top-10 w-0.5 h-[calc(100%-1rem)]",
+                  'connector' in styles ? (styles as any).connector : "bg-slate-200/50"
+                )} />
               )}
               
               <div className="flex items-start space-x-4">
@@ -184,7 +211,12 @@ export default function VerticalStepper({ steps, className = '' }: { steps: Step
                   
                   {/* Step content */}
                   {(step.status === 'current' || (step.status === 'completed' && !step.isCollapsed)) && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <div className={themeUtils.cn(
+                      "rounded-lg p-6 border shadow-sm",
+                      ANIMATIONS.slideUp,
+                      styles.background || "bg-white border-neutral-200",
+                      step.status === 'current' && 'ring' in styles ? `ring-1 ${styles.ring}` : ""
+                    )}>
                       <StepContent stepId={step.id}>
                         {step.content}
                       </StepContent>

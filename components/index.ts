@@ -7,7 +7,6 @@ export { default as UseCaseSelectorFull } from './UseCaseSelectorFull';
 export { default as MultiLevelSelector } from './MultiLevelSelector';
 
 // Step 2: Test
-export { default as TestCaseContext } from './TestCaseContext';
 export { default as TestCaseNavigation } from './TestCaseNavigation';
 export { default as ModelOutputsGrid } from './ModelOutputsGrid';
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UseCaseSheetManager } from '@/utils/useCaseSheets';
-import { GoogleAuth } from 'google-auth-library';
+import { getGoogleAccessToken } from '@/utils/googleAuth';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -14,23 +14,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Initialize Google Auth with service account
-    const auth = new GoogleAuth({
-      keyFile: `./${process.env.GCP_KEY_FILE}`,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
-
-    const client = await auth.getClient();
-    const accessToken = await client.getAccessToken();
-
-    if (!accessToken.token) {
-      return NextResponse.json(
-        { error: 'Failed to get access token from service account' },
-        { status: 500 }
-      );
-    }
-
-    const manager = new UseCaseSheetManager(accessToken.token);
+    // Get authenticated access token
+    const accessToken = await getGoogleAccessToken();
+    const manager = new UseCaseSheetManager(accessToken);
     const criteria = await manager.loadCriteria(criteriaId);
 
     return NextResponse.json({

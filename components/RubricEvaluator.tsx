@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { 
+  RubricStructure, 
+  ComponentEvaluation, 
+  NewEvaluationResult,
+  RubricScoreRange 
+} from '../types/index';
 
+// Legacy interface - keeping for backward compatibility
 export interface RubricCriteria {
   id: string;
   name: string;
@@ -9,6 +16,7 @@ export interface RubricCriteria {
   weight: number;
 }
 
+// Legacy interface - keeping for backward compatibility  
 export interface EvaluationResult {
   testCaseId: string;
   scores: { [criteriaId: string]: number };
@@ -29,6 +37,10 @@ export interface RubricEvaluatorProps {
   onError: (error: string) => void;
   onProgress?: (currentIndex: number, progress: number) => void;
   shouldStart?: boolean;
+  // New props for structured rubric
+  rubricStructure?: RubricStructure;
+  onNewEvaluationComplete?: (results: NewEvaluationResult[]) => void;
+  useNewRubricFormat?: boolean;
 }
 
 // Default rubric criteria for evaluation
@@ -286,7 +298,7 @@ export default function RubricEvaluator({
     return (
       <div className="text-center py-8">
         <div className="mb-4">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-blue-600"></div>
         </div>
         <p className="text-gray-600 mb-2">
           Analyzing evaluation results...

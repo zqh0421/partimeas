@@ -71,7 +71,7 @@ export default function SetupStep({
                 className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                   selectedTestCaseIndex === index
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                 }`}
               >
                 {index + 1}
@@ -111,7 +111,7 @@ export default function SetupStep({
         <div className="flex justify-end">
           <button
             onClick={onConfirmSelections}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-slate-700 font-medium"
           >
             Confirm →
           </button>

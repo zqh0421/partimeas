@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { USE_CASE_SHEETS } from '@/utils/useCaseSheets';
-import { RefreshCycleIcon, ChevronDownIcon, ChevronRightIcon, CheckIcon } from '@/components/icons';
+import { ChevronDownIcon, ChevronRightIcon, CheckIcon } from '@/components/icons';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { TestCase } from '@/types';
 
 
@@ -293,9 +294,9 @@ export default function MultiLevelSelector({
                   title="Refresh test cases data"
                 >
                   {(isRefreshing || isLoadingSpreadsheet) ? (
-                    <div className="w-4 h-4 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
                   ) : (
-                    <RefreshCycleIcon className="w-4 h-4" />
+                    <ArrowPathIcon className="w-4 h-4" />
                   )}
                 </button>
               </div>
@@ -317,24 +318,12 @@ export default function MultiLevelSelector({
               {/* Dropdown Content */}
               {isOpen && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-80 overflow-y-auto">
-                  {/* Clear Button */}
-                  {selections.length > 0 && (
-                    <div className="p-2 border-b border-gray-200">
-                      <button
-                        onClick={clearSelections}
-                        className="text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        Clear all selections
-                      </button>
-                    </div>
-                  )}
-
                   {/* Use Cases List */}
                   <div className="p-2">
                     {isLoadingSpreadsheet ? (
                       <div className="flex items-center py-4 text-gray-500">
                         <div className="relative mr-2">
-                          <div className="w-4 h-4 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
                         </div>
                         Loading test cases...
                       </div>
@@ -357,6 +346,18 @@ export default function MultiLevelSelector({
                       ))
                     )}
                   </div>
+
+                  {/* Clear Button */}
+                  {selections.length > 0 && (
+                    <div className="p-2 border-t border-gray-200">
+                      <button
+                        onClick={clearSelections}
+                        className="text-sm text-blue-600 hover:text-blue-800"
+                      >
+                        Clear all selections
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

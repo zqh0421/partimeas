@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TestCaseWithModelOutputs, ModelOutput } from '@/types/types';
+import { TestCaseWithModelOutputs, ModelOutput } from '@/types';
 
 export interface ModelComparisonEvaluationResult {
   testCaseId: string;
@@ -127,7 +127,7 @@ export default function ModelComparisonEvaluator({
     return (
       <div className="text-center py-8">
         <div className="mb-4">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-blue-600"></div>
         </div>
         <p className="text-gray-600 mb-2">
           Processing model comparison results...

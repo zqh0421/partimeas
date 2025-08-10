@@ -2,18 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { UseCaseSheet, USE_CASE_SHEETS } from '@/utils/useCaseSheets';
-
-interface TestCase {
-  id: string;
-  input: string;
-  context: string;
-  modelName?: string;
-  timestamp?: string;
-  useCase?: string;
-  scenarioCategory?: string;
-  use_case_title?: string;
-  use_case_index?: string;
-}
+import { TestCase } from '@/types';
 
 interface UseCaseSelectorProps {
   onUseCaseSelected: (useCaseId: string) => void;
@@ -46,21 +35,17 @@ export default function UseCaseSelector({
   onUseCaseSelected,
   onScenarioCategorySelected,
   onDataLoaded,
-  onError,
-  testCases
+  onError
 }: UseCaseSelectorProps) {
   const [selectedUseCase, setSelectedUseCase] = useState<string>('');
   const [selectedScenarioCategory, setSelectedScenarioCategory] = useState<string>('');
-  const [selectedTestCases, setSelectedTestCases] = useState<TestCase[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [useCases, setUseCases] = useState<UseCaseSheet[]>([]);
   const [hierarchicalData, setHierarchicalData] = useState<HierarchicalData>({ useCases: {} });
-  const [isTestCasesSummaryOpen, setIsTestCasesSummaryOpen] = useState(false);
 
   const handleUseCaseSelect = useCallback(async (useCaseId: string) => {
     setSelectedUseCase(useCaseId);
     setSelectedScenarioCategory('');
-    setSelectedTestCases([]);
     setIsLoading(true);
 
     try {
@@ -180,26 +165,12 @@ export default function UseCaseSelector({
     const currentUseCase = hierarchicalData.useCases[selectedUseCase];
     if (currentUseCase && currentUseCase.scenarioCategories[categoryId]) {
       const testCases = currentUseCase.scenarioCategories[categoryId].testCases;
-      setSelectedTestCases(testCases);
       onDataLoaded(testCases);
     }
   }, [onScenarioCategorySelected, onDataLoaded, hierarchicalData, selectedUseCase]);
 
-  const handleTestCasesSelect = useCallback((testCaseIds: string[]) => {
-    const currentUseCase = hierarchicalData.useCases[selectedUseCase];
-    if (currentUseCase && selectedScenarioCategory) {
-      const allTestCases = currentUseCase.scenarioCategories[selectedScenarioCategory].testCases;
-      const selectedCases = allTestCases.filter(tc => testCaseIds.includes(tc.id));
-      setSelectedTestCases(selectedCases);
-      onDataLoaded(selectedCases);
-    }
-  }, [hierarchicalData, selectedUseCase, selectedScenarioCategory, onDataLoaded]);
-
   const currentUseCase = hierarchicalData.useCases[selectedUseCase];
   const scenarioCategories = currentUseCase ? Object.keys(currentUseCase.scenarioCategories) : [];
-  const currentScenarioCategory = currentUseCase && selectedScenarioCategory 
-    ? currentUseCase.scenarioCategories[selectedScenarioCategory] 
-    : null;
 
   // Helper function to get display text for use case
   const getUseCaseDisplayText = (useCase: any, useCaseId: string) => {
@@ -281,7 +252,7 @@ export default function UseCaseSelector({
           {isLoading && (
             <div className="flex items-center justify-center py-4 text-gray-600 mt-4">
               <div className="relative mr-2">
-                <div className="w-5 h-5 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
               </div>
               <span className="text-sm">Loading data...</span>
             </div>

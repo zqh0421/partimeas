@@ -125,10 +125,31 @@ export const RefreshCycleIcon: React.FC<IconProps> = ({
     aria-hidden="true"
     {...props}
   >
-    <path d="M4 12a8 8 0 018-8c2.2 0 4.2.9 5.7 2.3" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M20 4v6h-6" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M20 12a8 8 0 01-8 8c-2.2 0-4.2-.9-5.7-2.3" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M4 20v-6h6" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    {/* Upper arc - right side */}
+    <path 
+      d="M 16 7 A 5 5 0 0 1 17 12" 
+      strokeWidth={strokeWidth} 
+      strokeLinecap="round"
+    />
+    <path 
+      d="M 14 5 L 16 7 L 14 9" 
+      strokeWidth={strokeWidth} 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    
+    {/* Lower arc - left side */}
+    <path 
+      d="M 8 17 A 5 5 0 0 1 7 12" 
+      strokeWidth={strokeWidth} 
+      strokeLinecap="round"
+    />
+    <path 
+      d="M 10 19 L 8 17 L 10 15" 
+      strokeWidth={strokeWidth} 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
@@ -188,7 +209,7 @@ export const LoadingSpinner: React.FC<IconProps> = ({
   className = "w-6 h-6", 
   ...props 
 }) => (
-  <div className={`border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin ${className}`} {...props} />
+  <div className={`border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin ${className}`} {...props} />
 );
 
 export const InfoIcon: React.FC<IconProps> = ({ 

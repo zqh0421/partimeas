@@ -1,56 +1,105 @@
+import { useCallback } from 'react';
 import { EvaluationResult } from '@/components/RubricEvaluator';
-import { TestCase, RubricOutcome, Criteria, TestCaseWithModelOutputs, RubricOutcomeWithModelComparison, ModelOutput } from '@/types/types';
+import { TestCase, RubricOutcome, CriteriaData, TestCaseWithModelOutputs, RubricOutcomeWithModelComparison, ModelOutput } from '@/types';
 
-export function useAnalysisHandlers(
-  setTestCases: (testCases: TestCase[]) => void,
-  setTestCasesWithModelOutputs: (testCases: TestCaseWithModelOutputs[]) => void,
-  setCriteria: (criteria: Criteria[]) => void,
-  setOutcomes: (outcomes: RubricOutcome[]) => void,
-  setOutcomesWithModelComparison: (outcomes: RubricOutcomeWithModelComparison[]) => void,
-  setIsLoading: (loading: boolean) => void,
-  setCurrentStep: (step: 'sync' | 'run' | 'outcomes') => void,
-  setSelectedUseCaseId: (id: string) => void,
-  setSelectedScenarioCategory: (category: string) => void,
-  setSelectedCriteriaId: (id: string) => void,
-  setValidationError: (error: string) => void,
-  setShouldStartEvaluation: (start: boolean) => void,
-  setSelectedTestCaseIndex: (index: number) => void,
-  setCurrentTestCaseIndex: (index: number) => void,
-  setEvaluationProgress: (progress: number) => void,
-  testCases: TestCase[],
-  testCasesWithModelOutputs: TestCaseWithModelOutputs[],
-  updateSystemPromptForUseCase?: (testCases: TestCase[]) => void
-) {
-  const handleEvaluationComplete = (results: EvaluationResult[]) => {
-    const processedOutcomes: RubricOutcome[] = results.map(result => ({
-      testCaseId: result.testCaseId,
-      testCase: {
-        id: result.testCaseId,
-        input: testCases.find(tc => tc.id === result.testCaseId)?.input || '',
-        context: testCases.find(tc => tc.id === result.testCaseId)?.context || '',
-        rubricScores: result.scores,
-        feedback: result.feedback,
-        suggestions: result.testCaseSpecificSuggestions
-      },
-      rubricEffectiveness: result.rubricEffectiveness,
-      refinementSuggestions: result.refinementSuggestions
-    }));
-    
-    setOutcomes(processedOutcomes);
+// Types for better organization and type safety
+interface StateSetters {
+  setTestCases: (testCases: TestCase[]) => void;
+  setTestCasesWithModelOutputs: (testCases: TestCaseWithModelOutputs[]) => void;
+  setCriteria: (criteria: CriteriaData[]) => void;
+  setOutcomes: (outcomes: RubricOutcome[]) => void;
+  setOutcomesWithModelComparison: (outcomes: RubricOutcomeWithModelComparison[]) => void;
+  setIsLoading: (loading: boolean) => void;
+  setCurrentStep: (step: 'sync' | 'run' | 'outcomes') => void;
+  setSelectedUseCaseId: (id: string) => void;
+  setSelectedScenarioCategory: (category: string) => void;
+  setSelectedCriteriaId: (id: string) => void;
+  setValidationError: (error: string) => void;
+  setShouldStartEvaluation: (start: boolean) => void;
+  setSelectedTestCaseIndex: (index: number) => void;
+  setCurrentTestCaseIndex: (index: number) => void;
+  setEvaluationProgress: (progress: number) => void;
+}
+
+interface AnalysisData {
+  testCases: TestCase[];
+  testCasesWithModelOutputs: TestCaseWithModelOutputs[];
+  updateSystemPromptForUseCase?: (testCases: TestCase[]) => void;
+}
+
+interface UseAnalysisHandlersParams {
+  stateSetters: StateSetters;
+  data: AnalysisData;
+}
+
+export function useAnalysisHandlers({
+  stateSetters,
+  data
+}: UseAnalysisHandlersParams) {
+  const { testCases, testCasesWithModelOutputs, updateSystemPromptForUseCase } = data;
+  const {
+    setTestCases,
+    setTestCasesWithModelOutputs,
+    setCriteria,
+    setOutcomes,
+    setOutcomesWithModelComparison,
+    setIsLoading,
+    setCurrentStep,
+    setSelectedUseCaseId,
+    setSelectedScenarioCategory,
+    setSelectedCriteriaId,
+    setValidationError,
+    setShouldStartEvaluation,
+    setSelectedTestCaseIndex,
+    setCurrentTestCaseIndex,
+    setEvaluationProgress
+  } = stateSetters;
+
+  // Utility functions for common patterns
+  const findTestCaseById = useCallback((id: string) => 
+    testCases.find(tc => tc.id === id), [testCases]);
+
+  const clearValidationError = useCallback(() => 
+    setValidationError(''), [setValidationError]);
+
+  const finishEvaluation = useCallback(() => {
     setIsLoading(false);
     setShouldStartEvaluation(false);
     setCurrentStep('outcomes');
-  };
+  }, [setIsLoading, setShouldStartEvaluation, setCurrentStep]);
 
-  const handleModelComparisonEvaluationComplete = (results: Array<{
+  // Memoized evaluation handlers
+  const handleEvaluationComplete = useCallback((results: EvaluationResult[]) => {
+    const processedOutcomes: RubricOutcome[] = results.map(result => {
+      const testCase = findTestCaseById(result.testCaseId);
+      return {
+        testCaseId: result.testCaseId,
+        testCase: {
+          id: result.testCaseId,
+          input: testCase?.input || '',
+          context: testCase?.context || '',
+          rubricScores: result.scores,
+          feedback: result.feedback,
+          suggestions: result.testCaseSpecificSuggestions
+        },
+        rubricEffectiveness: result.rubricEffectiveness,
+        refinementSuggestions: result.refinementSuggestions
+      };
+    });
+    
+    setOutcomes(processedOutcomes);
+    finishEvaluation();
+  }, [findTestCaseById, setOutcomes, finishEvaluation]);
+
+  const handleModelComparisonEvaluationComplete = useCallback((results: Array<{
     testCaseId: string;
     modelOutputs: ModelOutput[];
     rubricEffectiveness: 'high' | 'medium' | 'low';
     refinementSuggestions: string[];
   }>) => {
-    // First, update testCasesWithModelOutputs with the model outputs
+    // Create updated test cases with model outputs
     const updatedTestCasesWithModelOutputs: TestCaseWithModelOutputs[] = results.map(result => {
-      const originalTestCase = testCases.find(tc => tc.id === result.testCaseId);
+      const originalTestCase = findTestCaseById(result.testCaseId);
       return {
         id: result.testCaseId,
         input: originalTestCase?.input || '',
@@ -64,27 +113,27 @@ export function useAnalysisHandlers(
     console.log('📊 Updating testCasesWithModelOutputs:', updatedTestCasesWithModelOutputs);
     setTestCasesWithModelOutputs(updatedTestCasesWithModelOutputs);
     
-    // Then create the outcomes
-    const processedOutcomes: RubricOutcomeWithModelComparison[] = results.map(result => ({
-      testCaseId: result.testCaseId,
-      testCase: {
-        id: result.testCaseId,
-        input: testCases.find(tc => tc.id === result.testCaseId)?.input || '',
-        context: testCases.find(tc => tc.id === result.testCaseId)?.context || '',
-        modelOutputs: result.modelOutputs
-      },
-      rubricEffectiveness: result.rubricEffectiveness,
-      refinementSuggestions: result.refinementSuggestions
-    }));
+    // Create the outcomes with model comparison
+    const processedOutcomes: RubricOutcomeWithModelComparison[] = results.map(result => {
+      const testCase = findTestCaseById(result.testCaseId);
+      return {
+        testCaseId: result.testCaseId,
+        testCase: {
+          id: result.testCaseId,
+          input: testCase?.input || '',
+          context: testCase?.context || '',
+          modelOutputs: result.modelOutputs
+        },
+        rubricEffectiveness: result.rubricEffectiveness,
+        refinementSuggestions: result.refinementSuggestions
+      };
+    });
     
     setOutcomesWithModelComparison(processedOutcomes);
-    setIsLoading(false);
-    setShouldStartEvaluation(false);
-    setCurrentStep('outcomes');
-  };
+    finishEvaluation();
+  }, [findTestCaseById, setTestCasesWithModelOutputs, setOutcomesWithModelComparison, finishEvaluation]);
 
-  const handleEvaluationProgress = (currentIndex: number, progress: number) => {
-    // Progress is now based on individual LLM responses, not just test cases
+  const handleEvaluationProgress = useCallback((currentIndex: number, progress: number) => {
     // Calculate model count dynamically from actual data
     const modelCount = testCasesWithModelOutputs.length > 0 
       ? testCasesWithModelOutputs[0].modelOutputs?.length || 0 
@@ -97,176 +146,202 @@ export function useAnalysisHandlers(
     
     setCurrentTestCaseIndex(currentIndex);
     setEvaluationProgress(progress);
-  };
+  }, [testCasesWithModelOutputs, setCurrentTestCaseIndex, setEvaluationProgress]);
 
-  const handleEvaluationError = (error: string) => {
+  const handleEvaluationError = useCallback((error: string) => {
     alert(`Evaluation failed: ${error}`);
     setIsLoading(false);
-  };
+  }, [setIsLoading]);
 
-  const handleUseCaseSelected = (useCaseId: string) => {
-    setSelectedUseCaseId(useCaseId);
-    setSelectedScenarioCategory(''); // Reset scenario category when use case changes
-    setValidationError(''); // Clear any previous validation errors
-    console.log('Use case selected:', useCaseId);
-  };
+  // Selection handlers group
+  const selectionHandlers = {
+    handleUseCaseSelected: useCallback((useCaseId: string) => {
+      setSelectedUseCaseId(useCaseId);
+      setSelectedScenarioCategory(''); // Reset scenario category when use case changes
+      clearValidationError();
+      console.log('Use case selected:', useCaseId);
+    }, [setSelectedUseCaseId, setSelectedScenarioCategory, clearValidationError]),
 
-  const handleScenarioCategorySelected = (categoryId: string) => {
-    setSelectedScenarioCategory(categoryId);
-    setValidationError(''); // Clear any previous validation errors
-    console.log('Scenario category selected:', categoryId);
-  };
+    handleScenarioCategorySelected: useCallback((categoryId: string) => {
+      setSelectedScenarioCategory(categoryId);
+      clearValidationError();
+      console.log('Scenario category selected:', categoryId);
+    }, [setSelectedScenarioCategory, clearValidationError]),
 
-  // New handler for multi-level multi-select functionality
-  const handleMultiLevelSelectionChange = (selections: Array<{
-    useCaseId: string;
-    scenarioCategoryIds: string[];
-  }>) => {
-    setValidationError(''); // Clear any previous validation errors
-    console.log('Multi-level selections changed:', selections);
-    
-    // For backward compatibility, set the first selection as primary
-    if (selections.length > 0) {
-      const firstSelection = selections[0];
-      setSelectedUseCaseId(firstSelection.useCaseId);
-      if (firstSelection.scenarioCategoryIds.length > 0) {
-        setSelectedScenarioCategory(firstSelection.scenarioCategoryIds[0]);
+    handleMultiLevelSelectionChange: useCallback((selections: Array<{
+      useCaseId: string;
+      scenarioCategoryIds: string[];
+    }>) => {
+      clearValidationError();
+      console.log('Multi-level selections changed:', selections);
+      
+      // For backward compatibility, set the first selection as primary
+      if (selections.length > 0) {
+        const firstSelection = selections[0];
+        setSelectedUseCaseId(firstSelection.useCaseId);
+        if (firstSelection.scenarioCategoryIds.length > 0) {
+          setSelectedScenarioCategory(firstSelection.scenarioCategoryIds[0]);
+        }
+      } else {
+        setSelectedUseCaseId('');
+        setSelectedScenarioCategory('');
       }
-    } else {
+    }, [setSelectedUseCaseId, setSelectedScenarioCategory, clearValidationError]),
+
+    handleCriteriaSelected: useCallback((criteriaId: string) => {
+      setSelectedCriteriaId(criteriaId);
+      clearValidationError();
+      console.log('Criteria selected:', criteriaId);
+    }, [setSelectedCriteriaId, clearValidationError]),
+
+    handleTestCaseSelect: useCallback((index: number) => {
+      setSelectedTestCaseIndex(index);
+    }, [setSelectedTestCaseIndex])
+  };
+
+  // Data loading handlers group
+  const dataHandlers = {
+    handleUseCaseDataLoaded: useCallback((useCaseTestCases: Array<{
+      id: string;
+      input: string;
+      context: string;
+      modelName?: string;
+      timestamp?: string;
+      use_case_title?: string;
+      use_case_index?: string;
+      useCase?: string;
+      scenarioCategory?: string;
+    }>) => {
+      // Convert use case data to internal format
+      const processedTestCases: TestCase[] = useCaseTestCases.map(testCase => ({
+        id: testCase.id,
+        input: testCase.input,
+        context: testCase.context,
+        rubricScores: {}, // Will be filled by evaluation
+        feedback: '', // Will be filled by evaluation
+        suggestions: [], // Will be filled by evaluation
+        useCase: testCase.useCase,
+        scenarioCategory: testCase.scenarioCategory,
+        use_case_title: testCase.use_case_title,
+        use_case_index: testCase.use_case_index
+      }));
+      
+      // Also create test cases with model outputs for comparison
+      const processedTestCasesWithModelOutputs: TestCaseWithModelOutputs[] = useCaseTestCases.map(testCase => ({
+        id: testCase.id,
+        input: testCase.input,
+        context: testCase.context,
+        modelOutputs: [], // Will be filled by model comparison evaluation
+        useCase: testCase.useCase,
+        scenarioCategory: testCase.scenarioCategory,
+        use_case_title: testCase.use_case_title,
+        use_case_index: testCase.use_case_index
+      }));
+      
+      setTestCases(processedTestCases);
+      setTestCasesWithModelOutputs(processedTestCasesWithModelOutputs);
+      console.log('Test cases loaded:', processedTestCases.length);
+      
+      // Update system prompt based on loaded test cases (if function provided)
+      if (updateSystemPromptForUseCase) {
+        updateSystemPromptForUseCase(processedTestCases);
+      }
+    }, [setTestCases, setTestCasesWithModelOutputs, updateSystemPromptForUseCase]),
+
+    handleCriteriaLoaded: useCallback((loadedCriteria: CriteriaData[]) => {
+      setCriteria(loadedCriteria);
+      console.log('Criteria loaded:', loadedCriteria.length);
+    }, [setCriteria])
+  };
+
+  // Error handlers group
+  const errorHandlers = {
+    handleUseCaseError: useCallback((error: string) => {
+      setValidationError(error);
+      console.error('Use case error:', error);
+    }, [setValidationError]),
+
+    handleCriteriaError: useCallback((error: string) => {
+      setValidationError(error);
+      console.error('Criteria error:', error);
+    }, [setValidationError])
+  };
+
+  // Flow control handlers group
+  const flowHandlers = {
+    handleConfirmSelections: useCallback(() => {
+      clearValidationError();
+      setCurrentStep('run');
+    }, [clearValidationError, setCurrentStep]),
+
+    handleBackToSync: useCallback(() => {
+      setCurrentStep('sync');
+    }, [setCurrentStep]),
+
+    handleStartEvaluation: useCallback(() => {
+      setIsLoading(true);
+      setShouldStartEvaluation(true);
+    }, [setIsLoading, setShouldStartEvaluation]),
+
+    handleRestart: useCallback(() => {
+      // Reset all analysis state
+      setTestCases([]);
+      setTestCasesWithModelOutputs([]);
+      setCriteria([]);
+      setOutcomes([]);
+      setOutcomesWithModelComparison([]);
       setSelectedUseCaseId('');
       setSelectedScenarioCategory('');
-    }
+      setSelectedCriteriaId('');
+      setSelectedTestCaseIndex(0);
+      setCurrentTestCaseIndex(0);
+      setEvaluationProgress(0);
+      setShouldStartEvaluation(false);
+      setIsLoading(false);
+      setValidationError('');
+      
+      // Go back to sync step
+      setCurrentStep('sync');
+      
+      // Refresh the page to ensure clean state
+      window.location.reload();
+    }, [
+      setTestCases, 
+      setTestCasesWithModelOutputs, 
+      setCriteria, 
+      setOutcomes, 
+      setOutcomesWithModelComparison,
+      setSelectedUseCaseId,
+      setSelectedScenarioCategory,
+      setSelectedCriteriaId,
+      setSelectedTestCaseIndex,
+      setCurrentTestCaseIndex,
+      setEvaluationProgress,
+      setShouldStartEvaluation,
+      setIsLoading,
+      setValidationError,
+      setCurrentStep
+    ])
   };
 
-  const handleUseCaseDataLoaded = (useCaseTestCases: Array<{
-    id: string;
-    input: string;
-    context: string;
-    modelName?: string;
-    timestamp?: string;
-    use_case_title?: string;
-    use_case_index?: string;
-    useCase?: string;
-    scenarioCategory?: string;
-  }>) => {
-    // Convert use case data to internal format
-    const processedTestCases: TestCase[] = useCaseTestCases.map(testCase => ({
-      id: testCase.id,
-      input: testCase.input,
-              context: testCase.context,
-      rubricScores: {}, // Will be filled by evaluation
-      feedback: '', // Will be filled by evaluation
-      suggestions: [], // Will be filled by evaluation
-      useCase: testCase.useCase,
-      scenarioCategory: testCase.scenarioCategory,
-      use_case_title: testCase.use_case_title,
-      use_case_index: testCase.use_case_index
-    }));
-    
-    // Also create test cases with model outputs for comparison
-    const processedTestCasesWithModelOutputs: TestCaseWithModelOutputs[] = useCaseTestCases.map(testCase => ({
-      id: testCase.id,
-      input: testCase.input,
-              context: testCase.context,
-      modelOutputs: [], // Will be filled by model comparison evaluation
-      useCase: testCase.useCase,
-      scenarioCategory: testCase.scenarioCategory,
-      use_case_title: testCase.use_case_title,
-      use_case_index: testCase.use_case_index
-    }));
-    
-    setTestCases(processedTestCases);
-    setTestCasesWithModelOutputs(processedTestCasesWithModelOutputs);
-    console.log('Test cases loaded:', processedTestCases.length);
-    
-    // Update system prompt based on loaded test cases (if function provided)
-    if (updateSystemPromptForUseCase) {
-      updateSystemPromptForUseCase(processedTestCases);
-    }
-  };
-
-  const handleCriteriaSelected = (criteriaId: string) => {
-    setSelectedCriteriaId(criteriaId);
-    setValidationError(''); // Clear any previous validation errors
-    console.log('Criteria selected:', criteriaId);
-  };
-
-  const handleCriteriaLoaded = (loadedCriteria: Criteria[]) => {
-    setCriteria(loadedCriteria);
-    console.log('Criteria loaded:', loadedCriteria.length);
-  };
-
-
-
-  const handleUseCaseError = (error: string) => {
-    setValidationError(error);
-    console.error('Use case error:', error);
-  };
-
-  const handleCriteriaError = (error: string) => {
-    setValidationError(error);
-    console.error('Criteria error:', error);
-  };
-
-  const handleConfirmSelections = () => {
-    setValidationError(''); // Clear any previous validation errors
-    setCurrentStep('run');
-  };
-
-  const handleTestCaseSelect = (index: number) => {
-    setSelectedTestCaseIndex(index);
-  };
-
-  const handleBackToSync = () => {
-    setCurrentStep('sync');
-  };
-
-  const handleStartEvaluation = () => {
-    setIsLoading(true);
-    setShouldStartEvaluation(true);
-  };
-
-  const handleRestart = () => {
-    // Reset all analysis state
-    setTestCases([]);
-    setTestCasesWithModelOutputs([]);
-    setCriteria([]);
-    setOutcomes([]);
-    setOutcomesWithModelComparison([]);
-    setSelectedUseCaseId('');
-    setSelectedScenarioCategory('');
-    setSelectedCriteriaId('');
-    setSelectedTestCaseIndex(0);
-    setCurrentTestCaseIndex(0);
-    setEvaluationProgress(0);
-    setShouldStartEvaluation(false);
-    setIsLoading(false);
-    setValidationError('');
-    
-    // Go back to sync step
-    setCurrentStep('sync');
-    
-    // Refresh the page to ensure clean state
-    window.location.reload();
-  };
-
+  // Return handlers both individually and grouped for flexibility
   return {
+    // Evaluation handlers
     handleEvaluationComplete,
     handleModelComparisonEvaluationComplete,
     handleEvaluationProgress,
     handleEvaluationError,
-    handleUseCaseSelected,
-    handleScenarioCategorySelected,
-    handleMultiLevelSelectionChange,
-    handleUseCaseDataLoaded,
-    handleCriteriaSelected,
-    handleCriteriaLoaded,
-    handleUseCaseError,
-    handleCriteriaError,
-    handleConfirmSelections,
-    handleTestCaseSelect,
-    handleBackToSync,
-    handleStartEvaluation,
-    handleRestart,
+    
+    // Individual handlers (spread from groups for backward compatibility)
+    ...selectionHandlers,
+    ...dataHandlers,
+    ...errorHandlers,
+    ...flowHandlers,
+    
+    // Grouped handlers for new consumers who want cleaner organization
+    selectionHandlers,
+    dataHandlers,
+    errorHandlers,
+    flowHandlers,
   };
 } 

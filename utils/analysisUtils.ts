@@ -1,22 +1,3 @@
-import { RubricOutcome } from '@/types/types';
-
-export const getEffectivenessColor = (effectiveness: string) => {
-  switch (effectiveness) {
-    case 'high': return 'text-green-600 bg-green-50';
-    case 'medium': return 'text-yellow-600 bg-yellow-50';
-    case 'low': return 'text-red-600 bg-red-50';
-    default: return 'text-gray-600 bg-gray-50';
-  }
-};
-
-export const getEffectivenessLabel = (effectiveness: string) => {
-  switch (effectiveness) {
-    case 'high': return 'High Effectiveness';
-    case 'medium': return 'Medium Effectiveness';
-    case 'low': return 'Low Effectiveness';
-    default: return 'Unknown';
-  }
-};
 
 export const validateSelections = (
   selectedUseCaseId: string,

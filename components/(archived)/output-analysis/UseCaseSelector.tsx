@@ -2,16 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { UseCaseSheet, USE_CASE_SHEETS } from '@/utils/useCaseSheets';
-
-interface TestCase {
-  id: string;
-  input: string;
-  context: string;
-  modelName?: string;
-  timestamp?: string;
-  useCase?: string;
-  scenarioCategory?: string;
-}
+import { TestCase } from '@/types';
 
 interface UseCaseSelectorProps {
   onUseCaseSelected: (useCaseId: string) => void;

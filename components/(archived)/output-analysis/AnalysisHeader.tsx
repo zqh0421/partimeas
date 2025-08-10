@@ -1,5 +1,5 @@
 import { useRouter } from 'next/navigation';
-import { AnalysisStep } from '@/types/types';
+import { AnalysisStep } from '@/types';
 
 interface AnalysisHeaderProps {
   currentStep: AnalysisStep;

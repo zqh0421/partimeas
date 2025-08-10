@@ -68,26 +68,30 @@ export default function OutputAnalysisFullPage() {
   const [isGeneratingOutputs, setIsGeneratingOutputs] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'generating' | 'evaluating' | 'complete'>('generating');
 
-  const handlers = useAnalysisHandlers(
-    setTestCases,
-    setTestCasesWithModelOutputs,
-    setCriteria,
-    setOutcomes,
-    setOutcomesWithModelComparison,
-    setIsLoading,
-    setCurrentStep,
-    setSelectedUseCaseId,
-    setSelectedScenarioCategory,
-    setSelectedCriteriaId,
-    setValidationError,
-    setShouldStartEvaluation,
-    setSelectedTestCaseIndex,
-    setCurrentTestCaseIndex,
-    setEvaluationProgress,
-    testCases,
-    testCasesWithModelOutputs,
-    updateSystemPromptForUseCase
-  );
+  const handlers = useAnalysisHandlers({
+    stateSetters: {
+      setTestCases,
+      setTestCasesWithModelOutputs,
+      setCriteria,
+      setOutcomes,
+      setOutcomesWithModelComparison,
+      setIsLoading,
+      setCurrentStep,
+      setSelectedUseCaseId,
+      setSelectedScenarioCategory,
+      setSelectedCriteriaId,
+      setValidationError,
+      setShouldStartEvaluation,
+      setSelectedTestCaseIndex,
+      setCurrentTestCaseIndex,
+      setEvaluationProgress
+    },
+    data: {
+      testCases,
+      testCasesWithModelOutputs,
+      updateSystemPromptForUseCase
+    }
+  });
 
   // Helper function to toggle original text expansion
   const toggleOriginalTextExpansion = (modelId: string) => {
