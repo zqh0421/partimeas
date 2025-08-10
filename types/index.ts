@@ -14,11 +14,11 @@ export interface TestCase {
   id: string;
   context: string;
   input: string;
-  rubricScores: {
+  rubricScores?: {
     [criteriaId: string]: number;
   };
-  feedback: string;
-  suggestions: string[];
+  feedback?: string;
+  suggestions?: string[];
   useCase?: string;
   scenarioCategory?: string;
   use_case_title?: string;

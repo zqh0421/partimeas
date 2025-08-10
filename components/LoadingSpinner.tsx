@@ -1,20 +1,16 @@
-import { AnalysisStep, TestCaseWithModelOutputs } from '@/types/types';
-
-interface LoadingSpinnerProps {
-  currentStep: AnalysisStep;
-  currentTestCaseIndex: number;
-  testCasesLength: number;
-  evaluationProgress: number;
-  testCasesWithModelOutputs?: TestCaseWithModelOutputs[];
-}
+import { AnalysisStep, TestCaseWithModelOutputs } from '@/types';
 
 export default function LoadingSpinner({ 
-  currentStep, 
-  currentTestCaseIndex, 
+  currentStep,
   testCasesLength, 
   evaluationProgress,
   testCasesWithModelOutputs = []
-}: LoadingSpinnerProps) {
+}: {
+  currentStep: AnalysisStep;
+  testCasesLength: number;
+  evaluationProgress: number;
+  testCasesWithModelOutputs?: TestCaseWithModelOutputs[];
+}) {
   // Calculate model count dynamically from actual data
   const modelCount = testCasesWithModelOutputs.length > 0 
     ? testCasesWithModelOutputs[0].modelOutputs?.length || 0 

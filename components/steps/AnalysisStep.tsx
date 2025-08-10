@@ -1,15 +1,29 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import RubricEvaluator from '@/components/RubricEvaluator';
-import ModelComparisonEvaluator from '@/components/(archived)/output-analysis/ModelComparisonEvaluator';
-import GeneratingResponsesContent from '@/components/GeneratingResponsesContent';
-import TestCaseNavigation from '@/components/TestCaseNavigation';
-import TestCaseContext from '@/components/TestCaseContext';
+import { ModelComparisonEvaluator } from '@/components';
 import ModelOutputsGrid from '@/components/ModelOutputsGrid';
-import { TestCase, TestCaseWithModelOutputs } from '@/types';
+import { TestCase, TestCaseWithModelOutputs, ModelOutput } from '@/types';
 import { OUTPUT_GENERATION_MODELS } from '@/app/api/model-evaluation/route';
 
-interface AnalysisStepProps {
+
+
+export default function AnalysisStep({
+  testCases,
+  testCasesWithModelOutputs,
+  localTestCasesWithModelOutputs,
+  selectedTestCaseIndex,
+  selectedSystemPrompt,
+  analysisStep,
+  currentPhase,
+  shouldStartEvaluation,
+  onTestCaseSelect,
+  onEvaluationComplete,
+  onModelComparisonEvaluationComplete,
+  onEvaluationError,
+  onEvaluationProgress
+}: {
   testCases: TestCase[];
   testCasesWithModelOutputs: TestCaseWithModelOutputs[];
   localTestCasesWithModelOutputs: TestCaseWithModelOutputs[];
@@ -28,34 +42,34 @@ interface AnalysisStepProps {
   }>) => void;
   onEvaluationError: (error: string) => void;
   onEvaluationProgress: (currentIndex: number, progress: number) => void;
-}
+}) {
+  // Dynamic state management for ModelOutputsGrid parameters
+  const [isGridLoading, setIsGridLoading] = useState(false);
+  const [gridModelOutputs, setGridModelOutputs] = useState<ModelOutput[]>([]);
+  const [displayTestCases, setDisplayTestCases] = useState<TestCaseWithModelOutputs[]>([]);
 
-// Helper function to determine grid columns based on model count
-const getGridCols = (count: number) => {
-  switch (count) {
-    case 1: return 'grid-cols-1';
-    case 2: return 'grid-cols-1 md:grid-cols-2';
-    case 3: return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
-    case 4: return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4';
-    default: return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
-  }
-};
+  // Update grid parameters based on current state
+  useEffect(() => {
+    if (currentPhase === 'generating') {
+      setIsGridLoading(true);
+      setGridModelOutputs([]);
+    } else {
+      setIsGridLoading(false);
+      const currentDisplayTestCases = localTestCasesWithModelOutputs.length > 0 
+        ? localTestCasesWithModelOutputs 
+        : testCasesWithModelOutputs;
+      
+      setDisplayTestCases(currentDisplayTestCases);
+      
+      const currentTestCase = currentDisplayTestCases[selectedTestCaseIndex];
+      if (currentTestCase?.modelOutputs) {
+        setGridModelOutputs(currentTestCase.modelOutputs);
+      } else {
+        setGridModelOutputs([]);
+      }
+    }
+  }, [currentPhase, localTestCasesWithModelOutputs, testCasesWithModelOutputs, selectedTestCaseIndex]);
 
-export default function AnalysisStep({
-  testCases,
-  testCasesWithModelOutputs,
-  localTestCasesWithModelOutputs,
-  selectedTestCaseIndex,
-  selectedSystemPrompt,
-  analysisStep,
-  currentPhase,
-  shouldStartEvaluation,
-  onTestCaseSelect,
-  onEvaluationComplete,
-  onModelComparisonEvaluationComplete,
-  onEvaluationError,
-  onEvaluationProgress
-}: AnalysisStepProps) {
   return (
     <div className="space-y-6">
       {/* Hidden but functional evaluation components */}
@@ -81,79 +95,22 @@ export default function AnalysisStep({
       {/* Test Case Results Display */}
       {(analysisStep === 'running' || analysisStep === 'complete') && (
         <div className="space-y-4">
-          {(() => {
-            const displayTestCases = localTestCasesWithModelOutputs.length > 0 ? localTestCasesWithModelOutputs : testCasesWithModelOutputs;
-            const currentTestCase = displayTestCases[selectedTestCaseIndex];
-            
-            console.log('🔍 UI Render Debug:', {
-              currentPhase,
-              localTestCasesLength: localTestCasesWithModelOutputs.length,
-              propsTestCasesLength: testCasesWithModelOutputs.length,
-              displayTestCasesLength: displayTestCases.length,
-              selectedTestCaseIndex,
-              currentTestCase: currentTestCase ? 'exists' : 'null',
-              modelOutputsLength: currentTestCase?.modelOutputs?.length || 0,
-              analysisStep,
-              shouldStartEvaluation
-            });
-            
-            // Additional debug for current test case
-            if (currentTestCase) {
-              console.log('🔍 Current test case details:', {
-                id: currentTestCase.id,
-                hasModelOutputs: !!currentTestCase.modelOutputs,
-                modelOutputsArray: currentTestCase.modelOutputs,
-                modelOutputsCount: currentTestCase.modelOutputs?.length || 0
-              });
-            }
-            
-            // Show loading cards during generation phase
-            if (currentPhase === 'generating') {
-              const modelList = OUTPUT_GENERATION_MODELS; // From API route
-
-              return (
-                <GeneratingResponsesContent 
-                  testCases={testCases}
-                  selectedTestCaseIndex={selectedTestCaseIndex}
-                  onTestCaseSelect={onTestCaseSelect}
-                  modelList={modelList}
-                  getGridCols={getGridCols}
-                />
-              );
-            }
-            
-            if (!currentTestCase) {
-              return (
-                <div className="text-center py-8 text-gray-500">
-                  No test case data available. Please ensure test cases are loaded and try again.
-                </div>
-              );
-            }
-
-            return (
-              <>
-                {/* Test Case Navigation */}
-                <TestCaseNavigation
-                  testCasesCount={displayTestCases.length}
-                  selectedTestCaseIndex={selectedTestCaseIndex}
-                  onTestCaseSelect={onTestCaseSelect}
-                  className="mb-6"
-                />
-
-                {/* Test Case Context */}
-                <TestCaseContext
-                  testCase={currentTestCase}
-                  testCaseIndex={selectedTestCaseIndex}
-                  className="mb-6"
-                />
-
-                {/* Model Outputs Grid */}
-                <ModelOutputsGrid
-                  modelOutputs={currentTestCase.modelOutputs || []}
-                />
-              </>
-            );
-          })()}
+          {displayTestCases[selectedTestCaseIndex] || isGridLoading ? (
+            <ModelOutputsGrid
+              modelOutputs={gridModelOutputs}
+              isLoading={isGridLoading}
+              loadingModelList={isGridLoading ? OUTPUT_GENERATION_MODELS : []}
+              testCases={isGridLoading ? testCases : displayTestCases}
+              selectedTestCaseIndex={selectedTestCaseIndex}
+              onTestCaseSelect={onTestCaseSelect}
+              stepId={isGridLoading ? "analysis" : undefined}
+              className="space-y-4"
+            />
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              Failed to load test case data. Please refresh and try again.
+            </div>
+          )}
         </div>
       )}
     </div>

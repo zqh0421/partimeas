@@ -53,24 +53,10 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
   // Internal state management for the analysis process
   const [analysisStep, setAnalysisStep] = useState<'setup' | 'running' | 'complete'>('setup');
   const [hasStartedEvaluation, setHasStartedEvaluation] = useState(false);
-  const [expandedOriginalText, setExpandedOriginalText] = useState<Set<string>>(new Set());
   const [isStep1Collapsed, setIsStep1Collapsed] = useState(false);
   const [localTestCasesWithModelOutputs, setLocalTestCasesWithModelOutputs] = useState<TestCaseWithModelOutputs[]>([]);
   const [isGeneratingOutputs, setIsGeneratingOutputs] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'generating' | 'evaluating' | 'complete'>('generating');
-
-  // Helper function to toggle original text expansion
-  const toggleOriginalTextExpansion = (modelId: string) => {
-    setExpandedOriginalText(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(modelId)) {
-        newSet.delete(modelId);
-      } else {
-        newSet.add(modelId);
-      }
-      return newSet;
-    });
-  };
 
   // Determine current analysis step based on data availability
   useEffect(() => {

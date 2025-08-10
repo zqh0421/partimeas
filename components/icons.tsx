@@ -21,7 +21,7 @@ export const ChevronDownIcon: React.FC<IconProps> = ({
     stroke="currentColor" 
     viewBox="0 0 24 24"
     strokeWidth={strokeWidth}
-    {...props}
+    {...props} 
   >
     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
   </svg>
@@ -109,6 +109,26 @@ export const RefreshIcon: React.FC<IconProps> = ({
     {...props}
   >
     <path d="M12 5c-3.859 0-7 3.141-7 7s3.141 7 7 7c2.914 0 5.402-1.77 6.42-4.269a1 1 0 0 1 1.86.738C19.996 19.21 16.34 22 12 22 6.477 22 2 17.523 2 12S6.477 2 12 2c2.21 0 4.217.804 5.77 2.137V3a1 1 0 1 1 2 0v5h-5a1 1 0 1 1 0-2h2.693A8.962 8.962 0 0 0 12 5Z" />
+  </svg>
+);
+
+export const RefreshCycleIcon: React.FC<IconProps> = ({ 
+  className = "w-4 h-4", 
+  strokeWidth = 1.6,
+  ...props 
+}) => (
+  <svg 
+    className={className} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M4 12a8 8 0 018-8c2.2 0 4.2.9 5.7 2.3" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M20 4v6h-6" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M20 12a8 8 0 01-8 8c-2.2 0-4.2-.9-5.7-2.3" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M4 20v-6h6" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
@@ -416,6 +436,40 @@ export const CollapseIcon: React.FC<IconProps> = ({
   </svg>
 );
 
+export const ChartBarIcon: React.FC<IconProps> = ({ 
+  className = "w-5 h-5", 
+  strokeWidth = 2,
+  ...props 
+}) => (
+  <svg 
+    className={className} 
+    fill="none" 
+    stroke="currentColor" 
+    viewBox="0 0 24 24"
+    strokeWidth={strokeWidth}
+    {...props}
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+  </svg>
+);
+
+export const RestartIcon: React.FC<IconProps> = ({ 
+  className = "w-4 h-4", 
+  strokeWidth = 2,
+  ...props 
+}) => (
+  <svg 
+    className={className} 
+    fill="none" 
+    stroke="currentColor" 
+    viewBox="0 0 24 24"
+    strokeWidth={strokeWidth}
+    {...props}
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
+
 export const Icons = {
   // 方向图标
   ChevronDown: ChevronDownIcon,
@@ -426,9 +480,11 @@ export const Icons = {
   // 操作图标
   Check: CheckIcon,
   Refresh: RefreshIcon,
+  RefreshCycle: RefreshCycleIcon,
   Play: PlayIcon,
   Pause: PauseIcon,
   Stop: StopIcon,
+  Restart: RestartIcon,
   
   // 状态图标
   Loading: LoadingSpinner,
@@ -451,7 +507,10 @@ export const Icons = {
   Menu: MenuIcon,
   Close: CloseIcon,
   Expand: ExpandIcon,
-  Collapse: CollapseIcon
+  Collapse: CollapseIcon,
+  
+  // 图表图标
+  ChartBar: ChartBarIcon
 };
 
 export default Icons;

@@ -1,19 +1,17 @@
 'use client';
 
-interface TestCaseContextProps {
+export default function TestCaseContext({ 
+  testCase, 
+  testCaseIndex,
+  className = ""
+}: {
   testCase: {
     context: string;
     input: string;
   };
   testCaseIndex: number;
   className?: string;
-}
-
-export default function TestCaseContext({ 
-  testCase, 
-  testCaseIndex,
-  className = ""
-}: TestCaseContextProps) {
+}) {
   return (
     <div className={`bg-white border border-gray-200 rounded-lg p-6 ${className}`}>
       <h3 className="text-lg font-semibold text-gray-900 mb-2">
