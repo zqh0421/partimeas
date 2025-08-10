@@ -29,12 +29,6 @@ importers:
       '@types/react-beautiful-dnd':
         specifier: ^13.1.8
         version: 13.1.8
-      drizzle-kit:
-        specifier: ^0.31.4
-        version: 0.31.4
-      drizzle-orm:
-        specifier: ^0.44.4
-        version: 0.44.4(@neondatabase/serverless@1.0.1)(@types/pg@8.15.5)
       google-auth-library:
         specifier: ^10.2.1
         version: 10.2.1
@@ -104,9 +98,6 @@ packages:
   '@babel/runtime@7.28.2':
     resolution: {integrity: sha512-KHp2IflsnGywDjBWDkR9iEqiWSpc8GIi0lgTT3mOElT0PP1tG26P4tmFI2YvAdzgq9RGyoHZQEIEdZy6Ec5xCA==}
     engines: {node: '>=6.9.0'}
-
-  '@drizzle-team/brocli@0.10.2':
-    resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
 
   '@emnapi/core@1.4.5':
     resolution: {integrity: sha512-XsLw1dEOpkSX/WucdqUhPWP7hDxSvZiY+fsUC14h+FtQ2Ifni4znbBt8punRX+Uj2JG/uDb8nEHVKvrVlvdZ5Q==}
@@ -1457,12 +1448,6 @@ packages:
   doctrine@2.1.0:
     resolution: {integrity: sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw==}
     engines: {node: '>=0.10.0'}
-
-  drizzle-kit@0.31.4:
-    resolution: {integrity: sha512-tCPWVZWZqWVx2XUsVpJRnH9Mx0ClVOf5YUHerZ5so1OKSlqww4zy1R5ksEdGRcO3tM3zj0PYN6V48TbQCL1RfA==}
-    hasBin: true
-
-  drizzle-orm@0.44.4:
     resolution: {integrity: sha512-ZyzKFpTC/Ut3fIqc2c0dPZ6nhchQXriTsqTNs4ayRgl6sZcFlMs9QZKPSHXK4bdOf41GHGWf+FrpcDDYwW+W6Q==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
@@ -3105,8 +3090,6 @@ snapshots:
 
   '@babel/runtime@7.28.2': {}
 
-  '@drizzle-team/brocli@0.10.2': {}
-
   '@emnapi/core@1.4.5':
     dependencies:
       '@emnapi/wasi-threads': 1.0.4
@@ -4373,20 +4356,6 @@ snapshots:
   doctrine@2.1.0:
     dependencies:
       esutils: 2.0.3
-
-  drizzle-kit@0.31.4:
-    dependencies:
-      '@drizzle-team/brocli': 0.10.2
-      '@esbuild-kit/esm-loader': 2.6.5
-      esbuild: 0.25.8
-      esbuild-register: 3.6.0(esbuild@0.25.8)
-    transitivePeerDependencies:
-      - supports-color
-
-  drizzle-orm@0.44.4(@neondatabase/serverless@1.0.1)(@types/pg@8.15.5):
-    optionalDependencies:
-      '@neondatabase/serverless': 1.0.1
-      '@types/pg': 8.15.5
 
   dunder-proto@1.0.1:
     dependencies:
