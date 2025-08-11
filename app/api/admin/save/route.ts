@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
-import { sql } from '../../db';
-import { db } from '../../../../utils/database';
+import { sql } from '@/config/database';
+import { db } from '@/utils/database';
 
 interface ModelConfig {
   id: string;
