@@ -130,8 +130,10 @@ export function useAnalysisHandlers({
     });
     
     setOutcomesWithModelComparison(processedOutcomes);
-    finishEvaluation();
-  }, [findTestCaseById, setTestCasesWithModelOutputs, setOutcomesWithModelComparison, finishEvaluation]);
+    // Don't automatically navigate to outcomes - let the user stay on the analysis step
+    // to see the evaluation results
+    console.log('📊 Evaluation completed, staying on analysis step to show results');
+  }, [findTestCaseById, setTestCasesWithModelOutputs, setOutcomesWithModelComparison]);
 
   const handleEvaluationProgress = useCallback((currentIndex: number, progress: number) => {
     // Calculate model count dynamically from actual data

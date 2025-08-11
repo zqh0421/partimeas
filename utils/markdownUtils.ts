@@ -28,23 +28,28 @@ export const createPrettifiedMarkdown = (content: string): string => {
     </div>`
   );
 
+  // Format horizontal rules - lines with only dashes (at least 3)
+  formatted = formatted.replace(/^[-]{3,}$/gm, '<hr class="my-6 border-gray-300">');
+
   // Format bold and italic text with better styling
-  formatted = formatted.replace(/\_\_\_([^*]+)\_\_\_/g, 
-    `<span class="font-bold italic text-gray-800 rounded">$1</span>`);
-  formatted = formatted.replace(/\*\*\*([^*]+)\*\*\*/g, 
-    `<span class="font-bold italic text-gray-800 rounded">$1</span>`);
+  // Triple emphasis (bold + italic) - move trailing punctuation outside the styled span
+  formatted = formatted.replace(/___([^_]+?)([:：;；])?___/g, 
+    `<span class="font-bold italic text-gray-800">$1</span>$2`);
+  formatted = formatted.replace(/\*\*\*([^*]+?)([:：;；])?\*\*\*/g, 
+    `<span class="font-bold italic text-gray-800">$1</span>$2`);
   
-  // Format bold text with better styling
-  formatted = formatted.replace(/\_\_([^*]+)\_\_/g, 
-    `<span class="font-bold text-gray-800 rounded">$1</span>`);
-  formatted = formatted.replace(/\*\*([^*]+)\*\*/g, 
-    `<span class="font-bold text-gray-800 rounded">$1</span>`);
+  // Format bold text with better styling - move trailing punctuation outside the styled span
+  formatted = formatted.replace(/__([^_]+?)([:：;；])?__/g, 
+    `<span class="font-bold text-gray-800">$1</span>$2`);
+  formatted = formatted.replace(/\*\*([^*]+?)([:：;；])?\*\*/g, 
+    `<span class="font-bold text-gray-800">$1</span>$2`);
   
   // Format italic text
-  formatted = formatted.replace(/\*([^*]+)\*/g, 
-    `<span class="italic text-gray-800">$1</span>`);
-    formatted = formatted.replace(/\_([^*]+)\_/g, 
-      `<span class="italic text-gray-800">$1</span>`);
+  // Move trailing punctuation outside the styled span
+  formatted = formatted.replace(/\*([^*]+?)([:：;；])?\*/g, 
+    `<span class="italic text-gray-800">$1</span>$2`);
+  formatted = formatted.replace(/_([^_]+?)([:：;；])?_/g, 
+    `<span class="italic text-gray-800">$1</span>$2`);
   
   // Process content line by line for better list handling with indentation support
   const lines = formatted.split('\n');

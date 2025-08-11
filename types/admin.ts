@@ -13,29 +13,37 @@ export interface PromptConfig {
   name: string;
   content: string;
   type: 'system' | 'evaluation';
-  isDefault: boolean;
 }
 
-export interface AssistantConfig {
-  id: string;
+export interface Assistant {
+  id: number;
   name: string;
-  description: string;
-  systemPromptId: string;
-  modelIds: string[];
-  isEnabled: boolean;
-  type: 'output-generation' | 'evaluation';
-  responseCount: number; // Number of responses to show from this assistant
+  model_id: string;
+  system_prompt_id: string;
+  required_to_show: boolean;
+  type: 'output_generation' | 'evaluation';
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AdminState {
   modelConfigs: ModelConfig[];
   promptConfigs: PromptConfig[];
-  assistantConfigs: AssistantConfig[];
+  assistants: Assistant[];
   isLoading: boolean;
   hasChanges: boolean;
+  hasModelChanges: boolean;
+  hasPromptChanges: boolean;
+  hasAssistantChanges: boolean;
   error: string | null;
   success: string | null;
-  activeSection: 'output-generation' | 'evaluation';
+  activeSection: 'output-generation' | 'evaluation' | 'models' | 'assistants';
+  // Track database-backed models the user removed in the UI, to delete on save
+  deletedModels?: { id: string; provider: 'openai' | 'anthropic' | 'google'; model: string }[];
+  // Track database-backed prompts the user removed in the UI, to delete on save
+  deletedPrompts?: { id: string; type: 'system' | 'evaluation' }[];
+  // Track database-backed assistants the user removed in the UI, to delete on save
+  deletedAssistants?: { id: number; type: 'output_generation' | 'evaluation' }[];
 }
 
-export type AdminSection = 'output-generation' | 'evaluation'; 
+export type AdminSection = 'output-generation' | 'evaluation' | 'models' | 'assistants'; 

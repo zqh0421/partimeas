@@ -10,6 +10,7 @@ import AnalysisStep from '@/components/steps/AnalysisStep';
 import { RefreshIcon } from '@/components/icons';
 import { AnalysisHeaderFull } from '@/components';
 import { TestCaseWithModelOutputs, ModelOutput } from '@/types';
+import { Assistant } from '@/types/admin';
 
 export default function OutputAnalysisFullPage() {
   const {
@@ -68,6 +69,9 @@ export default function OutputAnalysisFullPage() {
   const [localTestCasesWithModelOutputs, setLocalTestCasesWithModelOutputs] = useState<TestCaseWithModelOutputs[]>([]);
   const [isGeneratingOutputs, setIsGeneratingOutputs] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'generating' | 'evaluating' | 'complete'>('generating');
+  const [showEvaluationFeatures, setShowEvaluationFeatures] = useState<boolean>(true);
+  const [selectedOutputModelIds, setSelectedOutputModelIds] = useState<string[]>([]);
+  const [isRealEvaluation, setIsRealEvaluation] = useState<boolean>(false);
 
   const handlers = useAnalysisHandlers({
     stateSetters: {
@@ -94,6 +98,26 @@ export default function OutputAnalysisFullPage() {
     }
   });
 
+  // Fetch active evaluation assistant to decide if real or mock evaluation
+  useEffect(() => {
+    const fetchActiveEvaluator = async () => {
+      try {
+        const res = await fetch('/api/admin/assistants?type=evaluation');
+        if (!res.ok) throw new Error('Failed to load assistants');
+        const data = await res.json();
+        const active = (data.assistants || []).find((a: Assistant) => a.required_to_show);
+        // Always show evaluation features; toggle real vs mock
+        setShowEvaluationFeatures(true);
+        setIsRealEvaluation(Boolean(active));
+      } catch (e) {
+        // Fallback to mock evaluation UI
+        setShowEvaluationFeatures(true);
+        setIsRealEvaluation(false);
+      }
+    };
+    fetchActiveEvaluator();
+  }, []);
+
   // Helper function to toggle original text expansion
   const toggleOriginalTextExpansion = (modelId: string) => {
     setExpandedOriginalText(prev => {
@@ -111,8 +135,32 @@ export default function OutputAnalysisFullPage() {
   const generateModelOutputs = async () => {
     setIsGeneratingOutputs(true);
     setCurrentPhase('generating');
+    setSelectedOutputModelIds([]);
     
     try {
+      // Pre-seed loading placeholders from configured assistants to avoid empty state flicker
+      try {
+        const assistantsRes = await fetch('/api/admin/assistants?type=output_generation');
+        if (assistantsRes.ok) {
+          const assistantsData = await assistantsRes.json();
+          const assistants = Array.isArray(assistantsData?.assistants) ? assistantsData.assistants : [];
+          const required = assistants.filter((a: any) => a.required_to_show);
+          const optional = assistants.filter((a: any) => !a.required_to_show);
+          const desired = Math.min(2, assistants.length || 0);
+          const selected = [
+            ...required.slice(0, desired),
+            ...optional.slice(0, Math.max(0, desired - required.length))
+          ].slice(0, desired);
+          const placeholderIds: string[] = selected.map((a: any) => String(a.model_id || a.id || 'loading'));
+          if (placeholderIds.length > 0) setSelectedOutputModelIds(placeholderIds);
+        } else {
+          // Fallback placeholders
+          setSelectedOutputModelIds(['loading-1', 'loading-2']);
+        }
+      } catch {
+        setSelectedOutputModelIds(['loading-1', 'loading-2']);
+      }
+
       console.log('🚀 Starting model output generation for', testCases.length, 'test cases');
       
       // Generate outputs for all test cases in parallel
@@ -136,6 +184,10 @@ export default function OutputAnalysisFullPage() {
 
           const data = await response.json();
           console.log(`✅ Completed test case ${index + 1}/${testCases.length}:`, data);
+          // Capture the selected assistant models as soon as we get the first successful response
+          if (Array.isArray(data?.selectedAssistantsModels) && data.selectedAssistantsModels.length > 0) {
+            setSelectedOutputModelIds(prev => (prev && prev.length > 0 ? prev : data.selectedAssistantsModels));
+          }
           
           // Update progress
           handlers.handleEvaluationProgress(index, ((index + 1) / testCases.length) * 50); // 50% for generation
@@ -197,6 +249,7 @@ export default function OutputAnalysisFullPage() {
       setLocalTestCasesWithModelOutputs(processedTestCases);
       setCurrentPhase('evaluating');
       
+      console.log('🔄 About to call startEvaluationPhase with', processedTestCases.length, 'test cases');
       // Now start the evaluation phase with the generated outputs
       startEvaluationPhase(processedTestCases);
       
@@ -212,18 +265,151 @@ export default function OutputAnalysisFullPage() {
 
   // Start evaluation phase with generated outputs
   const startEvaluationPhase = async (testCasesWithOutputs: TestCaseWithModelOutputs[]) => {
+    console.log('🚀 Starting evaluation phase with:', testCasesWithOutputs.length, 'test cases');
+    console.log('🔍 isRealEvaluation:', isRealEvaluation);
+    
     try {
-      // Process evaluation results and trigger the completion handlers
-      const evaluationResults = testCasesWithOutputs.map(testCase => ({
-        testCaseId: testCase.id,
-        modelOutputs: testCase.modelOutputs,
-        rubricEffectiveness: 'medium' as const,
-        refinementSuggestions: ['Model outputs generated successfully']
-      }));
+      if (isRealEvaluation) {
+        console.log('📡 Starting real evaluation API calls...');
+        
+        // Ensure we're in evaluating phase
+        setCurrentPhase('evaluating');
+        
+        // Small delay to make the evaluating phase visible
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Load real evaluation criteria first
+        console.log('📋 Loading evaluation criteria...');
+        const criteriaResponse = await fetch('/api/criteria-data');
+        if (!criteriaResponse.ok) {
+          throw new Error('Failed to load evaluation criteria');
+        }
+        const criteriaData = await criteriaResponse.json();
+        const rawCriteria = criteriaData.criteria || [];
+        
+        // Flatten the hierarchical criteria structure for the evaluation API
+        const evaluationCriteria = rawCriteria.flatMap((category: any) => 
+          category.criteria?.flatMap((criterion: any) => 
+            criterion.subcriteria?.map((subcriteria: any) => ({
+              id: `${category.name}_${criterion.name}_${subcriteria.name}`.replace(/\s+/g, '_').toLowerCase(),
+              name: `${criterion.name}: ${subcriteria.name}`,
+              description: subcriteria.description || subcriteria.name,
+              category: category.name,
+              criterion: criterion.name,
+              subcriteria: subcriteria.name
+            })) || []
+          ) || []
+        );
+        
+        console.log(`✅ Loaded ${evaluationCriteria.length} flattened evaluation criteria from ${rawCriteria.length} categories`);
+        
+        // Log sample criteria for debugging
+        if (evaluationCriteria.length > 0) {
+          console.log('📋 Sample evaluation criteria:', evaluationCriteria.slice(0, 3));
+        }
+        
+        // Call API to perform real evaluations using active evaluator assistant
+        const evaluationPromises = testCasesWithOutputs.map(async (testCase, index) => {
+          console.log(`📋 Evaluating test case ${index + 1}:`, testCase.id);
+          if (!testCase.modelOutputs || testCase.modelOutputs.length === 0) {
+            console.log(`⚠️ Test case ${index + 1} has no model outputs`);
+            return { testCaseIndex: index, evaluatedOutputs: [] };
+          }
+          
+          console.log(`📤 Sending evaluation request for test case ${index + 1} with ${testCase.modelOutputs.length} outputs`);
+          const response = await fetch('/api/model-evaluation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              testCase: {
+                input: testCase.input,
+                context: testCase.context,
+                useCase: testCase.useCase,
+                useContext: testCase.scenarioCategory
+              },
+              criteria: evaluationCriteria, // Use real criteria instead of empty array
+              outputs: testCase.modelOutputs,
+              phase: 'evaluate'
+            })
+          });
+          
+          console.log(`📥 Received response for test case ${index + 1}:`, response.status);
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${response.status}`);
+          }
+          const data = await response.json();
+          console.log(`✅ Evaluation data for test case ${index + 1}:`, data);
+          
+          // Update progress for this test case evaluation
+          const progress = ((index + 1) / testCasesWithOutputs.length) * 50 + 50; // 50-100% for evaluation
+          handlers.handleEvaluationProgress(index, progress);
+          
+          return { testCaseIndex: index, data };
+        });
 
-      console.log('✅ Evaluation phase completed!');
-      handlers.handleModelComparisonEvaluationComplete(evaluationResults);
+        console.log('⏳ Waiting for all evaluation promises to settle...');
+        const settled = await Promise.allSettled(evaluationPromises);
+        console.log('📊 Evaluation promises settled:', settled.map((s, i) => ({ index: i, status: s.status })));
+
+        // Map API evaluations back to local structure
+        const evaluationResults = testCasesWithOutputs.map((tc, idx) => {
+          const res = settled[idx];
+          let evaluatedOutputs = tc.modelOutputs;
+          if (res.status === 'fulfilled') {
+            const payload = res.value.data;
+            // If server returned rubric-like scores, attach to modelOutputs if possible
+            if (payload?.evaluations && Array.isArray(payload.evaluations)) {
+              evaluatedOutputs = tc.modelOutputs.map(mo => {
+                const match = payload.evaluations.find((e: any) => e.modelId === mo.modelId);
+                return {
+                  ...mo,
+                  rubricScores: match?.criteriaScores || mo.rubricScores || {},
+                } as any;
+              });
+            }
+          }
+          return {
+            testCaseId: tc.id,
+            modelOutputs: evaluatedOutputs,
+            rubricEffectiveness: 'medium' as const,
+            refinementSuggestions: ['Evaluation completed']
+          };
+        });
+
+        console.log('✅ Real evaluation phase completed!');
+        
+        // Update progress to show evaluation completion
+        handlers.handleEvaluationProgress(testCasesWithOutputs.length - 1, 100);
+        
+        // Set phase to complete after evaluation
+        setCurrentPhase('complete');
+        
+        handlers.handleModelComparisonEvaluationComplete(evaluationResults);
+      } else {
+        console.log('🎭 Starting mock evaluation...');
+        // Mock evaluation: generate mock scores for demonstration
+        const evaluationResults = testCasesWithOutputs.map(testCase => ({
+          testCaseId: testCase.id,
+          modelOutputs: testCase.modelOutputs.map(output => ({
+            ...output,
+            // Add mock rubric scores for demonstration
+            rubricScores: {
+              relevance: Math.floor(Math.random() * 3) + 1, // 1-3
+              accuracy: Math.floor(Math.random() * 3) + 1, // 1-3
+              completeness: Math.floor(Math.random() * 3) + 1 // 1-3
+            }
+          })),
+          rubricEffectiveness: 'medium' as const,
+          refinementSuggestions: ['Mock evaluation - scores generated for demonstration']
+        }));
+        console.log('✅ Mock evaluation phase completed!');
+        handlers.handleModelComparisonEvaluationComplete(evaluationResults);
+      }
+
+      console.log('🎯 Setting final states...');
       handlers.handleEvaluationProgress(testCases.length - 1, 100);
+      console.log('🔄 Setting currentPhase to complete');
       setCurrentPhase('complete');
       setIsGeneratingOutputs(false);
       setHasStartedEvaluation(false);
@@ -322,11 +508,14 @@ export default function OutputAnalysisFullPage() {
           analysisStep={analysisStep}
           currentPhase={currentPhase}
           shouldStartEvaluation={shouldStartEvaluation}
+          showEvaluationFeatures={showEvaluationFeatures}
+          isRealEvaluation={isRealEvaluation}
           onTestCaseSelect={handlers.handleTestCaseSelect}
           onEvaluationComplete={handlers.handleEvaluationComplete}
           onModelComparisonEvaluationComplete={handlers.handleModelComparisonEvaluationComplete}
           onEvaluationError={handlers.handleEvaluationError}
           onEvaluationProgress={handlers.handleEvaluationProgress}
+          loadingModelListOverride={selectedOutputModelIds}
         />
       )
     }

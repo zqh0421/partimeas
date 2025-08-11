@@ -10,7 +10,6 @@ interface ModelsAndPromptsGridProps {
   onRemoveModel: (id: string) => void;
   onAddPrompt: (type: 'system' | 'evaluation') => void;
   onUpdatePrompt: (id: string, updates: Partial<PromptConfig>) => void;
-  onSetDefaultPrompt: (type: 'system' | 'evaluation', id: string) => void;
   onRemovePrompt: (id: string) => void;
   modelsTitle: string;
   promptsTitle: string;
@@ -28,7 +27,6 @@ export function ModelsAndPromptsGrid({
   onRemoveModel,
   onAddPrompt,
   onUpdatePrompt,
-  onSetDefaultPrompt,
   onRemovePrompt,
   modelsTitle,
   promptsTitle,
@@ -53,7 +51,6 @@ export function ModelsAndPromptsGrid({
         prompts={prompts}
         onAddPrompt={onAddPrompt}
         onUpdatePrompt={onUpdatePrompt}
-        onSetDefault={onSetDefaultPrompt}
         onRemovePrompt={onRemovePrompt}
         title={promptsTitle}
         addButtonColor={addButtonColor}

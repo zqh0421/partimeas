@@ -5,7 +5,6 @@ interface PromptsSectionProps {
   prompts: PromptConfig[];
   onAddPrompt: (type: 'system' | 'evaluation') => void;
   onUpdatePrompt: (id: string, updates: Partial<PromptConfig>) => void;
-  onSetDefault: (type: 'system' | 'evaluation', id: string) => void;
   onRemovePrompt: (id: string) => void;
   title: string;
   addButtonColor: string;
@@ -17,7 +16,6 @@ export function PromptsSection({
   prompts, 
   onAddPrompt, 
   onUpdatePrompt,
-  onSetDefault, 
   onRemovePrompt, 
   title, 
   addButtonColor, 
@@ -57,14 +55,7 @@ export function PromptsSection({
               <div className="p-4 border-b border-gray-200">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name={`default${promptType}Prompt`}
-                      checked={prompt.isDefault}
-                      onChange={() => onSetDefault(promptType, prompt.id)}
-                      className={`h-4 w-4 ${radioColor} focus:ring-blue-500 border-gray-300`}
-                    />
-                    <span className="text-sm font-medium text-gray-700">Default</span>
+                    <span className="text-sm font-medium text-gray-700">Prompt</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button

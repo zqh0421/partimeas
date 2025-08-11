@@ -3,26 +3,62 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatAnthropic } from "@langchain/anthropic";
-import { MODEL_CONFIGS, OUTPUT_GENERATION_MODELS, USE_CASE_PROMPTS } from '@/app/api/shared/constants';
+import { sql } from '@/config/database';
 
-// Re-export for backward compatibility
-export { MODEL_CONFIGS, OUTPUT_GENERATION_MODELS, USE_CASE_PROMPTS };
+// No constant-based model configs or prompts: use DB only
 
-// Initialize model instances with dynamic imports
-const getModelInstance = async (modelId: string) => {
-  const config = MODEL_CONFIGS[modelId as keyof typeof MODEL_CONFIGS];
-  if (!config) {
-    throw new Error(`Unsupported model: ${modelId}`);
+// Assistants-aware helpers
+type OutputAssistant = {
+  assistantId: number;
+  name: string;
+  provider: string; // 'openai' | 'anthropic' | 'google'
+  model: string; // provider model id, e.g., 'gpt-4o-mini'
+  systemPrompt: string; // prompt text
+  requiredToShow: boolean;
+  updatedAt: string;
+};
+
+// Read all output-generation assistants with flags and prompts
+const getOutputGenerationAssistants = async (): Promise<OutputAssistant[]> => {
+  const rows = await sql`
+    SELECT a.id AS assistant_id, a.name, a.required_to_show, a.updated_at, m.provider AS provider, m.model_id AS model, sp.prompt AS system_prompt
+    FROM partimeas_assistants a
+    JOIN partimeas_models m ON m.id = a.model_id
+    JOIN partimeas_system_prompts sp ON sp.id = a.system_prompt_id
+    WHERE a.type = 'output_generation'
+    ORDER BY a.required_to_show DESC, a.updated_at DESC
+  `;
+  return rows.map((r: any) => ({
+    assistantId: r.assistant_id as number,
+    name: r.name as string,
+    provider: r.provider as string,
+    model: r.model as string,
+    systemPrompt: r.system_prompt as string,
+    requiredToShow: Boolean(r.required_to_show),
+    updatedAt: (r.updated_at || new Date().toISOString()) as string,
+  }));
+};
+
+// Utility: Fisher-Yates shuffle
+const shuffleArray = <T,>(items: T[]): T[] => {
+  const array = [...items];
+  for (let i = array.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
   }
+  return array;
+};
 
+// Initialize model instances with dynamic imports using DB provider+model
+const getModelInstance = async (provider: string, modelName: string) => {
   try {
-    switch (config.provider) {
+    switch (provider) {
       case 'openai':
         if (!process.env.OPENAI_API_KEY) {
           throw new Error('OPENAI_API_KEY not configured');
         }
         return new ChatOpenAI({
-          modelName: config.model,
+          modelName: modelName,
           openAIApiKey: process.env.OPENAI_API_KEY,
         });
       case 'anthropic':
@@ -30,7 +66,7 @@ const getModelInstance = async (modelId: string) => {
           throw new Error('ANTHROPIC_API_KEY not configured');
         }
         return new ChatAnthropic({
-          modelName: config.model,
+          modelName: modelName,
           anthropicApiKey: process.env.ANTHROPIC_API_KEY,
         });
       case 'google':
@@ -38,20 +74,40 @@ const getModelInstance = async (modelId: string) => {
           throw new Error('GOOGLE_API_KEY not configured');
         }
         return new ChatGoogleGenerativeAI({
-          modelName: config.model,
+          modelName: modelName,
           apiKey: process.env.GOOGLE_API_KEY,
         });
       default:
-        throw new Error(`Unsupported provider: ${config.provider}`);
+        throw new Error(`Unsupported provider: ${provider}`);
     }
   } catch (importError) {
     console.error('Failed to import LangChain modules:', importError);
-    throw new Error(`Failed to load model provider ${config.provider}. Please ensure LangChain dependencies are installed.`);
+    throw new Error(`Failed to load model provider ${provider}. Please ensure LangChain dependencies are installed.`);
   }
 };
 
-// Fixed model for evaluation - modify this as needed
-const EVALUATION_MODEL = 'gpt-4o-mini';
+
+
+// Read active evaluation assistant's provider+model
+const getActiveEvaluatorModel = async (): Promise<{ provider: string; model: string } | null> => {
+  try {
+    const rows = await sql`
+      SELECT m.provider as provider, m.model_id as model
+      FROM partimeas_assistants a
+      JOIN partimeas_models m ON m.id = a.model_id
+      WHERE a.type = 'evaluation' AND a.required_to_show = true
+      ORDER BY a.updated_at DESC
+      LIMIT 1
+    `;
+    if (rows && rows.length > 0) {
+      return { provider: rows[0].provider as string, model: rows[0].model as string };
+    }
+    return null;
+  } catch (e) {
+    console.error('Failed to query active evaluator from DB:', e);
+    return null;
+  }
+};
 
 // Helper function to determine use case from test case input
 const determineUseCase = (testCase: any): string => {
@@ -84,24 +140,27 @@ const determineUseCase = (testCase: any): string => {
   return 'provide_reflective_questions';
 };
 
-// Get dynamic system prompt based on use case
-const getSystemPrompt = (useCaseType: string): string => {
-  return USE_CASE_PROMPTS[useCaseType as keyof typeof USE_CASE_PROMPTS] || USE_CASE_PROMPTS.original_system123_instructions;
-};
+// No constant-based prompts; assistants' prompts are used
 
 // Helper function to generate output from a single model
-const generateModelOutput = async (modelId: string, testCase: any, useCaseTypeOverride?: string) => {
+const generateModelOutput = async (
+  provider: string,
+  modelId: string,
+  testCase: any,
+  useCaseTypeOverride?: string,
+  systemPromptOverride?: string,
+) => {
   try {
-    console.log(`🚀 Starting generation for model: ${modelId}`);
+    console.log(`🚀 Starting generation for model: ${provider}/${modelId}`);
     
     // Get model instance
-    const model = await getModelInstance(modelId);
-    console.log(`✅ Model instance created successfully for: ${modelId}`);
+    const model = await getModelInstance(provider, modelId);
+    console.log(`✅ Model instance created successfully for: ${provider}/${modelId}`);
 
-    // Use the provided use case type, or fall back to auto-detection
-    const useCaseType = useCaseTypeOverride || determineUseCase(testCase);
-    console.log(`🔧 Using use case type: ${useCaseType} (override: ${useCaseTypeOverride || 'none'}) for model: ${modelId}`);
-    const systemPrompt = getSystemPrompt(useCaseType);
+    // Use provided use case label as metadata only
+    const useCaseType = useCaseTypeOverride || testCase?.useCase || '';
+    console.log(`🔧 Using use case label: ${useCaseType} (override: ${useCaseTypeOverride || 'none'}) for model: ${provider}/${modelId}`);
+    const systemPrompt = systemPromptOverride || '';
 
     const prompt = await ChatPromptTemplate.fromMessages([
       [
@@ -119,13 +178,13 @@ const generateModelOutput = async (modelId: string, testCase: any, useCaseTypeOv
     output = validateAndFixStructure(output, useCaseType);
 
     return {
-      modelId,
+      modelId: `${provider}/${modelId}`,
       output,
       timestamp: new Date().toISOString(),
       useCaseType // Include the detected use case type in the response
     };
   } catch (error) {
-    console.error(`Error generating output for model ${modelId}:`, error);
+    console.error(`Error generating output for model ${provider}/${modelId}:`, error);
     throw error;
   }
 };
@@ -175,9 +234,33 @@ const evaluateModelOutputs = async (outputs: any[], testCase: any, criteria: any
   try {
     console.log('🔍 Starting evaluation of model outputs...');
     
-    // Get evaluation model instance
-    const evaluationModel = await getModelInstance(EVALUATION_MODEL);
-    console.log(`✅ Evaluation model instance created successfully: ${EVALUATION_MODEL}`);
+    // Use the active evaluation assistant's provider/model. If none, return mock evaluations.
+    const activeEvaluator = await getActiveEvaluatorModel();
+    if (!activeEvaluator) {
+      console.warn('⚠️ No active evaluation assistant. Returning mock evaluation results.');
+      const mockEvaluations = outputs.map((output) => {
+        const criteriaScores = criteria.reduce((acc: any, c: any) => {
+          const score = Math.floor(Math.random() * 3); // 0-2
+          acc[c.id] = { score, reasoning: 'Mock score (no evaluator active)' };
+          return acc;
+        }, {} as any);
+        const scoreValues = Object.values(criteriaScores).map((s: any) => s.score as number);
+        const overallScore = scoreValues.length > 0
+          ? scoreValues.reduce((a: number, b: number) => a + b, 0) / scoreValues.length
+          : 0;
+        return {
+          modelId: output.modelId,
+          overallScore,
+          criteriaScores,
+          feedback: 'Mock evaluation (no evaluator assistant is active).',
+          timestamp: new Date().toISOString()
+        };
+      });
+      return { evaluations: mockEvaluations, evaluationModelId: 'mock' };
+    }
+    const evaluationModelId = `${activeEvaluator.provider}/${activeEvaluator.model}`;
+    const evaluationModel = await getModelInstance(activeEvaluator.provider, activeEvaluator.model);
+    console.log(`✅ Evaluation model instance created successfully: ${evaluationModelId}`);
 
     const evaluations = [];
     
@@ -238,7 +321,7 @@ Please provide your evaluation in the following JSON format:
     }
 
     console.log(`✅ All evaluations completed. Total: ${evaluations.length}`);
-    return evaluations;
+    return { evaluations, evaluationModelId };
     
   } catch (error) {
     console.error('❌ Error during evaluation:', error);
@@ -255,11 +338,67 @@ export async function POST(request: NextRequest) {
     console.log('Test case:', testCase);
     
     if (phase === 'generate') {
-      console.log('Phase 1: Generating outputs from all models...');
-      
-      // Generate outputs from all models in parallel
+      console.log('Phase 1: Generating outputs from assistants with prioritization...');
+
+      const { numOutputs } = typeof testCase === 'object' ? testCase : {};
+
+      // Fetch all output-generation assistants
+      const allOutputAssistants = await getOutputGenerationAssistants();
+      const requiredAssistants = allOutputAssistants.filter(a => a.requiredToShow);
+      const optionalAssistants = allOutputAssistants.filter(a => !a.requiredToShow);
+
+      if ((numOutputs ?? 0) < 0) {
+        return NextResponse.json({ error: 'numOutputs must be a positive integer' }, { status: 400 });
+      }
+
+      // Determine how many outputs to generate. If not provided, default to up to 3.
+      const desiredOutputs = typeof numOutputs === 'number'
+        ? numOutputs
+        : Math.min(2, allOutputAssistants.length);
+
+      let selectedAssistants: OutputAssistant[] = [];
+      if (desiredOutputs === 0) {
+        return NextResponse.json({
+          success: true,
+          phase: 'generate',
+          outputs: [],
+          errors: [],
+          totalAssistants: allOutputAssistants.length,
+          selectedAssistants: 0,
+          timestamp: new Date().toISOString(),
+          message: 'No outputs requested (numOutputs=0)'
+        });
+      }
+
+      // Take up to desiredOutputs from required first (newest first)
+      selectedAssistants = requiredAssistants.slice(0, desiredOutputs);
+      const remaining = desiredOutputs - selectedAssistants.length;
+      if (remaining > 0 && optionalAssistants.length > 0) {
+        // Randomly sample remaining from optionalAssistants
+        const shuffled = [...optionalAssistants].sort(() => Math.random() - 0.5);
+        selectedAssistants = selectedAssistants.concat(shuffled.slice(0, remaining));
+      }
+
+      if (selectedAssistants.length === 0) {
+        return NextResponse.json({
+          error: 'No assistants selected. Ensure at least one output-generation assistant is marked as Required to Show, or set numOutputs to sample from optional assistants.',
+        }, { status: 400 });
+      }
+
+      // Shuffle display order of selected assistants so Response 1..N is randomized
+      selectedAssistants = shuffleArray(selectedAssistants);
+
+      // Generate outputs from selected assistants in parallel
       const outputGenerations = await Promise.allSettled(
-        OUTPUT_GENERATION_MODELS.map(modelId => generateModelOutput(modelId, testCase, testCase.useCase))
+        selectedAssistants.map(a =>
+          generateModelOutput(
+            a.provider,
+            a.model,
+            testCase,
+            testCase.useCase,
+            a.systemPrompt,
+          )
+        )
       );
       
       const outputs: any[] = [];
@@ -268,16 +407,16 @@ export async function POST(request: NextRequest) {
       // Process results
       for (let i = 0; i < outputGenerations.length; i++) {
         const result = outputGenerations[i];
-        const modelId = OUTPUT_GENERATION_MODELS[i];
+        const assistant = selectedAssistants[i];
         
         if (result.status === 'fulfilled') {
-          console.log(`✅ Model ${modelId} generated output successfully`);
+          console.log(`✅ Assistant ${assistant.name} generated output successfully`);
           outputs.push(result.value);
         } else {
           const errorMessage = result.reason instanceof Error ? result.reason.message : 'Unknown error';
-          console.error(`❌ Model ${modelId} failed: ${errorMessage}`);
+          console.error(`❌ Assistant ${assistant.name} failed: ${errorMessage}`);
           errors.push({
-            modelId,
+            assistantId: assistant.assistantId,
             error: errorMessage
           });
         }
@@ -288,7 +427,10 @@ export async function POST(request: NextRequest) {
         phase: 'generate',
         outputs,
         errors,
-        totalModels: OUTPUT_GENERATION_MODELS.length,
+        totalAssistants: allOutputAssistants.length,
+        selectedAssistants: selectedAssistants.length,
+        // Expose the actual model ids selected for this generation run so the UI can reflect accurate loading state
+        selectedAssistantsModels: selectedAssistants.map(a => a.model),
         successfulModels: outputs.length,
         failedModels: errors.length,
         timestamp: new Date().toISOString(),
@@ -315,13 +457,13 @@ export async function POST(request: NextRequest) {
       }
 
       // Evaluate all outputs using the evaluation model
-      const evaluations = await evaluateModelOutputs(outputs, testCase, criteria);
+    const { evaluations, evaluationModelId } = await evaluateModelOutputs(outputs, testCase, criteria);
 
       return NextResponse.json({
         success: true,
         phase: 'evaluate',
         evaluations,
-        evaluationModel: EVALUATION_MODEL,
+        evaluationModel: evaluationModelId,
         timestamp: new Date().toISOString(),
         message: 'Evaluation completed.'
       });

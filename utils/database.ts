@@ -25,18 +25,14 @@ export class SQLDatabaseOperations implements DatabaseOperations {
   
   async createSystemPrompt(data: NewSystemPrompt): Promise<SystemPrompt> {
     const query = `
-      INSERT INTO system_prompts (name, description, prompt, category, version, is_active, metadata)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO partimeas_system_prompts (name, prompt, type)
+      VALUES ($1, $2, $3)
       RETURNING *
     `;
     const params = [
       data.name,
-      data.description || null,
       data.prompt,
-      data.category || null,
-      data.version || '1.0.0',
-      data.isActive !== undefined ? data.isActive : true,
-      data.metadata ? JSON.stringify(data.metadata) : null
+      data.category || 'system'
     ];
     
     const result = await executeQuery(query, params);
@@ -132,7 +128,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
   // ==================== READ OPERATIONS ====================
   
   async getSystemPrompt(id: string): Promise<SystemPrompt | null> {
-    const query = 'SELECT * FROM system_prompts WHERE id = $1';
+    const query = 'SELECT * FROM partimeas_system_prompts WHERE id = $1';
     const result = await executeQuery(query, [id]);
     return result.length > 0 ? this.mapSystemPromptFromDB(result[0]) : null;
   }
@@ -143,25 +139,17 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     let paramIndex = 1;
 
     if (filters?.category) {
-      whereClause += ` AND category = $${paramIndex++}`;
+      whereClause += ` AND type = $${paramIndex++}`;
       params.push(filters.category);
     }
-    if (filters?.isActive !== undefined) {
-      whereClause += ` AND is_active = $${paramIndex++}`;
-      params.push(filters.isActive);
-    }
-    if (filters?.version) {
-      whereClause += ` AND version = $${paramIndex++}`;
-      params.push(filters.version);
-    }
 
-    const countQuery = `SELECT COUNT(*) FROM system_prompts ${whereClause}`;
+    const countQuery = `SELECT COUNT(*) FROM partimeas_system_prompts ${whereClause}`;
     const countResult = await executeQuery(countQuery, params);
     const total = parseInt(countResult[0].count);
 
     const offset = (page - 1) * limit;
     const query = `
-      SELECT * FROM system_prompts 
+      SELECT * FROM partimeas_system_prompts 
       ${whereClause}
       ORDER BY created_at DESC 
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
@@ -366,36 +354,20 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       updates.push(`name = $${paramIndex++}`);
       params.push(data.name);
     }
-    if (data.description !== undefined) {
-      updates.push(`description = $${paramIndex++}`);
-      params.push(data.description);
-    }
     if (data.prompt !== undefined) {
       updates.push(`prompt = $${paramIndex++}`);
       params.push(data.prompt);
     }
     if (data.category !== undefined) {
-      updates.push(`category = $${paramIndex++}`);
+      updates.push(`type = $${paramIndex++}`);
       params.push(data.category);
-    }
-    if (data.version !== undefined) {
-      updates.push(`version = $${paramIndex++}`);
-      params.push(data.version);
-    }
-    if (data.isActive !== undefined) {
-      updates.push(`is_active = $${paramIndex++}`);
-      params.push(data.isActive);
-    }
-    if (data.metadata !== undefined) {
-      updates.push(`metadata = $${paramIndex++}`);
-      params.push(data.metadata ? JSON.stringify(data.metadata) : null);
     }
 
     updates.push(`updated_at = NOW()`);
     params.push(id);
 
     const query = `
-      UPDATE system_prompts 
+      UPDATE partimeas_system_prompts 
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex}
       RETURNING *
@@ -435,7 +407,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     params.push(key);
 
     const query = `
-      UPDATE system_settings 
+      UPDATE partimeas_system_settings 
       SET ${updates.join(', ')}
       WHERE key = $${paramIndex}
       RETURNING *
@@ -620,7 +592,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
   // ==================== DELETE OPERATIONS ====================
   
   async deleteSystemPrompt(id: string): Promise<boolean> {
-    const query = 'DELETE FROM system_prompts WHERE id = $1 RETURNING id';
+    const query = 'DELETE FROM partimeas_system_prompts WHERE id = $1 RETURNING id';
     const result = await executeQuery(query, [id]);
     return result.length > 0;
   }
@@ -655,12 +627,11 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     return {
       id: row.id,
       name: row.name,
-      description: row.description,
+      description: row.description || undefined,
       prompt: row.prompt,
-      category: row.category,
-      version: row.version,
-      isActive: row.is_active,
-      metadata: row.metadata,
+      category: row.type,
+      version: row.version || '1.0.0',
+      metadata: row.metadata || undefined,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     };
@@ -738,7 +709,7 @@ export const db = new SQLDatabaseOperations();
 
 // Export specific utility objects for different entities
 export const systemPromptUtils = {
-  getAll: (activeOnly: boolean = true) => db.getSystemPrompts({ isActive: activeOnly }),
+  getAll: () => db.getSystemPrompts(),
   getByCategory: (category: string) => db.getSystemPrompts({ category }),
   get: (id: string) => db.getSystemPrompt(id),
   create: (data: NewSystemPrompt) => db.createSystemPrompt(data),

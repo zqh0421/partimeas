@@ -1,3 +1,5 @@
+import { Empty } from 'antd';
+
 interface EmptyStateProps {
   icon: React.ReactNode;
   title: string;
@@ -6,12 +8,14 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon, title, description }: EmptyStateProps) {
   return (
-    <div className="text-center py-8 bg-gray-50 rounded-lg">
-      <div className="mx-auto h-12 w-12 text-gray-400">
-        {icon}
-      </div>
-      <h3 className="mt-2 text-sm font-medium text-gray-900">{title}</h3>
-      <p className="mt-1 text-sm text-gray-500">{description}</p>
-    </div>
+    <Empty
+      image={<div style={{ fontSize: 48, color: '#d9d9d9' }}>{icon}</div>}
+      description={
+        <div>
+          <div style={{ fontWeight: 500, marginBottom: 4 }}>{title}</div>
+          <div style={{ color: '#8c8c8c', fontSize: '0.875rem' }}>{description}</div>
+        </div>
+      }
+    />
   );
 } 

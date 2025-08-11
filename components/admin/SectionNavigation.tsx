@@ -1,5 +1,5 @@
+import { Tabs } from 'antd';
 import { AdminSection } from '../../types/admin';
-import { getSectionButtonClass } from '../../utils/adminHelpers';
 
 interface SectionNavigationProps {
   activeSection: AdminSection;
@@ -7,22 +7,32 @@ interface SectionNavigationProps {
 }
 
 export function SectionNavigation({ activeSection, onSectionChange }: SectionNavigationProps) {
+  const items = [
+    {
+      key: 'assistants',
+      label: 'Main Settings',
+    },
+    {
+      key: 'output-generation',
+      label: 'Output Generation',
+    },
+    {
+      key: 'evaluation',
+      label: 'Evaluation',
+    },
+    {
+      key: 'models',
+      label: 'Models',
+    },
+  ];
+
   return (
-    <div className="border-b border-gray-200 mb-8">
-      <nav className="-mb-px flex space-x-8">
-        <button
-          onClick={() => onSectionChange('output-generation')}
-          className={getSectionButtonClass(activeSection === 'output-generation')}
-        >
-          Output Generation
-        </button>
-        <button
-          onClick={() => onSectionChange('evaluation')}
-          className={getSectionButtonClass(activeSection === 'evaluation')}
-        >
-          Evaluation
-        </button>
-      </nav>
-    </div>
+    <Tabs
+      activeKey={activeSection}
+      onChange={(key) => onSectionChange(key as AdminSection)}
+      items={items}
+      style={{ marginBottom: 24 }}
+      size="large"
+    />
   );
 } 

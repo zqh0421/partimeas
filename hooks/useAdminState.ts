@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
-import { AdminState, ModelConfig, PromptConfig, AssistantConfig, AdminSection } from '../types/admin';
+import { AdminState, ModelConfig, PromptConfig, AdminSection, Assistant } from '../types/admin';
 
 export function useAdminState() {
   const [state, setState] = useState<AdminState>({
     modelConfigs: [],
     promptConfigs: [],
-    assistantConfigs: [],
+    assistants: [],
     isLoading: true,
     hasChanges: false,
+    hasModelChanges: false,
+    hasPromptChanges: false,
+    hasAssistantChanges: false,
     error: null,
     success: null,
-    activeSection: 'output-generation'
+    activeSection: 'assistants',
+    deletedModels: [],
+    deletedPrompts: [],
+    deletedAssistants: []
   });
 
   // Load initial configuration
@@ -31,7 +37,6 @@ export function useAdminState() {
       const promptResponse = await fetch('/api/admin/prompts');
       console.log('Prompt response status:', promptResponse.status, promptResponse.statusText);
       
-      // Load assistant configurations
       console.log('Loading assistant configurations...');
       const assistantResponse = await fetch('/api/admin/assistants');
       console.log('Assistant response status:', assistantResponse.status, assistantResponse.statusText);
@@ -41,86 +46,65 @@ export function useAdminState() {
         const promptData = await promptResponse.json();
         const assistantData = await assistantResponse.json();
         
+        console.log('Loaded models:', modelData.models?.length || 0);
+        console.log('Loaded prompts:', promptData.prompts?.length || 0);
+        console.log('Loaded assistants:', assistantData.assistants?.length || 0);
+        
         setState(prev => ({
           ...prev,
-          modelConfigs: modelData.models,
-          promptConfigs: promptData.prompts,
-          assistantConfigs: assistantData.assistants || [],
-          isLoading: false
+          modelConfigs: modelData.models || [],
+          promptConfigs: promptData.prompts || [],
+          assistants: assistantData.assistants || [],
+          isLoading: false,
+          hasChanges: false,
+          hasModelChanges: false,
+          hasPromptChanges: false,
+          hasAssistantChanges: false
         }));
       } else {
-        // Get more specific error information
-        let errorMessage = 'Failed to load configuration';
-        if (!modelResponse.ok) {
-          const modelError = await modelResponse.text();
-          errorMessage += ` - Models API: ${modelResponse.status} ${modelResponse.statusText}`;
-          if (modelError) errorMessage += ` - ${modelError}`;
-        }
-        if (!promptResponse.ok) {
-          const promptError = await promptResponse.text();
-          errorMessage += ` - Prompts API: ${promptResponse.status} ${promptResponse.statusText}`;
-          if (promptError) errorMessage += ` - ${promptError}`;
-        }
-        if (!assistantResponse.ok) {
-          const assistantError = await assistantResponse.text();
-          errorMessage += ` - Assistants API: ${assistantResponse.status} ${assistantResponse.statusText}`;
-          if (assistantError) errorMessage += ` - ${assistantError}`;
-        }
-        throw new Error(errorMessage);
+        throw new Error('Failed to load configuration');
       }
     } catch (error) {
+      console.error('Error loading configuration:', error);
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to load configuration'
+        error: 'Failed to load configuration'
       }));
     }
   };
 
   const saveConfiguration = async () => {
     try {
-      setState(prev => ({ ...prev, error: null, success: null }));
+      setState(prev => ({ ...prev, error: null }));
       
-      // Save model configurations
-      const modelResponse = await fetch('/api/admin/models', {
+      const response = await fetch('/api/admin/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ models: state.modelConfigs })
+        body: JSON.stringify({
+          models: state.modelConfigs,
+          prompts: state.promptConfigs,
+          deletedPrompts: state.deletedPrompts || []
+        })
       });
-      
-      // Save prompt configurations
-      const promptResponse = await fetch('/api/admin/prompts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompts: state.promptConfigs })
-      });
-      
-      // Save assistant configurations
-      const assistantResponse = await fetch('/api/admin/assistants', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assistants: state.assistantConfigs })
-      });
-      
-      if (modelResponse.ok && promptResponse.ok && assistantResponse.ok) {
+
+      if (response.ok) {
+        const result = await response.json();
         setState(prev => ({
           ...prev,
+          success: result.message || 'Configuration saved successfully',
           hasChanges: false,
-          success: 'Configuration saved successfully!'
+          hasModelChanges: false,
+          hasPromptChanges: false,
+          deletedModels: [],
+          deletedPrompts: []
         }));
-        
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-          setState(prev => ({ ...prev, success: null }));
-        }, 3000);
       } else {
-        let errorMessage = 'Failed to save configuration';
-        if (!modelResponse.ok) errorMessage += ' - Models';
-        if (!promptResponse.ok) errorMessage += ' - Prompts';
-        if (!assistantResponse.ok) errorMessage += ' - Assistants';
-        throw new Error(errorMessage);
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save configuration');
       }
     } catch (error) {
+      console.error('Error saving configuration:', error);
       setState(prev => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Failed to save configuration'
@@ -128,124 +112,293 @@ export function useAdminState() {
     }
   };
 
+  const saveModelsOnly = async () => {
+    try {
+      setState(prev => ({ ...prev, error: null }));
+
+      // 1) Create newly added models (those with temporary IDs)
+      const modelsToCreate = state.modelConfigs
+        .filter(m => m.id.startsWith('temp-'))
+        .map(m => ({ provider: m.provider, modelId: m.model }));
+
+      if (modelsToCreate.length > 0) {
+        const createResponse = await fetch('/api/admin/models', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ models: modelsToCreate })
+        });
+        if (!createResponse.ok) {
+          const errorData = await createResponse.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to create models');
+        }
+      }
+
+      // 2) Delete removed models that exist in DB
+      if (state.deletedModels && state.deletedModels.length > 0) {
+        await Promise.all(
+          state.deletedModels.map(m =>
+            fetch(`/api/admin/models/${m.id}`, { method: 'DELETE' })
+          )
+        );
+      }
+
+      // 3) Refresh configuration (to pick up DB-generated IDs and clear temp ones)
+      await loadConfiguration();
+
+      setState(prev => ({
+        ...prev,
+        success: 'Models saved successfully',
+        hasModelChanges: false,
+        deletedModels: []
+      }));
+    } catch (error) {
+      console.error('Error saving models:', error);
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to save models'
+      }));
+    }
+  };
+
+  const savePromptsOnly = async () => {
+    try {
+      setState(prev => ({ ...prev, error: null }));
+      
+      const response = await fetch('/api/admin/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          models: state.modelConfigs,
+          prompts: state.promptConfigs,
+          deletedPrompts: state.deletedPrompts || []
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setState(prev => ({
+          ...prev,
+          success: result.message || 'Prompts saved successfully',
+          hasPromptChanges: false,
+          deletedPrompts: []
+        }));
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save prompts');
+      }
+    } catch (error) {
+      console.error('Error saving prompts:', error);
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to save prompts'
+      }));
+    }
+  };
+
+  const saveAssistantsOnly = async () => {
+    try {
+      setState(prev => ({ ...prev, error: null }));
+      
+      // Preflight validation: ensure referenced IDs are UUIDs when saving
+      const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+      for (const assistant of state.assistants) {
+        const isCreate = assistant.id <= 0;
+        const hasInvalidModel = !uuidRegex.test(assistant.model_id || '');
+        const hasInvalidPrompt = !uuidRegex.test(assistant.system_prompt_id || '');
+        if ((isCreate || hasInvalidModel || hasInvalidPrompt) && (hasInvalidModel || hasInvalidPrompt)) {
+          throw new Error('Please select a saved Model and System Prompt before saving assistants.');
+        }
+      }
+
+      // Save assistants individually since they have their own API
+      const assistantPromises = state.assistants.map(async (assistant) => {
+        if (assistant.id > 0) {
+          // Update existing assistant
+          return fetch('/api/admin/assistants', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(assistant)
+          });
+        } else {
+          // Create new assistant
+          return fetch('/api/admin/assistants', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(assistant)
+          });
+        }
+      });
+
+      // Delete removed assistants
+      if (state.deletedAssistants && state.deletedAssistants.length > 0) {
+        const deletePromises = state.deletedAssistants.map(async (deletedAssistant) => {
+          return fetch(`/api/admin/assistants?id=${deletedAssistant.id}`, {
+            method: 'DELETE'
+          });
+        });
+        await Promise.all(deletePromises);
+      }
+
+      await Promise.all(assistantPromises);
+      
+      setState(prev => ({
+        ...prev,
+        success: 'Assistants saved successfully',
+        hasAssistantChanges: false,
+        deletedAssistants: []
+      }));
+    } catch (error) {
+      console.error('Error saving assistants:', error);
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to save assistants'
+      }));
+    }
+  };
+
   const updateModelConfig = (id: string, updates: Partial<ModelConfig>) => {
     setState(prev => ({
       ...prev,
-      modelConfigs: prev.modelConfigs.map(model => 
+      modelConfigs: prev.modelConfigs.map(model =>
         model.id === id ? { ...model, ...updates } : model
       ),
-      hasChanges: true
+      hasChanges: true,
+      hasModelChanges: true
     }));
   };
 
   const updatePromptConfig = (id: string, updates: Partial<PromptConfig>) => {
     setState(prev => ({
       ...prev,
-      promptConfigs: prev.promptConfigs.map(prompt => 
+      promptConfigs: prev.promptConfigs.map(prompt =>
         prompt.id === id ? { ...prompt, ...updates } : prompt
       ),
-      hasChanges: true
+      hasChanges: true,
+      hasPromptChanges: true
     }));
   };
 
-  const addModelConfig = () => {
-    const newModel: ModelConfig = {
-      id: `model-${Date.now()}`,
-      name: 'New Model',
-      provider: 'openai',
-      model: 'gpt-4',
-      isEnabled: true,
-      isEvaluationModel: false,
-      isOutputGenerationModel: false
-    };
-    
+  const updateAssistant = (id: number, updates: Partial<Assistant>) => {
     setState(prev => ({
       ...prev,
-      modelConfigs: [...prev.modelConfigs, newModel],
-      hasChanges: true
+      assistants: prev.assistants.map(assistant =>
+        assistant.id === id ? { ...assistant, ...updates } : assistant
+      ),
+      hasChanges: true,
+      hasAssistantChanges: true
+    }));
+  };
+
+  const addModelConfig = (model: ModelConfig) => {
+    setState(prev => ({
+      ...prev,
+      modelConfigs: [...prev.modelConfigs, model],
+      hasChanges: true,
+      hasModelChanges: true
     }));
   };
 
   const addPromptConfig = (type: 'system' | 'evaluation') => {
     const newPrompt: PromptConfig = {
-      id: `prompt-${Date.now()}`,
+      // Use 'prompt-' prefix so backend knows this is a new prompt to be inserted
+      id: `prompt-${type}-${Date.now()}`,
       name: `New ${type === 'system' ? 'System' : 'Evaluation'} Prompt`,
-      content: type === 'system' 
-        ? 'Enter your system prompt content here...'
-        : 'Enter your evaluation prompt content here...',
-      type,
-      isDefault: false
+      content: '',
+      type
     };
     
     setState(prev => ({
       ...prev,
       promptConfigs: [...prev.promptConfigs, newPrompt],
-      hasChanges: true
+      hasChanges: true,
+      hasPromptChanges: true
     }));
   };
 
-  const removeModelConfig = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      modelConfigs: prev.modelConfigs.filter(model => model.id !== id),
-      hasChanges: true
-    }));
-  };
-
-  const removePromptConfig = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      promptConfigs: prev.promptConfigs.filter(prompt => prompt.id !== id),
-      hasChanges: true
-    }));
-  };
-
-  const setDefaultPrompt = (type: 'system' | 'evaluation', id: string) => {
-    setState(prev => ({
-      ...prev,
-      promptConfigs: prev.promptConfigs.map(prompt => ({
-        ...prompt,
-        isDefault: prompt.type === type ? prompt.id === id : false
-      })),
-      hasChanges: true
-    }));
-  };
-
-  const addAssistantConfig = (type: 'output-generation' | 'evaluation') => {
-    const newAssistant: AssistantConfig = {
-      id: `assistant-${Date.now()}`,
-      name: `New ${type === 'output-generation' ? 'Output Generation' : 'Evaluation'} Assistant`,
-      description: '',
-      systemPromptId: '',
-      modelIds: [],
-      isEnabled: true,
-      type,
-      responseCount: 1
+  const addAssistant = (assistant: Omit<Assistant, 'id' | 'created_at' | 'updated_at'>) => {
+    const newAssistant: Assistant = {
+      ...assistant,
+      id: -Date.now(), // Temporary negative ID for new assistants
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
     
     setState(prev => ({
       ...prev,
-      assistantConfigs: [...prev.assistantConfigs, newAssistant],
-      hasChanges: true
+      assistants: [...prev.assistants, newAssistant],
+      hasChanges: true,
+      hasAssistantChanges: true
     }));
   };
 
-  const updateAssistantConfig = (id: string, updates: Partial<AssistantConfig>) => {
+  const addProviderModels = (provider: 'openai' | 'anthropic' | 'google', modelNames: string[]) => {
+    const newModels: ModelConfig[] = modelNames.map(modelName => ({
+      id: `temp-${Date.now()}-${Math.random()}`,
+      name: modelName,
+      provider,
+      model: modelName,
+      isEnabled: true,
+      isEvaluationModel: true,
+      isOutputGenerationModel: true
+    }));
+
     setState(prev => ({
       ...prev,
-      assistantConfigs: prev.assistantConfigs.map(assistant =>
-        assistant.id === id ? { ...assistant, ...updates } : assistant
-      ),
-      hasChanges: true
+      modelConfigs: [...prev.modelConfigs, ...newModels],
+      hasChanges: true,
+      hasModelChanges: true
     }));
   };
 
-  const removeAssistantConfig = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      assistantConfigs: prev.assistantConfigs.filter(assistant => assistant.id !== id),
-      hasChanges: true
-    }));
+  const removeModelConfig = (id: string) => {
+    setState(prev => {
+      const modelToRemove = prev.modelConfigs.find(m => m.id === id);
+      const updatedModels = prev.modelConfigs.filter(m => m.id !== id);
+      
+      return {
+        ...prev,
+        modelConfigs: updatedModels,
+        hasChanges: true,
+        hasModelChanges: true,
+        deletedModels: modelToRemove && modelToRemove.id.startsWith('temp-') === false
+          ? [...(prev.deletedModels || []), { id, provider: modelToRemove.provider, model: modelToRemove.model }]
+          : prev.deletedModels
+      };
+    });
+  };
+
+  const removePromptConfig = (id: string) => {
+    setState(prev => {
+      const promptToRemove = prev.promptConfigs.find(p => p.id === id);
+      const updatedPrompts = prev.promptConfigs.filter(p => p.id !== id);
+      
+      return {
+        ...prev,
+        promptConfigs: updatedPrompts,
+        hasChanges: true,
+        hasPromptChanges: true,
+        deletedPrompts: promptToRemove && promptToRemove.id.startsWith('temp-') === false
+          ? [...(prev.deletedPrompts || []), { id, type: promptToRemove.type }]
+          : prev.deletedPrompts
+      };
+    });
+  };
+
+  const removeAssistant = (id: number) => {
+    setState(prev => {
+      const assistantToRemove = prev.assistants.find(a => a.id === id);
+      const updatedAssistants = prev.assistants.filter(a => a.id !== id);
+      
+      return {
+        ...prev,
+        assistants: updatedAssistants,
+        hasChanges: true,
+        hasAssistantChanges: true,
+        deletedAssistants: assistantToRemove && assistantToRemove.id > 0
+          ? [...(prev.deletedAssistants || []), { id, type: assistantToRemove.type }]
+          : prev.deletedAssistants
+      };
+    });
   };
 
   const setActiveSection = (section: AdminSection) => {
@@ -264,16 +417,19 @@ export function useAdminState() {
     state,
     loadConfiguration,
     saveConfiguration,
+    saveModelsOnly,
+    savePromptsOnly,
+    saveAssistantsOnly,
     updateModelConfig,
     updatePromptConfig,
+    updateAssistant,
     addModelConfig,
     addPromptConfig,
+    addAssistant,
+    addProviderModels,
     removeModelConfig,
     removePromptConfig,
-    setDefaultPrompt,
-    addAssistantConfig,
-    updateAssistantConfig,
-    removeAssistantConfig,
+    removeAssistant,
     setActiveSection,
     clearError,
     clearSuccess

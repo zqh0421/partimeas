@@ -5,7 +5,7 @@ import RubricEvaluator from '@/components/RubricEvaluator';
 import { ModelComparisonEvaluator } from '@/components';
 import ModelOutputsGrid from '@/components/ModelOutputsGrid';
 import { TestCase, TestCaseWithModelOutputs, ModelOutput } from '@/types';
-import { OUTPUT_GENERATION_MODELS } from '@/app/api/model-evaluation/route';
+// No longer import constants from API; UI receives dynamic selection via props
 
 interface AnalysisStepProps {
   testCases: TestCase[];
@@ -16,6 +16,8 @@ interface AnalysisStepProps {
   analysisStep: 'setup' | 'running' | 'complete';
   currentPhase: 'generating' | 'evaluating' | 'complete';
   shouldStartEvaluation: boolean;
+  showEvaluationFeatures?: boolean;
+  isRealEvaluation?: boolean;
   onTestCaseSelect: (index: number) => void;
   onEvaluationComplete: (results: any[]) => void;
   onModelComparisonEvaluationComplete: (results: Array<{
@@ -26,6 +28,8 @@ interface AnalysisStepProps {
   }>) => void;
   onEvaluationError: (error: string) => void;
   onEvaluationProgress: (currentIndex: number, progress: number) => void;
+  // Optional override for loading model list to reflect actual DB-selected models
+  loadingModelListOverride?: string[];
 }
 
 export default function AnalysisStep({
@@ -36,28 +40,36 @@ export default function AnalysisStep({
   shouldStartEvaluation,
   analysisStep,
   selectedSystemPrompt,
+  showEvaluationFeatures = true,
+  isRealEvaluation = false,
   onTestCaseSelect,
   onEvaluationComplete,
   onEvaluationError,
   onEvaluationProgress,
   onModelComparisonEvaluationComplete,
+  loadingModelListOverride,
 }: AnalysisStepProps) {
   const gridConfig = useMemo(() => {
     const isLoading = currentPhase === 'generating';
     const currentTestCase = testCasesWithModelOutputs[selectedTestCaseIndex];
+    // Prefer dynamic selected model ids captured during generation, fallback to constants
+    const dynamicLoadingModels: string[] = Array.isArray(loadingModelListOverride)
+      ? loadingModelListOverride as string[]
+      : [];
     
     return {
       isLoading,
       modelOutputs: isLoading ? [] : (currentTestCase?.modelOutputs || []),
       testCases: isLoading ? testCases : testCasesWithModelOutputs,
-      loadingModelList: isLoading ? OUTPUT_GENERATION_MODELS : [],
+      loadingModelList: isLoading ? dynamicLoadingModels : [],
       stepId: isLoading ? "analysis" : undefined,
     };
   }, [
     currentPhase, 
     testCasesWithModelOutputs, 
     selectedTestCaseIndex, 
-    testCases
+    testCases,
+    loadingModelListOverride
   ]);
 
   return (
@@ -95,6 +107,9 @@ export default function AnalysisStep({
               onTestCaseSelect={onTestCaseSelect}
               stepId={gridConfig.stepId}
               className="space-y-4"
+              showEvaluationFeatures={showEvaluationFeatures}
+              isRealEvaluation={isRealEvaluation}
+              currentPhase={currentPhase}
             />
           ) : (
             <div className="text-center py-8 text-gray-500">

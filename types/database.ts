@@ -8,7 +8,6 @@ export interface SystemPrompt {
   prompt: string;
   category?: string;
   version?: string;
-  isActive: boolean;
   metadata?: any;
   createdAt: Date;
   updatedAt: Date;
@@ -20,7 +19,6 @@ export interface NewSystemPrompt {
   prompt: string;
   category?: string;
   version?: string;
-  isActive?: boolean;
   metadata?: any;
 }
 
@@ -171,7 +169,6 @@ export interface PaginatedResponse<T> {
 // Filter and query types
 export interface SystemPromptFilters {
   category?: string;
-  isActive?: boolean;
   version?: string;
 }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { Layout } from 'antd';
 import { useAdminState } from '../../hooks/useAdminState';
 import {
   StatusMessages,
@@ -11,74 +12,111 @@ import {
   PageHeader
 } from '../../components/admin';
 
+const { Content } = Layout;
+
 export default function AdminPage() {
   const {
     state,
     loadConfiguration,
     saveConfiguration,
+    saveModelsOnly,
+    savePromptsOnly,
+    saveAssistantsOnly,
     updateModelConfig,
     updatePromptConfig,
+    updateAssistant,
     addModelConfig,
+    addProviderModels,
     addPromptConfig,
+    addAssistant,
     removeModelConfig,
     removePromptConfig,
-    setDefaultPrompt,
-    addAssistantConfig,
-    updateAssistantConfig,
-    removeAssistantConfig,
+    removeAssistant,
     setActiveSection,
     clearError,
     clearSuccess
   } = useAdminState();
+
+  // Individual save functions for models and prompts
+  const handleSaveModels = async () => {
+    try {
+      await saveModelsOnly();
+      // You could add specific success handling for models here
+    } catch (error) {
+      console.error('Error saving models:', error);
+    }
+  };
+
+  const handleSavePrompts = async () => {
+    try {
+      await savePromptsOnly();
+      // You could add specific success handling for prompts here
+    } catch (error) {
+      console.error('Error saving prompts:', error);
+    }
+  };
+
+  const handleSaveAssistants = async () => {
+    try {
+      await saveAssistantsOnly();
+      // You could add specific success handling for assistants here
+    } catch (error) {
+      console.error('Error saving assistants:', error);
+    }
+  };
 
   if (state.isLoading) {
     return <LoadingSpinner />;
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
-      <Breadcrumb />
+    <Layout style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+      <Content style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+        <Breadcrumb />
 
-      <PageHeader
-        title="Admin Configuration"
-        description="Manage models, prompts, and assistants for output generation and evaluation"
-      />
+        <PageHeader
+          title="Admin Configuration"
+          description="Manage main settings, models, and prompts for output generation and evaluation"
+        />
 
-      <StatusMessages
-        error={state.error}
-        success={state.success}
-        onClearError={clearError}
-        onClearSuccess={clearSuccess}
-      />
+        <StatusMessages
+          error={state.error}
+          success={state.success}
+          onClearError={clearError}
+          onClearSuccess={clearSuccess}
+        />
 
-      <ActionButtons
-        hasChanges={state.hasChanges}
-        onSave={saveConfiguration}
-        onReload={loadConfiguration}
-      />
+        <ActionButtons
+          onReload={loadConfiguration}
+        />
 
-      <SectionNavigation
-        activeSection={state.activeSection}
-        onSectionChange={setActiveSection}
-      />
+        <SectionNavigation
+          activeSection={state.activeSection}
+          onSectionChange={setActiveSection}
+        />
 
-      {/* Main Content */}
-      <MainContent
-        activeSection={state.activeSection}
-        modelConfigs={state.modelConfigs}
-        promptConfigs={state.promptConfigs}
-        assistantConfigs={state.assistantConfigs}
-        onAddModel={addModelConfig}
-        onUpdateModel={updateModelConfig}
-        onRemoveModel={removeModelConfig}
-        onAddPrompt={addPromptConfig}
-        onUpdatePrompt={updatePromptConfig}
-        onSetDefaultPrompt={setDefaultPrompt}
-        onRemovePrompt={removePromptConfig}
-        onAddAssistant={addAssistantConfig}
-        onUpdateAssistant={updateAssistantConfig}
-        onRemoveAssistant={removeAssistantConfig}
-      />
-    </div>
+        <MainContent
+          activeSection={state.activeSection}
+          modelConfigs={state.modelConfigs}
+          promptConfigs={state.promptConfigs}
+          assistants={state.assistants}
+          onAddProviderModels={addProviderModels}
+          onUpdateModel={updateModelConfig}
+          onRemoveModel={removeModelConfig}
+          onAddPrompt={addPromptConfig}
+          onUpdatePrompt={updatePromptConfig}
+          onRemovePrompt={removePromptConfig}
+          onAddAssistant={addAssistant}
+          onUpdateAssistant={updateAssistant}
+          onRemoveAssistant={removeAssistant}
+          onSaveModels={handleSaveModels}
+          onSavePrompts={handleSavePrompts}
+          onSaveAssistants={handleSaveAssistants}
+          hasModelChanges={state.hasModelChanges}
+          hasPromptChanges={state.hasPromptChanges}
+          hasAssistantChanges={state.hasAssistantChanges}
+        />
+      </Content>
+    </Layout>
   );
 } 
