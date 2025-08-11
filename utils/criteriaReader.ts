@@ -22,8 +22,6 @@ async function fetchSheetData(
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json'
   };
-  
-  console.log(`[CriteriaReader] Fetching: ${url}`);
 
   const response = await fetch(url, { headers });
 
@@ -64,18 +62,8 @@ function findFieldValue(headers: string[], row: string[], fieldNames: string[]):
     const index = headerLower.indexOf(searchName);
     if (index >= 0) {
       const value = row[index] || '';
-      // Debug log for criteria field specifically
-      if (fieldNames.includes('criterion')) {
-        console.log(`[CriteriaReader] Looking for '${searchName}' in headers: [${headerLower.join(', ')}]`);
-        console.log(`[CriteriaReader] Found at index ${index}, value: '${value}'`);
-      }
       return value;
     }
-  }
-  
-  // If not found, log for debugging
-  if (fieldNames.includes('criterion')) {
-    console.log(`[CriteriaReader] FAILED to find '${fieldNames.join(', ')}' in headers: [${headerLower.join(', ')}]`);
   }
   
   return '';
@@ -124,9 +112,6 @@ export interface NewCriteriaItem extends CategoryItem {}
 
 // Convert sheet data to raw criteria format (internal function)
 function convertToRawCriteria(headers: string[], rows: string[][]): RawCriteriaItem[] {
-  console.log(`[CriteriaReader] Converting ${rows.length} rows to criteria`);
-  console.log(`[CriteriaReader] Headers: [${headers.join(', ')}]`);
-  
   const result = rows.map((row, index) => {
     // Create the raw data structure
     const criteriaItem: RawCriteriaItem = {
@@ -142,10 +127,6 @@ function convertToRawCriteria(headers: string[], rows: string[][]): RawCriteriaI
       example: findFieldValue(headers, row, FIELD_MAP.example)
     };
 
-    if (index < 3) {
-      console.log(`[CriteriaReader] Row ${index} converted to:`, criteriaItem);
-    }
-
     return criteriaItem;
   }).filter(criteriaItem => {
     // 对于层级结构，保留所有有任何内容的行
@@ -160,21 +141,9 @@ function convertToRawCriteria(headers: string[], rows: string[][]): RawCriteriaI
     const isValid = hasValidCategory || hasValidCriterion || hasValidDescription || 
                    hasValidSubcriteria || hasValidScore || hasValidScoreMeaning;
     
-    if (!isValid) {
-      console.log(`[CriteriaReader] Filtered out completely empty row ${criteriaItem.rowNumber}:`, criteriaItem);
-    } else {
-      console.log(`[CriteriaReader] Keeping row ${criteriaItem.rowNumber}:`, {
-        category: criteriaItem.category || '[empty]',
-        criterion: criteriaItem.criterion || '[empty]',
-        subcriteria: criteriaItem.subcriteria || '[empty]',
-        score: criteriaItem.score || '[empty]'
-      });
-    }
-    
     return isValid;
   });
   
-  console.log(`[CriteriaReader] After filtering: ${result.length} criteria remain`);
   return result;
 }
 
@@ -189,13 +158,6 @@ function organizeHierarchicalData(rawData: RawCriteriaItem[]): NewCriteriaItem[]
   
   // 遍历每一行数据
   rawData.forEach((item, index) => {
-    console.log(`[CriteriaReader] Processing row ${item.rowNumber}:`, {
-      category: item.category || '[empty]',
-      criterion: item.criterion || '[empty]',
-      subcriteria: item.subcriteria || '[empty]',
-      score: item.score || '[empty]',
-      scoreMeaning: item.scoreMeaning || '[empty]'
-    });
     
     const categoryName = item.category?.trim();
     const criterionName = item.criterion?.trim();
@@ -220,7 +182,6 @@ function organizeHierarchicalData(rawData: RawCriteriaItem[]): NewCriteriaItem[]
           name: currentCategory,
           criteria: []
         });
-        console.log(`[CriteriaReader] Created category: ${currentCategory}`);
       }
     }
     
@@ -236,7 +197,6 @@ function organizeHierarchicalData(rawData: RawCriteriaItem[]): NewCriteriaItem[]
           subcriteria: []
         };
         category.criteria.push(criterion);
-        console.log(`[CriteriaReader] Created criterion: ${currentCriterion} in category: ${currentCategory}`);
       }
       
       // 更新description如果当前行有新的描述
@@ -258,7 +218,6 @@ function organizeHierarchicalData(rawData: RawCriteriaItem[]): NewCriteriaItem[]
           scoreLevels: []
         };
         criterion.subcriteria.push(subcriteria);
-        console.log(`[CriteriaReader] Created subcriteria: ${currentSubcriteria} in criterion: ${currentCriterion}`);
       }
       
       // 更新description如果当前行有新的描述
@@ -281,7 +240,6 @@ function organizeHierarchicalData(rawData: RawCriteriaItem[]): NewCriteriaItem[]
           scoreMeaning: item.scoreMeaning?.trim() || '',
           example: item.example?.trim() || ''
         });
-        console.log(`[CriteriaReader] Added score ${score} to subcriteria: ${currentSubcriteria}`);
       }
     }
   });
@@ -298,7 +256,6 @@ function organizeHierarchicalData(rawData: RawCriteriaItem[]): NewCriteriaItem[]
     }))
   }));
   
-  console.log(`[CriteriaReader] Organized data structure:`, JSON.stringify(result, null, 2));
   return result;
 }
 
@@ -306,7 +263,6 @@ function organizeHierarchicalData(rawData: RawCriteriaItem[]): NewCriteriaItem[]
 function convertToCriteria(headers: string[], rows: string[][]): NewCriteriaItem[] {
   const rawData = convertToRawCriteria(headers, rows);
   const hierarchicalData = organizeHierarchicalData(rawData);
-  console.log(`[CriteriaReader] Organized into ${hierarchicalData.length} categories`);
   return hierarchicalData;
 }
 
@@ -320,16 +276,8 @@ export function validateCriteria(categories: NewCriteriaItem[]): ValidationResul
     return { isValid: false, errors, warnings };
   }
 
-  console.log(`[CriteriaReader] Validating ${categories.length} categories`);
-
   categories.forEach((category, categoryIndex) => {
     const categoryNumber = categoryIndex + 1;
-    
-    // Log the actual data we're validating
-    console.log(`[CriteriaReader] Validating category ${categoryNumber}:`, {
-      name: category.name,
-      criteriaCount: category.criteria.length
-    });
     
     // Validate category
     if (!category.name?.trim()) {
@@ -396,9 +344,6 @@ export async function loadCriteria(
     throw new Error(`Criteria config not found: ${criteriaId}`);
   }
 
-  console.log(`[CriteriaReader] Loading criteria for: ${criteriaId}`);
-  console.log(`[CriteriaReader] Spreadsheet: ${config.spreadsheetId}, Sheet: ${config.sheetName}`);
-
   try {
     const { headers, rows } = await fetchSheetData(
       config.spreadsheetId,
@@ -406,16 +351,10 @@ export async function loadCriteria(
       accessToken
     );
 
-    console.log(`[CriteriaReader] Raw headers:`, headers);
-    console.log(`[CriteriaReader] Total rows found:`, rows.length);
-    console.log(`[CriteriaReader] First few rows:`, rows.slice(0, 3));
-
     const criteria = convertToCriteria(headers, rows);
-    console.log(`[CriteriaReader] Loaded ${criteria.length} criteria`);
     
     if (criteria.length === 0) {
-      console.log(`[CriteriaReader] No criteria found. Headers were:`, headers);
-      console.log(`[CriteriaReader] Sample row data:`, rows[0]);
+      // No criteria found - this is a valid case for empty spreadsheets
     }
     
     return criteria;
@@ -431,13 +370,11 @@ export async function loadCriteriaAuto(
   accessToken: string
 ): Promise<NewCriteriaItem[]> {
   if (criteriaConfigs.length === 0) {
-    console.log('[CriteriaReader] No criteria configs found');
     return [];
   }
 
   // Use the first available criteria config
   const config = criteriaConfigs[0];
-  console.log(`[CriteriaReader] Auto-loading criteria using: ${config.id}`);
   
   return loadCriteria(criteriaConfigs, config.id, accessToken);
 }

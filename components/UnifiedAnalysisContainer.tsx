@@ -269,7 +269,7 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
           }
           
           console.log(`📤 Evaluating test case ${index + 1}/${testCasesWithOutputs.length}`);
-          const response = await fetch('/api/model-evaluation', {
+          const response = await fetch('/api/evaluation-results', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -280,8 +280,7 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
                 useContext: testCase.scenarioCategory
               },
               criteria: evaluationCriteria,
-              outputs: testCase.modelOutputs,
-              phase: 'evaluate'
+              modelOutputs: testCase.modelOutputs
             })
           });
           

@@ -317,7 +317,7 @@ export default function OutputAnalysisFullPage() {
           }
           
           console.log(`📤 Sending evaluation request for test case ${index + 1} with ${testCase.modelOutputs.length} outputs`);
-          const response = await fetch('/api/model-evaluation', {
+          const response = await fetch('/api/evaluation-results', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -328,8 +328,7 @@ export default function OutputAnalysisFullPage() {
                 useContext: testCase.scenarioCategory
               },
               criteria: evaluationCriteria, // Use real criteria instead of empty array
-              outputs: testCase.modelOutputs,
-              phase: 'evaluate'
+              modelOutputs: testCase.modelOutputs
             })
           });
           
