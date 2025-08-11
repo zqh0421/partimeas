@@ -7,6 +7,9 @@ export async function GET(request: NextRequest) {
   try {
     console.log('[use-case-data] Loading all test cases...');
     console.log(`[use-case-data] Environment check - GCP_KEY_FILE: ${process.env.GCP_KEY_FILE || 'NOT SET'}`);
+    console.log(`[use-case-data] Environment check - GCP_SERVICE_ACCOUNT_SECRET_JSON: ${process.env.GCP_SERVICE_ACCOUNT_SECRET_JSON ? 'SET (length: ' + process.env.GCP_SERVICE_ACCOUNT_SECRET_JSON.length + ')' : 'NOT SET'}`);
+    console.log(`[use-case-data] Environment check - GOOGLE_SERVICE_ACCOUNT_EMAIL: ${process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ? 'SET' : 'NOT SET'}`);
+    console.log(`[use-case-data] Environment check - GOOGLE_PRIVATE_KEY: ${process.env.GOOGLE_PRIVATE_KEY ? 'SET (length: ' + process.env.GOOGLE_PRIVATE_KEY.length + ')' : 'NOT SET'}`);
     
     // Get authenticated access token
     console.log('[use-case-data] Getting Google access token...');
