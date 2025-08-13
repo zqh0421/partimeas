@@ -28,9 +28,7 @@ const FIELD_MAP = {
     'Use Case Description', 'use case description', 'Case Description', 'case description'
   ],
   useCaseIndex: [
-    'Test Case #', 'test case #', 'use_case_index', 
-    'Test Case Number', 'test case number', 'Case #', 'case #',
-    'Index', 'index', 'Number', 'number', 'ID', 'id'
+    'Use Case #', 'use case #', 'use_case_index'
   ]
 };
 
