@@ -293,42 +293,12 @@ export function useAnalysisHandlers({
     }, [setIsLoading, setShouldStartEvaluation]),
 
     handleRestart: useCallback(() => {
-      // Reset all analysis state
-      setTestCases([]);
-      setTestCasesWithModelOutputs([]);
-      setCriteria([]);
-      setOutcomes([]);
-      setOutcomesWithModelComparison([]);
-      setSelectedUseCaseId('');
-      setSelectedScenarioCategory('');
-      setSelectedCriteriaId('');
-      setSelectedTestCaseIndex(0);
-      setCurrentTestCaseIndex(0);
-      setEvaluationProgress(0);
-      setShouldStartEvaluation(false);
-      setIsLoading(false);
-      setValidationError('');
-      
-      // Go back to sync step
+      // Go back to sync step first
       setCurrentStep('sync');
       
-      // Refresh the page to ensure clean state
+      // Refresh the page to ensure clean state - no need to clear state manually
       window.location.reload();
     }, [
-      setTestCases, 
-      setTestCasesWithModelOutputs, 
-      setCriteria, 
-      setOutcomes, 
-      setOutcomesWithModelComparison,
-      setSelectedUseCaseId,
-      setSelectedScenarioCategory,
-      setSelectedCriteriaId,
-      setSelectedTestCaseIndex,
-      setCurrentTestCaseIndex,
-      setEvaluationProgress,
-      setShouldStartEvaluation,
-      setIsLoading,
-      setValidationError,
       setCurrentStep
     ])
   };

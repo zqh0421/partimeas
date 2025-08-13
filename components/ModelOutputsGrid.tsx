@@ -126,7 +126,7 @@ export default function ModelOutputsGrid({
                         border-transparent border-t-blue-600 rounded-full 
                         animate-spin mx-auto mb-3"></div>
                         <p className="text-sm text-slate-600">
-                          {isLoading ? `Preparing response ${index + 1}...` : 'Preparing response...'}
+                          {isLoading ? `Preparing response...` : 'Preparing response...'}
                         </p>
                       </div>
                     </div>

@@ -3,8 +3,6 @@ import { RubricOutcomeWithModelComparison } from '@/types';
 import { CloseIcon, ChartBarIcon, RestartIcon } from '@/components/icons';
 import { MODEL_COLORS, themeUtils } from '@/utils/theme';
 import ModelEvaluationCard from '@/components/evaluation/ModelEvaluationCard';
-import EvaluationSummary from '@/components/evaluation/EvaluationSummary';
-import RubricDisplay from '@/components/evaluation/RubricDisplay';
 
 // Helper function to safely calculate average score from rubric scores
 const calculateSafeAverageScore = (rubricScores: any): number => {
@@ -363,10 +361,12 @@ export default function ModelComparisonStep({
       {/* Evaluation Summary */}
       {testCase.modelOutputs.length > 1 && (
         <div className="mb-6">
-          <EvaluationSummary 
-            modelOutputs={testCase.modelOutputs}
-            showDetailedBreakdown={true}
-          />
+          <div className="bg-white border rounded-lg p-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-3">Evaluation Summary</h3>
+            <div className="text-sm text-gray-600">
+              Summary of {testCase.modelOutputs.length} model evaluations
+            </div>
+          </div>
         </div>
       )}
 
@@ -389,11 +389,11 @@ export default function ModelComparisonStep({
             This multi-level rubric structure defines how each model response is evaluated across different criteria and sub-criteria.
           </div>
           {showRubricDetails && (
-            <RubricDisplay 
-              showExamples={true}
-              expandedByDefault={false}
-              highlightedScores={{}}
-            />
+            <div className="bg-gray-50 p-4 rounded border">
+              <div className="text-sm text-gray-600">
+                Rubric structure details would be displayed here
+              </div>
+            </div>
           )}
         </div>
       </div>
