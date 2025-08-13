@@ -1,4 +1,4 @@
-import { ModelConfig, PromptConfig, Assistant } from '../../types/admin';
+import { ModelConfig, PromptConfig, Assistant, ConfigValue } from '../../types/admin';
 import { OutputGenerationSection } from './OutputGenerationSection';
 import { EvaluationSection } from './EvaluationSection';
 import { ModelsSection } from './ModelsSection';
@@ -9,6 +9,7 @@ interface MainContentProps {
   modelConfigs: ModelConfig[];
   promptConfigs: PromptConfig[];
   assistants: Assistant[];
+  configValues: ConfigValue[];
   onAddProviderModels: (provider: 'openai' | 'anthropic' | 'google', modelNames: string[]) => void;
   onUpdateModel: (id: string, updates: Partial<ModelConfig>) => void;
   onRemoveModel: (id: string) => void;
@@ -21,9 +22,11 @@ interface MainContentProps {
   onSaveModels: () => void;
   onSavePrompts: () => void;
   onSaveAssistants: () => void;
+  onConfigChange: (configs: ConfigValue[]) => void;
   hasModelChanges?: boolean;
   hasPromptChanges?: boolean;
   hasAssistantChanges?: boolean;
+  hasConfigChanges?: boolean;
 }
 
 export function MainContent({
@@ -31,6 +34,7 @@ export function MainContent({
   modelConfigs,
   promptConfigs,
   assistants,
+  configValues,
   onAddProviderModels,
   onUpdateModel,
   onRemoveModel,
@@ -43,9 +47,11 @@ export function MainContent({
   onSaveModels,
   onSavePrompts,
   onSaveAssistants,
+  onConfigChange,
   hasModelChanges = false,
   hasPromptChanges = false,
-  hasAssistantChanges = false
+  hasAssistantChanges = false,
+  hasConfigChanges = false
 }: MainContentProps) {
   if (activeSection === 'output-generation') {
     return (
@@ -104,14 +110,19 @@ export function MainContent({
         assistants={assistants}
         modelConfigs={modelConfigs}
         promptConfigs={promptConfigs}
+        configValues={configValues}
         onAddAssistant={onAddAssistant}
         onUpdateAssistant={onUpdateAssistant}
         onRemoveAssistant={onRemoveAssistant}
         onSaveAssistants={onSaveAssistants}
+        onConfigChange={onConfigChange}
         hasAssistantChanges={hasAssistantChanges}
+        hasConfigChanges={hasConfigChanges}
       />
     );
   }
+
+
 
   return null;
 } 

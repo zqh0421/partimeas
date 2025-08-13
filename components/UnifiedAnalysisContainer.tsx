@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useConfig } from '@/hooks/useConfig';
 import VerticalStepper from '@/components/steps/VerticalStepper';
 import SetupStep from '@/components/steps/SetupStep';
 import AnalysisStep from '@/components/steps/AnalysisStep';
@@ -51,6 +52,9 @@ interface UnifiedAnalysisProps {
 }
 
 export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
+  // Get configuration values
+  const { numOutputsToShow } = useConfig();
+
   // Internal state management for the analysis process
   const [analysisStep, setAnalysisStep] = useState<'setup' | 'running' | 'complete'>('setup');
   const [hasStartedEvaluation, setHasStartedEvaluation] = useState(false);
@@ -423,6 +427,7 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
           currentPhase={currentPhase}
           shouldStartEvaluation={props.shouldStartEvaluation}
           isRealEvaluation={props.isRealEvaluation}
+          numOutputsToShow={numOutputsToShow}
           onTestCaseSelect={props.onTestCaseSelect}
           onEvaluationComplete={props.onEvaluationComplete}
           onModelComparisonEvaluationComplete={props.onModelComparisonEvaluationComplete}

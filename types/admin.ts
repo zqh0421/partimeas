@@ -26,15 +26,25 @@ export interface Assistant {
   updated_at?: string;
 }
 
+export interface ConfigValue {
+  name: string;
+  value: string;
+  scope: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface AdminState {
   modelConfigs: ModelConfig[];
   promptConfigs: PromptConfig[];
   assistants: Assistant[];
+  configValues: ConfigValue[];
   isLoading: boolean;
   hasChanges: boolean;
   hasModelChanges: boolean;
   hasPromptChanges: boolean;
   hasAssistantChanges: boolean;
+  hasConfigChanges: boolean;
   error: string | null;
   success: string | null;
   activeSection: 'output-generation' | 'evaluation' | 'models' | 'assistants';

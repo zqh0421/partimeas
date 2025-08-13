@@ -4,7 +4,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { sql } from '@/config/database';
-
+import { traceable } from "langsmith/traceable";
 // No constant-based model configs or prompts: use DB only
 
 // Assistants-aware helpers
@@ -109,37 +109,6 @@ const getActiveEvaluatorModel = async (): Promise<{ provider: string; model: str
   }
 };
 
-// Helper function to determine use case from test case input
-const determineUseCase = (testCase: any): string => {
-  const input = testCase.input?.toLowerCase() || '';
-  const useCase = testCase.useCase?.toLowerCase() || '';
-  const description = testCase.description?.toLowerCase() || '';
-  
-  // Check for original system 123 instructions keywords
-  if (input.includes('original system') || input.includes('system123') || input.includes('original_system123') ||
-      useCase.includes('original system') || useCase.includes('system123') || useCase.includes('original_system123') ||
-      description.includes('original system') || description.includes('system123') || description.includes('original_system123')) {
-    return 'original_system123_instructions';
-  }
-  
-  // Check for magic moments keywords
-  if (input.includes('magic moment') || input.includes('positive moment') || input.includes('strength') || 
-      input.includes('celebrate') || input.includes('highlight positive') ||
-      useCase.includes('magic') || description.includes('magic')) {
-    return 'identify_magic_moments';
-  }
-  
-  // Check for reflective questions keywords
-  if (input.includes('reflective question') || input.includes('question') || input.includes('reflect') ||
-      input.includes('explore') || input.includes('discussion') || input.includes('meeting') ||
-      useCase.includes('reflective') || useCase.includes('question') ||
-      description.includes('reflective') || description.includes('question')) {
-    return 'provide_reflective_questions';
-  }
-  
-  return 'provide_reflective_questions';
-};
-
 // No constant-based prompts; assistants' prompts are used
 
 // Helper function to generate output from a single model
@@ -154,25 +123,61 @@ const generateModelOutput = async (
     console.log(`🚀 Starting generation for model: ${provider}/${modelId}`);
     
     // Get model instance
-    const model = await getModelInstance(provider, modelId);
+    const model = (await getModelInstance(provider, modelId)).withConfig({
+      runName: "PartiMeas", // 在 LangSmith Trace 里显示的 run 名
+      tags: ["output-generation"], // 可选的 tag
+      metadata: { source: "unit-test" } // 自定义 metadata
+    });
     console.log(`✅ Model instance created successfully for: ${provider}/${modelId}`);
 
     // Use provided use case label as metadata only
     const useCaseType = useCaseTypeOverride || testCase?.useCase || '';
     console.log(`🔧 Using use case label: ${useCaseType} (override: ${useCaseTypeOverride || 'none'}) for model: ${provider}/${modelId}`);
+    console.log(`🔧 Test case object:`, JSON.stringify(testCase, null, 2));
+    console.log(`🔧 Test case use_case_description:`, testCase?.use_case_description);
+    console.log(`🔧 Test case useCase:`, testCase?.useCase);
+    
+    // Fallback use case descriptions for specific use cases when not available from Google Sheets
+    const getUseCaseDescription = (useCase: string, fallbackDescription?: string) => {
+      if (fallbackDescription) return fallbackDescription;
+      
+      // Hardcoded descriptions for specific use cases
+      const useCaseDescriptions: Record<string, string> = {
+        '4-providing-reflective-questions': 'Providing reflective questions (and explanations for why those questions may be helpful) that the worker could use to facilitate discussion in a future teacher meeting …. including questions that help reflect on the teacher\'s strengths and concerning behaviors. The goal here is to help the S123 worker work with the teacher to help the teacher reflect on their strengths and any concerning behaviors, so that they could collaboratively work together to understand how the teacher could best bring out their strengths.',
+        'identify_magic_moments': 'Identifying magic moments in child development scenarios and analyzing developmental strengths.',
+        'general_analysis': 'General analysis of child development scenarios and teacher interactions.'
+      };
+      
+      return useCaseDescriptions[useCase] || 'General Analysis';
+    };
+    
     const systemPrompt = systemPromptOverride || '';
+
+
+
+    const tracedFn = traceable(async (formattedPrompt: any) => {
+      const response = await model.invoke(formattedPrompt);
+      return response.content as string;
+    }, {
+      name: "PartiMeas",
+      tags: ["output-generation"],
+      metadata: { feature: "langsmith-integration" }
+    });
 
     const prompt = await ChatPromptTemplate.fromMessages([
       [
         "system",
-        `${systemPrompt}\n\nUse Case: ${testCase.useCase}`,
+        `${systemPrompt}\n\nUse Case: ${getUseCaseDescription(useCaseType, testCase.use_case_description)}`,
       ],
       ["human", "{query}"],
     ]);
     
-    const formattedPrompt = await prompt.format({ query: `${testCase.useContext}\n${testCase.input}` });
-    const response = await model.invoke(formattedPrompt);
-    let output = response.content as string;
+
+    const formattedPrompt = await prompt.format({
+      query: `${testCase.context}\n${testCase.input}`,
+    });
+
+    let output:string = await tracedFn(formattedPrompt) as string;
 
     // Validate and potentially fix structural issues
     output = validateAndFixStructure(output, useCaseType);
@@ -342,6 +347,31 @@ export async function POST(request: NextRequest) {
 
       const { numOutputs } = typeof testCase === 'object' ? testCase : {};
 
+      // Fetch configuration from database
+      let numOutputsToRun = 2; // Default fallback
+      let numOutputsToShow = 2; // Default fallback
+      
+      try {
+        const configQuery = `
+          SELECT name, value 
+          FROM partimeas_configs 
+          WHERE name IN ('numOutputsToRun', 'numOutputsToShow')
+        `;
+        const configResult = await sql.query(configQuery);
+        
+        configResult.forEach((row: any) => {
+          if (row.name === 'numOutputsToRun') {
+            numOutputsToRun = parseInt(row.value) || 2;
+          } else if (row.name === 'numOutputsToShow') {
+            numOutputsToShow = parseInt(row.value) || 2;
+          }
+        });
+        
+        console.log(`📊 Configuration loaded - numOutputsToRun: ${numOutputsToRun}, numOutputsToShow: ${numOutputsToShow}`);
+      } catch (error) {
+        console.warn('Failed to fetch configuration from database, using defaults:', error);
+      }
+
       // Fetch all output-generation assistants
       const allOutputAssistants = await getOutputGenerationAssistants();
       const requiredAssistants = allOutputAssistants.filter(a => a.requiredToShow);
@@ -351,10 +381,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'numOutputs must be a positive integer' }, { status: 400 });
       }
 
-      // Determine how many outputs to generate. If not provided, default to up to 3.
+      // Determine how many outputs to generate. If not provided, use database config or default
       const desiredOutputs = typeof numOutputs === 'number'
         ? numOutputs
-        : Math.min(2, allOutputAssistants.length);
+        : Math.min(numOutputsToRun, allOutputAssistants.length);
 
       let selectedAssistants: OutputAssistant[] = [];
       if (desiredOutputs === 0) {
@@ -433,6 +463,8 @@ export async function POST(request: NextRequest) {
         selectedAssistantsModels: selectedAssistants.map(a => a.model),
         successfulModels: outputs.length,
         failedModels: errors.length,
+        // Configuration information for the frontend
+        numOutputsToShow,
         timestamp: new Date().toISOString(),
         message: 'Output generation completed. Ready to proceed to review page.'
       });

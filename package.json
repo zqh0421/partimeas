@@ -7,7 +7,8 @@
     "build": "next build",
     "build:no-lint": "DISABLE_ESLINT_PLUGIN=true next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate": "node scripts/run-migration.js"
   },
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
@@ -24,6 +25,7 @@
     "antd": "^5.26.7",
     "google-auth-library": "^10.2.1",
     "langchain": "^0.2.20",
+    "langsmith": "^0.3.58",
     "next": "15.4.5",
     "react": "19.1.0",
     "react-beautiful-dnd": "^13.1.1",

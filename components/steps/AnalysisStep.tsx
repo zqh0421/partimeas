@@ -18,6 +18,7 @@ interface AnalysisStepProps {
   shouldStartEvaluation: boolean;
   showEvaluationFeatures?: boolean;
   isRealEvaluation?: boolean;
+  numOutputsToShow?: number;
   onTestCaseSelect: (index: number) => void;
   onEvaluationComplete: (results: any[]) => void;
   onModelComparisonEvaluationComplete: (results: Array<{
@@ -42,6 +43,7 @@ export default function AnalysisStep({
   selectedSystemPrompt,
   showEvaluationFeatures = true,
   isRealEvaluation = false,
+  numOutputsToShow = 2,
   onTestCaseSelect,
   onEvaluationComplete,
   onEvaluationError,
@@ -110,6 +112,7 @@ export default function AnalysisStep({
               showEvaluationFeatures={showEvaluationFeatures}
               isRealEvaluation={isRealEvaluation}
               currentPhase={currentPhase}
+              numOutputsToShow={numOutputsToShow}
             />
           ) : (
             <div className="text-center py-8 text-gray-500">

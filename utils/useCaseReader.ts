@@ -11,7 +11,7 @@ const FIELD_MAP = {
   context: ['context', 'expected_output'],
   scenarioCategory: ['scenario_category'],
   useCase: ['use_case'],
-  useCaseDescription: ['use_case_description'],
+  useCaseDescription: ['use_case_description', 'use case description', 'usecase_description', 'usecase description', 'description'],
   useCaseIndex: ['use_case_index'],
   useCaseTitle: ['use_case_title'],
   modelName: ['model_name'],
@@ -21,12 +21,19 @@ const FIELD_MAP = {
 // Find field value from headers and row
 function findFieldValue(headers: string[], row: string[], fieldNames: string[]): string {
   const headerLower = headers.map(h => h.toLowerCase());
+  console.log('[UseCaseReader] findFieldValue - headers (lowercase):', headerLower);
+  console.log('[UseCaseReader] findFieldValue - looking for fieldNames:', fieldNames);
+  
   for (const fieldName of fieldNames) {
     const index = headerLower.indexOf(fieldName.toLowerCase());
+    console.log(`[UseCaseReader] findFieldValue - searching for "${fieldName}" (lowercase: "${fieldName.toLowerCase()}"), found at index: ${index}`);
     if (index >= 0) {
-      return row[index] || '';
+      const value = row[index] || '';
+      console.log(`[UseCaseReader] findFieldValue - found value: "${value}"`);
+      return value;
     }
   }
+  console.log('[UseCaseReader] findFieldValue - no field found, returning empty string');
   return '';
 }
 
@@ -71,6 +78,9 @@ async function fetchSheetData(
 
 // Convert sheet data to test cases
 function convertToTestCases(headers: string[], rows: string[][]): TestCase[] {
+  console.log('[UseCaseReader] Available headers:', headers);
+  console.log('[UseCaseReader] Looking for use_case_description in headers...');
+  
   return rows.map((row, index) => {
     const testCase: TestCase = {
       id: `tc-${index + 1}`,
@@ -96,6 +106,17 @@ function convertToTestCases(headers: string[], rows: string[][]): TestCase[] {
 
     const useCaseTitle = findFieldValue(headers, row, FIELD_MAP.useCaseTitle);
     if (useCaseTitle) testCase.use_case_title = useCaseTitle;
+
+    const useCaseDescription = findFieldValue(headers, row, FIELD_MAP.useCaseDescription);
+    console.log(`[UseCaseReader] Row ${index + 1} - useCaseDescription found:`, useCaseDescription);
+    if (useCaseDescription) {
+      testCase.use_case_description = useCaseDescription;
+      testCase.useCaseDescription = useCaseDescription; // For backward compatibility
+      console.log(`[UseCaseReader] Row ${index + 1} - use_case_description set to:`, testCase.use_case_description);
+    } else {
+      console.log(`[UseCaseReader] Row ${index + 1} - No use_case_description found. Available headers:`, headers);
+      console.log(`[UseCaseReader] Row ${index + 1} - Field mapping for useCaseDescription:`, FIELD_MAP.useCaseDescription);
+    }
 
     return testCase;
   });

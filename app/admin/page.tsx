@@ -34,7 +34,8 @@ export default function AdminPage() {
     removeAssistant,
     setActiveSection,
     clearError,
-    clearSuccess
+    clearSuccess,
+    updateConfigValue
   } = useAdminState();
 
   // Individual save functions for models and prompts
@@ -100,6 +101,7 @@ export default function AdminPage() {
           modelConfigs={state.modelConfigs}
           promptConfigs={state.promptConfigs}
           assistants={state.assistants}
+          configValues={state.configValues || []}
           onAddProviderModels={addProviderModels}
           onUpdateModel={updateModelConfig}
           onRemoveModel={removeModelConfig}
@@ -112,9 +114,16 @@ export default function AdminPage() {
           onSaveModels={handleSaveModels}
           onSavePrompts={handleSavePrompts}
           onSaveAssistants={handleSaveAssistants}
+          onConfigChange={(configs) => {
+            // Update the state with the new config values
+            configs.forEach(config => {
+              updateConfigValue(config.name, config.value);
+            });
+          }}
           hasModelChanges={state.hasModelChanges}
           hasPromptChanges={state.hasPromptChanges}
           hasAssistantChanges={state.hasAssistantChanges}
+          hasConfigChanges={state.hasConfigChanges || false}
         />
       </Content>
     </Layout>

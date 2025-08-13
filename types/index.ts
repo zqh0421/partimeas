@@ -61,6 +61,8 @@ export interface TestCase {
   scenarioCategory?: string;
   use_case_title?: string;
   use_case_index?: string;
+  use_case_description?: string;
+  useCaseDescription?: string; // For backward compatibility
   useCaseId?: string;
   modelName?: string;
   timestamp?: string;
@@ -89,6 +91,8 @@ export interface TestCaseWithModelOutputs {
   scenarioCategory?: string;
   use_case_title?: string;
   use_case_index?: string;
+  use_case_description?: string;
+  useCaseDescription?: string; // For backward compatibility
 }
 
 // New rubric structure based on updated criteria

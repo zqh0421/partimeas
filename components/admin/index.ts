@@ -12,4 +12,5 @@ export { ModelsSection } from './ModelsSection';
 export { AssistantsSection } from './AssistantsSection';
 export { SimplifiedPromptsSection } from './SimplifiedPromptsSection';
 export { ProvidersModelsGrid } from './ProvidersModelsGrid';
-export { SectionHeader } from './SectionHeader'; 
+export { SectionHeader } from './SectionHeader';
+export { Configuration } from './Configuration'; 

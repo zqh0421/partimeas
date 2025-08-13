@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAnalysisState } from '@/hooks/useAnalysisState';
 import { useAnalysisHandlers } from '@/hooks/useAnalysisHandlers';
+import { useConfig } from '@/hooks/useConfig';
 import { USE_CASE_PROMPTS } from '@/app/api/shared/constants';
 import VerticalStepper from '@/components/steps/VerticalStepper';
 import SetupStep from '@/components/steps/SetupStep';
@@ -72,6 +73,9 @@ export default function OutputAnalysisFullPage() {
   const [showEvaluationFeatures, setShowEvaluationFeatures] = useState<boolean>(true);
   const [selectedOutputModelIds, setSelectedOutputModelIds] = useState<string[]>([]);
   const [isRealEvaluation, setIsRealEvaluation] = useState<boolean>(false);
+
+  // Get configuration values
+  const { numOutputsToShow } = useConfig();
 
   const handlers = useAnalysisHandlers({
     stateSetters: {
@@ -509,6 +513,7 @@ export default function OutputAnalysisFullPage() {
           shouldStartEvaluation={shouldStartEvaluation}
           showEvaluationFeatures={showEvaluationFeatures}
           isRealEvaluation={isRealEvaluation}
+          numOutputsToShow={numOutputsToShow}
           onTestCaseSelect={handlers.handleTestCaseSelect}
           onEvaluationComplete={handlers.handleEvaluationComplete}
           onModelComparisonEvaluationComplete={handlers.handleModelComparisonEvaluationComplete}

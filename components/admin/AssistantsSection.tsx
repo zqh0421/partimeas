@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Typography, Space, Row, Col, Input, Switch, Select, Modal, Form, message, Table } from 'antd';
+import { Card, Button, Typography, Space, Row, Col, Input, Switch, Select, Modal, Form, message, Table, InputNumber, Alert } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, SaveOutlined } from '@ant-design/icons';
-import { Assistant, ModelConfig, PromptConfig } from '../../types/admin';
+import { Assistant, ModelConfig, PromptConfig, ConfigValue } from '../../types/admin';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -10,22 +10,30 @@ interface AssistantsSectionProps {
   assistants: Assistant[];
   modelConfigs: ModelConfig[];
   promptConfigs: PromptConfig[];
+  configValues: ConfigValue[];
   onAddAssistant: (assistant: Omit<Assistant, 'id' | 'created_at' | 'updated_at'>) => void;
   onUpdateAssistant: (id: number, updates: Partial<Assistant>) => void;
   onRemoveAssistant: (id: number) => void;
   onSaveAssistants: () => void;
+  onSaveConfig: () => void;
+  onConfigChange: (configs: ConfigValue[]) => void;
   hasAssistantChanges?: boolean;
+  hasConfigChanges?: boolean;
 }
 
 export function AssistantsSection({
   assistants,
   modelConfigs,
   promptConfigs,
+  configValues,
   onAddAssistant,
   onUpdateAssistant,
   onRemoveAssistant,
   onSaveAssistants,
-  hasAssistantChanges = false
+  onSaveConfig,
+  onConfigChange,
+  hasAssistantChanges = false,
+  hasConfigChanges = false
 }: AssistantsSectionProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -173,6 +181,81 @@ export function AssistantsSection({
           }
           className="shadow-sm"
         >
+          {/* Configuration Settings */}
+          <div style={{ marginBottom: 20, padding: '16px 0', borderBottom: '1px solid #f0f0f0' }}>
+            
+            <Row gutter={[24, 0]}>
+              <Col span={12}>
+                <div style={{ marginBottom: 16 }}>
+                  <Text strong>Number of Outputs to Generate</Text>
+                  <div style={{ marginTop: 4 }}>
+                    <InputNumber
+                      min={1}
+                      max={10}
+                      style={{ width: '100%' }}
+                      value={parseInt(configValues.find(c => c.name === 'numOutputsToRun')?.value || '3')}
+                      onChange={(value) => {
+                        if (value !== null) {
+                          const updatedConfigs = configValues.map(config => 
+                            config.name === 'numOutputsToRun' 
+                              ? { ...config, value: value.toString() }
+                              : config
+                          );
+                          // Auto-adjust numOutputsToShow if needed
+                          const currentNumOutputsToShow = parseInt(configValues.find(c => c.name === 'numOutputsToShow')?.value || '2');
+                          if (currentNumOutputsToShow > value) {
+                            const finalConfigs = updatedConfigs.map(config => 
+                              config.name === 'numOutputsToShow' 
+                                ? { ...config, value: value.toString() }
+                                : config
+                            );
+                            onConfigChange(finalConfigs);
+                          } else {
+                            onConfigChange(updatedConfigs);
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                    This controls how many different model responses are generated for each test case (1-10).
+                  </Text>
+                </div>
+              </Col>
+              
+              <Col span={12}>
+                <div style={{ marginBottom: 16 }}>
+                  <Text strong>Number of Outputs to Show</Text>
+                  <div style={{ marginTop: 4 }}>
+                    <InputNumber
+                      min={1}
+                      max={4}
+                      style={{ width: '100%' }}
+                      value={parseInt(configValues.find(c => c.name === 'numOutputsToShow')?.value || '2')}
+                      onChange={(value) => {
+                        if (value !== null) {
+                          const numOutputsToRun = parseInt(configValues.find(c => c.name === 'numOutputsToRun')?.value || '3');
+                          if (value > numOutputsToRun) {
+                            message.error(`Cannot be greater than Number of Outputs to Generate (${numOutputsToRun})`);
+                            return;
+                          }
+                          const updatedConfigs = configValues.map(config => 
+                            config.name === 'numOutputsToShow' 
+                              ? { ...config, value: value.toString() }
+                              : config
+                          );
+                          onConfigChange(updatedConfigs);
+                        }
+                      }}
+                    />
+                  </div>
+                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                    This controls how many responses are displayed in the user interface (1-4, ≤ numOutputsToRun).
+                  </Text>
+                </div>
+              </Col>
+            </Row>
+          </div>
           <Table
             dataSource={assistants.filter(a => a.type === 'output_generation')}
             pagination={false}
