@@ -15,7 +15,6 @@ interface AssistantsSectionProps {
   onUpdateAssistant: (id: number, updates: Partial<Assistant>) => void;
   onRemoveAssistant: (id: number) => void;
   onSaveAssistants: () => void;
-  onSaveConfig: () => void;
   onConfigChange: (configs: ConfigValue[]) => void;
   hasAssistantChanges?: boolean;
   hasConfigChanges?: boolean;
@@ -30,7 +29,6 @@ export function AssistantsSection({
   onUpdateAssistant,
   onRemoveAssistant,
   onSaveAssistants,
-  onSaveConfig,
   onConfigChange,
   hasAssistantChanges = false,
   hasConfigChanges = false
