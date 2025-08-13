@@ -66,13 +66,13 @@ async function fetchSheetData(
 
   const data = await response.json();
   
-  if (!data.values || data.values.length === 0) {
-    throw new Error('No data found in spreadsheet');
+  if (!data.values || data.values.length < 3) {
+    throw new Error('Insufficient data in spreadsheet - need at least 3 rows (header in row 2, data starting from row 3)');
   }
 
   return {
-    headers: data.values[0],
-    rows: data.values.slice(1)
+    headers: data.values[1], // Line 2 (index 1) is the table header
+    rows: data.values.slice(2) // Line 3 (index 2) onwards contains the data
   };
 }
 

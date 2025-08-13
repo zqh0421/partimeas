@@ -60,6 +60,15 @@ const getModelInstance = async (provider: string, modelName: string) => {
         return new ChatOpenAI({
           modelName: modelName,
           openAIApiKey: process.env.OPENAI_API_KEY,
+        }).withConfig({
+          runName: "ChatOpenAI",
+          tags: ["output-generation"],
+          metadata: {
+            source: "PartiMeas",
+            run_type: "llm",
+            ls_provider: provider,
+            ls_model_name: modelName,
+          }
         });
       case 'anthropic':
         if (!process.env.ANTHROPIC_API_KEY) {
@@ -68,6 +77,15 @@ const getModelInstance = async (provider: string, modelName: string) => {
         return new ChatAnthropic({
           modelName: modelName,
           anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+        }).withConfig({
+          runName: "ChatAnthropic",
+          tags: ["output-generation"],
+          metadata: {
+            source: "PartiMeas",
+            run_type: "llm",
+            ls_provider: provider,
+            ls_model_name: modelName,
+          }
         });
       case 'google':
         if (!process.env.GOOGLE_API_KEY) {
@@ -76,6 +94,15 @@ const getModelInstance = async (provider: string, modelName: string) => {
         return new ChatGoogleGenerativeAI({
           modelName: modelName,
           apiKey: process.env.GOOGLE_API_KEY,
+        }).withConfig({
+          runName: "ChatGoogleGenerativeAI",
+          tags: ["output-generation"],
+          metadata: {
+            source: "PartiMeas",
+            run_type: "llm",
+            ls_provider: provider,
+            ls_model_name: modelName,
+          }
         });
       default:
         throw new Error(`Unsupported provider: ${provider}`);
@@ -123,11 +150,7 @@ const generateModelOutput = async (
     console.log(`🚀 Starting generation for model: ${provider}/${modelId}`);
     
     // Get model instance
-    const model = (await getModelInstance(provider, modelId)).withConfig({
-      runName: "PartiMeas", // 在 LangSmith Trace 里显示的 run 名
-      tags: ["output-generation"], // 可选的 tag
-      metadata: { source: "unit-test" } // 自定义 metadata
-    });
+    const model = (await getModelInstance(provider, modelId));
     console.log(`✅ Model instance created successfully for: ${provider}/${modelId}`);
 
     // Use provided use case label as metadata only
@@ -159,9 +182,14 @@ const generateModelOutput = async (
       const response = await model.invoke(formattedPrompt);
       return response.content as string;
     }, {
-      name: "PartiMeas",
+      name: `${provider}-${modelId}`,
       tags: ["output-generation"],
-      metadata: { feature: "langsmith-integration" }
+      metadata: {
+        source: "PartiMeas",
+        run_type: "llm",
+        ls_provider: provider,
+        ls_model_name: modelId,
+      }
     });
 
     const prompt = await ChatPromptTemplate.fromMessages([

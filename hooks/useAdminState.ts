@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { AdminState, ModelConfig, PromptConfig, AdminSection, Assistant } from '../types/admin';
+import { AdminState, ModelConfig, PromptConfig, AdminSection, Assistant, ConfigValue } from '../types/admin';
 
 export function useAdminState() {
   const [state, setState] = useState<AdminState>({
     modelConfigs: [],
     promptConfigs: [],
     assistants: [],
+    configValues: [],
     isLoading: true,
     hasChanges: false,
     hasModelChanges: false,
     hasPromptChanges: false,
     hasAssistantChanges: false,
+    hasConfigChanges: false,
     error: null,
     success: null,
     activeSection: 'assistants',
@@ -41,6 +43,50 @@ export function useAdminState() {
       const assistantResponse = await fetch('/api/admin/assistants');
       console.log('Assistant response status:', assistantResponse.status, assistantResponse.statusText);
       
+      // Load configuration values
+      console.log('Loading configuration values...');
+      let configValues: ConfigValue[] = [];
+      try {
+        const configResponse = await fetch('/api/config?name=numOutputsToRun&name=numOutputsToShow');
+        console.log('Config response status:', configResponse.status, configResponse.statusText);
+        
+        if (configResponse.ok) {
+          const configData = await configResponse.json();
+          console.log('Loaded configs:', configData.config ? Object.keys(configData.config).length : 0);
+          
+          // Transform config data to ConfigValue format
+          if (configData.config) {
+            Object.entries(configData.config).forEach(([name, config]: [string, any]) => {
+              configValues.push({
+                name,
+                value: config.value,
+                scope: config.scope || 'global',
+                created_at: config.created_at,
+                updated_at: config.updated_at
+              });
+            });
+          }
+        }
+      } catch (configError) {
+        console.warn('Failed to load configuration values, using defaults:', configError);
+      }
+      
+      // Ensure default configuration values exist
+      const defaultConfigs = [
+        { name: 'numOutputsToRun', value: '3', scope: 'global' },
+        { name: 'numOutputsToShow', value: '2', scope: 'global' }
+      ];
+      
+      defaultConfigs.forEach(defaultConfig => {
+        if (!configValues.find(c => c.name === defaultConfig.name)) {
+          configValues.push({
+            ...defaultConfig,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        }
+      });
+      
       if (modelResponse.ok && promptResponse.ok && assistantResponse.ok) {
         const modelData = await modelResponse.json();
         const promptData = await promptResponse.json();
@@ -49,17 +95,20 @@ export function useAdminState() {
         console.log('Loaded models:', modelData.models?.length || 0);
         console.log('Loaded prompts:', promptData.prompts?.length || 0);
         console.log('Loaded assistants:', assistantData.assistants?.length || 0);
+        console.log('Final config values:', configValues.length);
         
         setState(prev => ({
           ...prev,
           modelConfigs: modelData.models || [],
           promptConfigs: promptData.prompts || [],
           assistants: assistantData.assistants || [],
+          configValues,
           isLoading: false,
           hasChanges: false,
           hasModelChanges: false,
           hasPromptChanges: false,
-          hasAssistantChanges: false
+          hasAssistantChanges: false,
+          hasConfigChanges: false
         }));
       } else {
         throw new Error('Failed to load configuration');
@@ -239,12 +288,37 @@ export function useAdminState() {
         await Promise.all(deletePromises);
       }
 
+      // Save configuration values along with assistants
+      if (state.hasConfigChanges) {
+        const configPromises = state.configValues.map(async (config) => {
+          const response = await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: config.name,
+              value: config.value,
+              scope: config.scope
+            })
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Failed to save config ${config.name}: ${errorData.error || 'Unknown error'}`);
+          }
+          
+          return response.json();
+        });
+
+        await Promise.all(configPromises);
+      }
+
       await Promise.all(assistantPromises);
       
       setState(prev => ({
         ...prev,
-        success: 'Assistants saved successfully',
+        success: 'Assistants and configuration saved successfully',
         hasAssistantChanges: false,
+        hasConfigChanges: false,
         deletedAssistants: []
       }));
     } catch (error) {
@@ -286,6 +360,18 @@ export function useAdminState() {
       ),
       hasChanges: true,
       hasAssistantChanges: true
+    }));
+  };
+
+  const updateConfigValue = (name: string, value: string) => {
+    setState(prev => ({
+      ...prev,
+      configValues: prev.configValues.map(config =>
+        config.name === name ? { ...config, value } : config
+      ),
+      hasChanges: true,
+      hasConfigChanges: true,
+      hasAssistantChanges: true  // Also enable assistant saving since config is saved with assistants
     }));
   };
 
@@ -423,6 +509,7 @@ export function useAdminState() {
     updateModelConfig,
     updatePromptConfig,
     updateAssistant,
+    updateConfigValue,
     addModelConfig,
     addPromptConfig,
     addAssistant,
