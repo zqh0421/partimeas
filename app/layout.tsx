@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { AntdRegistry } from '@ant-design/nextjs-registry';
 import { ConfigProvider } from 'antd';
 import '@ant-design/v5-patch-for-react-19';
+import LangSmithProvider from '@/components/LangSmithProvider';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <LangSmithProvider />
         <AntdRegistry>
           <ConfigProvider
             theme={{

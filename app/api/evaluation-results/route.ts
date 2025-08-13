@@ -4,6 +4,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { sql } from '@/config/database';
+import { traceable } from "langsmith/traceable";
 
 // Types for evaluation request
 interface EvaluationRequest {
@@ -108,6 +109,15 @@ const getModelInstance = async (provider: string, modelName: string) => {
         const openaiModel = new ChatOpenAI({
           modelName: modelName,
           openAIApiKey: process.env.OPENAI_API_KEY,
+        }).withConfig({
+          runName: `evaluation-openai-${modelName}`,
+          tags: ["evaluation"],
+          metadata: {
+            source: "PartiMeas",
+            run_type: "llm",
+            ls_provider: "openai",
+            ls_model_name: modelName,
+          }
         });
         const openaiTime = Date.now() - modelStartTime;
         console.log(`   ✅ [EVALUATION] OpenAI model initialized in ${openaiTime}ms`);
@@ -121,6 +131,15 @@ const getModelInstance = async (provider: string, modelName: string) => {
         const anthropicModel = new ChatAnthropic({
           modelName: modelName,
           anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+        }).withConfig({
+          runName: `evaluation-anthropic-${modelName}`,
+          tags: ["evaluation"],
+          metadata: {
+            source: "PartiMeas",
+            run_type: "llm",
+            ls_provider: "anthropic",
+            ls_model_name: modelName,
+          }
         });
         const anthropicTime = Date.now() - modelStartTime;
         console.log(`   ✅ [EVALUATION] Anthropic model initialized in ${anthropicTime}ms`);
@@ -134,6 +153,15 @@ const getModelInstance = async (provider: string, modelName: string) => {
         const googleModel = new ChatGoogleGenerativeAI({
           modelName: modelName,
           apiKey: process.env.GOOGLE_API_KEY,
+        }).withConfig({
+          runName: `evaluation-google-${modelName}`,
+          tags: ["evaluation"],
+          metadata: {
+            source: "PartiMeas",
+            run_type: "llm",
+            ls_provider: "google",
+            ls_model_name: modelName,
+          }
         });
         const googleTime = Date.now() - modelStartTime;
         console.log(`   ✅ [EVALUATION] Google model initialized in ${googleTime}ms`);
@@ -233,7 +261,9 @@ const evaluateModelOutput = async (
   testCase: any,
   criteria: any[],
   evaluationModel: any,
-  systemPrompt: string
+  systemPrompt: string,
+  provider: string,
+  model: string
 ): Promise<EvaluationResult> => {
   const evalStartTime = Date.now();
   try {
@@ -272,8 +302,14 @@ const evaluateModelOutput = async (
     const formattedPrompt = await prompt.format({});
     console.log(`   📤 [EVALUATION] Sending prompt to ${evaluationModel.constructor.name}...`);
     
+    // Wrap the evaluation call with traceable for proper tracking
+    const tracedEvaluation = traceable(async (prompt: any) => {
+      const response = await evaluationModel.invoke(prompt);
+      return response;
+    });
+    
     const modelResponseStart = Date.now();
-    const response = await evaluationModel.invoke(formattedPrompt);
+    const response = await tracedEvaluation(formattedPrompt);
     const modelResponseTime = Date.now() - modelResponseStart;
     
     console.log(`   📥 [EVALUATION] Model response received in ${modelResponseTime}ms`);
@@ -427,7 +463,9 @@ export async function POST(request: NextRequest) {
           testCase,
           evaluationCriteria,
           evaluationModel,
-          activeAssistant.systemPrompt
+          activeAssistant.systemPrompt,
+          activeAssistant.provider,
+          activeAssistant.model
         );
         
         const outputTime = Date.now() - outputStartTime;

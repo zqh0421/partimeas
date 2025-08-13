@@ -270,7 +270,20 @@ const generateModelOutput = async (
     });
 
     // Use traceable to wrap the function call for LangSmith tracking
-    let output:string = await generateOutput(formattedPrompt);
+    const tracedGenerateOutput = traceable(generateOutput, {
+      name: `generate-output-${provider}-${modelId}`,
+      tags: ["output-generation"],
+      metadata: {
+        source: "PartiMeas",
+        run_type: "llm",
+        ls_provider: provider,
+        ls_model_name: modelId,
+        use_case: useCaseType,
+        test_case_id: testCase.id || 'unknown'
+      }
+    });
+
+    let output: string = await tracedGenerateOutput(formattedPrompt);
 
     // Validate and potentially fix structural issues
     output = validateAndFixStructure(output, useCaseType);

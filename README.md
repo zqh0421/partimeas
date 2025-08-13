@@ -11,6 +11,7 @@ A modern web application for creating and refining rubrics to evaluate LLM outpu
 - **Comprehensive Evaluation**: Multi-criteria rubric-based assessment
 - **Version Control**: Save and manage different rubric versions
 - **API Management**: Secure API key configuration and testing
+- **LangSmith Tracing**: Built-in support for monitoring and tracing all LLM calls
 
 ## Prerequisites
 
@@ -19,6 +20,7 @@ A modern web application for creating and refining rubrics to evaluate LLM outpu
    - OpenAI API key (for GPT-4, GPT-3.5-turbo)
    - Anthropic API key (for Claude models)
    - Google AI API key (for Gemini models)
+3. **LangSmith API key** (optional but recommended for tracing and monitoring)
 
 ## Installation
 
@@ -47,6 +49,12 @@ OPENAI_API_KEY=your_openai_api_key_here
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 GOOGLE_API_KEY=your_google_api_key_here
 
+# LangSmith Configuration (for tracing and monitoring)
+LANGSMITH_API_KEY=your_langsmith_api_key_here
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+LANGSMITH_PROJECT=your_project_name_here
+LANGSMITH_TRACING_V2=true
+
 # Google Cloud Service Account Configuration
 # Option 1: Use local key file (for development)
 GCP_KEY_FILE=partimeas-3f2ec1151c88.json
@@ -69,6 +77,34 @@ npm run dev
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## LangSmith Tracing Setup
+
+This application includes built-in LangSmith tracing for monitoring and debugging all LLM calls. To enable tracing:
+
+1. **Get a LangSmith API Key**:
+   - Sign up at [LangSmith](https://smith.langchain.com/)
+   - Create a new project
+   - Copy your API key
+
+2. **Configure Environment Variables**:
+   ```env
+   LANGSMITH_API_KEY=your_api_key_here
+   LANGSMITH_PROJECT=your_project_name
+   LANGSMITH_TRACING_V2=true
+   ```
+
+3. **What Gets Traced**:
+   - All model output generation calls (OpenAI, Anthropic, Google)
+   - All evaluation calls
+   - Prompt templates and responses
+   - Model metadata and performance metrics
+
+4. **Benefits**:
+   - Monitor model performance across different providers
+   - Debug prompt engineering issues
+   - Track evaluation quality and consistency
+   - Analyze cost and usage patterns
+
 ## Deployment
 
 ### Vercel Deployment
@@ -80,6 +116,11 @@ For production deployment on Vercel, set the following environment variables in 
 - `ANTHROPIC_API_KEY` 
 - `GOOGLE_API_KEY`
 - `POSTGRES_URL_NON_POOLING`
+
+**LangSmith Configuration (for tracing):**
+- `LANGSMITH_API_KEY`
+- `LANGSMITH_PROJECT`
+- `LANGSMITH_TRACING_V2=true`
 
 **Google Cloud Service Account (for test case loading):**
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`: `spreadsheetreader@partimeas.iam.gserviceaccount.com`
@@ -98,6 +139,12 @@ If test cases fail to load after deployment:
    - Individual environment variables: `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_PRIVATE_KEY`
    - JSON credentials: `GCP_SERVICE_ACCOUNT_SECRET_JSON` (complete service account JSON as string)
    - Local key file: `GCP_KEY_FILE` pointing to JSON file (for development)
+
+**Tracing Issues**: If tracing is not working:
+1. Verify `LANGSMITH_API_KEY` is set correctly
+2. Check that `LANGSMITH_PROJECT` exists in your LangSmith account
+3. Ensure `LANGSMITH_TRACING_V2=true` is set
+4. Check browser console and server logs for LangSmith initialization messages
 
 ## Usage
 
