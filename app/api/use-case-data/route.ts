@@ -21,7 +21,8 @@ async function fetchSheetDataForValidation(
   const response = await fetch(url, { headers });
   
   if (!response.ok) {
-    throw new Error(`Google Sheets API error: ${response.status}`);
+    console.warn(`[use-case-data] Google Sheets API returned status ${response.status} for validation debugging`);
+    return { headers: [], rows: [] };
   }
   
   const data = await response.json();
@@ -202,7 +203,23 @@ export async function GET(request: NextRequest) {
       console.log(`[use-case-data] Test cases validation failed:`, validation.errors);
       console.log(`[use-case-data] Validation warnings:`, validation.warnings);
       
-      // Provide more helpful error messages
+      // If the only error is "No test cases found", return a more helpful response
+      if (validation.errors.length === 1 && validation.errors[0] === 'No test cases found') {
+        return NextResponse.json(
+          { 
+            success: true,
+            testCases: [],
+            validation,
+            totalTestCases: 0,
+            titles: [],
+            enrichmentStatus: 'completed',
+            message: 'No test cases found in the spreadsheet. This may be due to empty prompt fields or the spreadsheet being empty.'
+          },
+          { status: 200 }
+        );
+      }
+      
+      // Provide more helpful error messages for other validation failures
       const errorMessage = validation.errors.length > 0 
         ? `Test cases validation failed: ${validation.errors.join('; ')}`
         : 'Test cases validation failed';

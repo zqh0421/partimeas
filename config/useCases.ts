@@ -14,7 +14,7 @@ export const USE_CASE_CONFIGS: UseCaseConfig[] = [
     name: 'Provide Reflective Questions',
     description: 'Generate reflective questions based on educational scenarios and theories',
     spreadsheetId: '1GAKpJzbIWEIi2RxwrKcJVe0fLj2glpuDu1rDC_UkSAs',
-    sheetName: 'synthetic test cases',
+    sheetName: 'test cases',
     category: 'Education',
     tags: ['reflection', 'questions', 'education'],
     dataType: 'test-cases'

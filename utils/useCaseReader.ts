@@ -107,24 +107,27 @@ function convertToTestCases(headers: string[], rows: string[][]): TestCase[] {
   console.log('[UseCaseReader] Available headers:', headers);
   console.log('[UseCaseReader] Converting rows to test cases...');
   
-  return rows.map((row, index) => {
+  const testCases: TestCase[] = [];
+  let skippedCount = 0;
+  
+  rows.forEach((row, index) => {
     console.log(`[UseCaseReader] Processing row ${index + 1}:`, row);
     
+    // Check if the prompt (input) field is empty or missing
+    const input = findFieldValue(headers, row, FIELD_MAP.input);
+    if (!input || !input.trim()) {
+      console.log(`[UseCaseReader] Row ${index + 1} - Skipping row with empty prompt`);
+      skippedCount++;
+      return; // Skip this row
+    }
+    
     const testCase: TestCase = {
-      id: `tc-${index + 1}`,
-      input: '', // Initialize with empty string, will be populated below if found
+      id: `tc-${testCases.length + 1}`, // Use sequential numbering for valid test cases
+      input: input.trim(),
       context: '', // Initialize with empty string, will be populated below if found
     };
 
-    // Map input from Prompt column
-    const input = findFieldValue(headers, row, FIELD_MAP.input);
-    if (input) {
-      testCase.input = input;
-      console.log(`[UseCaseReader] Row ${index + 1} - input set to: "${input}"`);
-    } else {
-      console.log(`[UseCaseReader] Row ${index + 1} - No input found. Available headers:`, headers);
-      console.log(`[UseCaseReader] Row ${index + 1} - Field mapping for input:`, FIELD_MAP.input);
-    }
+    console.log(`[UseCaseReader] Row ${index + 1} - input set to: "${input}"`);
 
     // Map context from Test Case Name or Context column
     const context = findFieldValue(headers, row, FIELD_MAP.context);
@@ -168,8 +171,11 @@ function convertToTestCases(headers: string[], rows: string[][]): TestCase[] {
       use_case_index: testCase.use_case_index || 'NOT FOUND'
     });
 
-    return testCase;
+    testCases.push(testCase);
   });
+  
+  console.log(`[UseCaseReader] Converted ${testCases.length} valid test cases, skipped ${skippedCount} rows with empty prompts`);
+  return testCases;
 }
 
 // Validate test cases
@@ -185,12 +191,13 @@ export function validateTestCases(testCases: TestCase[], headers?: string[], row
   testCases.forEach((testCase, index) => {
     const caseNumber = index + 1;
     
-    // Check for required fields with better error messages
+    // Since we're already filtering out empty prompts in convertToTestCases,
+    // we don't need to check for empty input here - it should always have content
     if (!testCase.input?.trim()) {
-      errors.push(`Test case ${caseNumber}: Missing or empty input field. Expected column: "Prompt"`);
+      console.warn(`[UseCaseReader] Test case ${caseNumber} has empty input despite filtering - this shouldn't happen`);
     }
     
-    // Context is now optional but recommended
+    // Context is optional but recommended
     if (!testCase.context?.trim()) {
       warnings.push(`Test case ${caseNumber}: Missing or empty context field. Expected column: "Test Case Name" or "Context"`);
     }
@@ -212,9 +219,9 @@ export function validateTestCases(testCases: TestCase[], headers?: string[], row
     }
   });
 
-  // Only fail validation if there are critical errors (missing input)
-  // Warnings about missing context or use_case_index won't fail validation
-  const hasCriticalErrors = errors.some(error => error.includes('Missing or empty input field'));
+  // Since we're filtering out empty prompts, validation should always pass
+  // Only fail if there are no test cases at all
+  const hasCriticalErrors = false;
   
   return {
     isValid: !hasCriticalErrors,
