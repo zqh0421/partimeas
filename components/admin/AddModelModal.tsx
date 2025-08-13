@@ -154,6 +154,7 @@ export function AddModelModal({ visible, onCancel, onConfirm }: AddModelModalPro
       width={600}
       okText="Add Models"
       cancelText="Cancel"
+      forceRender
     >
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         {/* Predefined Models Section */}
@@ -240,7 +241,7 @@ export function AddModelModal({ visible, onCancel, onConfirm }: AddModelModalPro
             <Form.Item
               label="Provider"
               name="provider"
-              rules={[{ required: customName, message: 'Please select a provider' }]}
+              rules={[{ required: !!customName, message: 'Please select a provider' }]}
             >
               <Select
                 value={provider}
@@ -270,7 +271,7 @@ export function AddModelModal({ visible, onCancel, onConfirm }: AddModelModalPro
             <Form.Item
               label="Model"
               name="model"
-              rules={[{ required: customName, message: 'Please select a model' }]}
+              rules={[{ required: !!customName, message: 'Please select a model' }]}
             >
               <Select
                 value={model}

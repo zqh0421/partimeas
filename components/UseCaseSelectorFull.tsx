@@ -107,9 +107,22 @@ export default function UseCaseSelector({
       if (testCase.modelName) processedTestCase.modelName = testCase.modelName;
       if (testCase.timestamp) processedTestCase.timestamp = testCase.timestamp;
       if (testCase.scenarioCategory) processedTestCase.scenarioCategory = testCase.scenarioCategory;
-      if (testCase.useCase) processedTestCase.useCase = testCase.useCase;
-      if (testCase.use_case_index) processedTestCase.use_case_index = testCase.use_case_index;
-      if (testCase.use_case_title) processedTestCase.use_case_title = testCase.use_case_title;
+      
+      // Handle enriched use case data from database
+      if (testCase.useCase) {
+        // Use the enriched use case data from database
+        processedTestCase.useCase = testCase.useCase;
+        processedTestCase.use_case_index = testCase.useCase.use_case_index.toString();
+        processedTestCase.use_case_title = testCase.useCase.use_case_title;
+        processedTestCase.use_case_description = testCase.useCase.use_case_description;
+        console.log(`[UseCaseSelector] Enriched test case ${processedTestCase.id} with use case: ${testCase.useCase.use_case_title}`);
+      } else if (testCase.use_case_index) {
+        // Fallback to spreadsheet data if not enriched
+        processedTestCase.use_case_index = testCase.use_case_index;
+        processedTestCase.use_case_title = testCase.use_case_title;
+        processedTestCase.use_case_description = testCase.use_case_description;
+        console.log(`[UseCaseSelector] Test case ${processedTestCase.id} using spreadsheet use case data: ${testCase.use_case_title || 'No title'}`);
+      }
 
       scenarioCategories[scenarioCategory].testCases.push(processedTestCase);
     });

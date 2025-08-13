@@ -2,38 +2,64 @@
  * Use Case Reader
  * 
  * Simple utility for reading use case data from Google Sheets
+ * Updated to work with the new use case database system
  */
 import { TestCase, UseCaseConfig, ValidationResult } from '@/types';
 
-// Field mapping for test cases
+// Field mapping for test cases - updated for new structure with more variations
 const FIELD_MAP = {
-  input: ['input'],
-  context: ['context', 'expected_output'],
-  scenarioCategory: ['scenario_category'],
-  useCase: ['use_case'],
-  useCaseDescription: ['use_case_description', 'use case description', 'usecase_description', 'usecase description', 'description'],
-  useCaseIndex: ['use_case_index'],
-  useCaseTitle: ['use_case_title'],
-  modelName: ['model_name'],
-  timestamp: ['timestamp']
+  input: [
+    'Prompt', 'prompt', 'Input', 'input', 
+    'Question', 'question', 'Task', 'task',
+    'Instruction', 'instruction', 'Request', 'request'
+  ],
+  context: [
+    'Test Case Name', 'test case name', 'Context', 'context', 
+    'Name', 'name', 'Scenario', 'scenario',
+    'Description', 'description', 'Case Name', 'case name',
+    'Test Case Description', 'test case description'
+  ],
+  // New explicit mappings for title and description in spreadsheet
+  title: [
+    'Category', 'category', 'Use Case Title', 'use case title',
+    'Title', 'title'
+  ],
+  description: [
+    'Use Case Description', 'use case description', 'Case Description', 'case description'
+  ],
+  useCaseIndex: [
+    'Test Case #', 'test case #', 'use_case_index', 
+    'Test Case Number', 'test case number', 'Case #', 'case #',
+    'Index', 'index', 'Number', 'number', 'ID', 'id'
+  ]
 };
 
 // Find field value from headers and row
 function findFieldValue(headers: string[], row: string[], fieldNames: string[]): string {
-  const headerLower = headers.map(h => h.toLowerCase());
-  console.log('[UseCaseReader] findFieldValue - headers (lowercase):', headerLower);
-  console.log('[UseCaseReader] findFieldValue - looking for fieldNames:', fieldNames);
+  const headerLower = headers.map(h => h.toLowerCase().trim());
   
+  // First try exact match
   for (const fieldName of fieldNames) {
-    const index = headerLower.indexOf(fieldName.toLowerCase());
-    console.log(`[UseCaseReader] findFieldValue - searching for "${fieldName}" (lowercase: "${fieldName.toLowerCase()}"), found at index: ${index}`);
+    const index = headerLower.indexOf(fieldName.toLowerCase().trim());
     if (index >= 0) {
       const value = row[index] || '';
-      console.log(`[UseCaseReader] findFieldValue - found value: "${value}"`);
       return value;
     }
   }
-  console.log('[UseCaseReader] findFieldValue - no field found, returning empty string');
+  
+  // If no exact match, try partial matching
+  for (const fieldName of fieldNames) {
+    const fieldNameLower = fieldName.toLowerCase().trim();
+    const index = headerLower.findIndex(header => 
+      header.includes(fieldNameLower) || fieldNameLower.includes(header)
+    );
+    
+    if (index >= 0) {
+      const value = row[index] || '';
+      return value;
+    }
+  }
+  
   return '';
 }
 
@@ -48,7 +74,7 @@ async function fetchSheetData(
   spreadsheetId: string, 
   sheetName: string, 
   accessToken: string
-): Promise<{ headers: string[]; rows: string[][] }> {
+): Promise<{ headers: string[]; rows: string[][]; title: string }> {
   const url = buildSheetsUrl(spreadsheetId, sheetName);
   const headers = {
     'Authorization': `Bearer ${accessToken}`,
@@ -66,64 +92,90 @@ async function fetchSheetData(
 
   const data = await response.json();
   
-  if (!data.values || data.values.length < 3) {
-    throw new Error('Insufficient data in spreadsheet - need at least 3 rows (header in row 2, data starting from row 3)');
+  // User's modified logic: First row contains headers, second row onwards contains data
+  if (!data.values || data.values.length < 2) {
+    throw new Error('Insufficient data in spreadsheet - need at least 2 rows (headers in row 1, data starting from row 2)');
   }
 
   return {
-    headers: data.values[1], // Line 2 (index 1) is the table header
-    rows: data.values.slice(2) // Line 3 (index 2) onwards contains the data
+    title: 'Test Cases', // No separate title row in this format
+    headers: data.values[0], // First row (index 0) contains the column headers
+    rows: data.values.slice(1) // Second row (index 1) onwards contains the data
   };
 }
 
 // Convert sheet data to test cases
 function convertToTestCases(headers: string[], rows: string[][]): TestCase[] {
   console.log('[UseCaseReader] Available headers:', headers);
-  console.log('[UseCaseReader] Looking for use_case_description in headers...');
+  console.log('[UseCaseReader] Converting rows to test cases...');
   
   return rows.map((row, index) => {
+    console.log(`[UseCaseReader] Processing row ${index + 1}:`, row);
+    
     const testCase: TestCase = {
       id: `tc-${index + 1}`,
-      input: findFieldValue(headers, row, FIELD_MAP.input),
-      context: findFieldValue(headers, row, FIELD_MAP.context)
+      input: '', // Initialize with empty string, will be populated below if found
+      context: '', // Initialize with empty string, will be populated below if found
     };
 
-    // Add optional fields if they exist
-    const modelName = findFieldValue(headers, row, FIELD_MAP.modelName);
-    if (modelName) testCase.modelName = modelName;
-
-    const timestamp = findFieldValue(headers, row, FIELD_MAP.timestamp);
-    if (timestamp) testCase.timestamp = timestamp;
-
-    const scenarioCategory = findFieldValue(headers, row, FIELD_MAP.scenarioCategory);
-    if (scenarioCategory) testCase.scenarioCategory = scenarioCategory;
-
-    const useCase = findFieldValue(headers, row, FIELD_MAP.useCase);
-    if (useCase) testCase.useCase = useCase;
-
-    const useCaseIndex = findFieldValue(headers, row, FIELD_MAP.useCaseIndex);
-    if (useCaseIndex) testCase.use_case_index = useCaseIndex;
-
-    const useCaseTitle = findFieldValue(headers, row, FIELD_MAP.useCaseTitle);
-    if (useCaseTitle) testCase.use_case_title = useCaseTitle;
-
-    const useCaseDescription = findFieldValue(headers, row, FIELD_MAP.useCaseDescription);
-    console.log(`[UseCaseReader] Row ${index + 1} - useCaseDescription found:`, useCaseDescription);
-    if (useCaseDescription) {
-      testCase.use_case_description = useCaseDescription;
-      testCase.useCaseDescription = useCaseDescription; // For backward compatibility
-      console.log(`[UseCaseReader] Row ${index + 1} - use_case_description set to:`, testCase.use_case_description);
+    // Map input from Prompt column
+    const input = findFieldValue(headers, row, FIELD_MAP.input);
+    if (input) {
+      testCase.input = input;
+      console.log(`[UseCaseReader] Row ${index + 1} - input set to: "${input}"`);
     } else {
-      console.log(`[UseCaseReader] Row ${index + 1} - No use_case_description found. Available headers:`, headers);
-      console.log(`[UseCaseReader] Row ${index + 1} - Field mapping for useCaseDescription:`, FIELD_MAP.useCaseDescription);
+      console.log(`[UseCaseReader] Row ${index + 1} - No input found. Available headers:`, headers);
+      console.log(`[UseCaseReader] Row ${index + 1} - Field mapping for input:`, FIELD_MAP.input);
     }
+
+    // Map context from Test Case Name or Context column
+    const context = findFieldValue(headers, row, FIELD_MAP.context);
+    if (context) {
+      testCase.context = context;
+      testCase.scenarioCategory = context; // For backward compatibility
+      console.log(`[UseCaseReader] Row ${index + 1} - context set to: "${context}"`);
+    } else {
+      console.log(`[UseCaseReader] Row ${index + 1} - No context found. Available headers:`, headers);
+      console.log(`[UseCaseReader] Row ${index + 1} - Field mapping for context:`, FIELD_MAP.context);
+    }
+
+    // Map use case title from Category column
+    const title = findFieldValue(headers, row, FIELD_MAP.title);
+    if (title) {
+      (testCase as any).use_case_title = title;
+      console.log(`[UseCaseReader] Row ${index + 1} - use_case_title set to: "${title}"`);
+    }
+
+    // Map use case description from Use Case Description column
+    const caseDescription = findFieldValue(headers, row, FIELD_MAP.description);
+    if (caseDescription) {
+      (testCase as any).use_case_description = caseDescription;
+      console.log(`[UseCaseReader] Row ${index + 1} - use_case_description set to: "${caseDescription.substring(0, 60)}${caseDescription.length > 60 ? '...' : ''}"`);
+    }
+
+    // Map use case index - this will be used to enrich with database data
+    const useCaseIndex = findFieldValue(headers, row, FIELD_MAP.useCaseIndex);
+    if (useCaseIndex) {
+      testCase.use_case_index = useCaseIndex;
+      console.log(`[UseCaseReader] Row ${index + 1} - use_case_index set to: ${useCaseIndex}`);
+    } else {
+      console.log(`[UseCaseReader] Row ${index + 1} - No use_case_index found. Available headers:`, headers);
+      console.log(`[UseCaseReader] Row ${index + 1} - Field mapping for useCaseIndex:`, FIELD_MAP.useCaseIndex);
+    }
+
+    console.log(`[UseCaseReader] Row ${index + 1} - Final test case:`, {
+      id: testCase.id,
+      input: testCase.input || 'NOT FOUND',
+      context: testCase.context || 'NOT FOUND',
+      use_case_index: testCase.use_case_index || 'NOT FOUND'
+    });
 
     return testCase;
   });
 }
 
 // Validate test cases
-export function validateTestCases(testCases: TestCase[]): ValidationResult {
+export function validateTestCases(testCases: TestCase[], headers?: string[], rows?: string[][]): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -135,13 +187,22 @@ export function validateTestCases(testCases: TestCase[]): ValidationResult {
   testCases.forEach((testCase, index) => {
     const caseNumber = index + 1;
     
+    // Check for required fields with better error messages
     if (!testCase.input?.trim()) {
-      errors.push(`Test case ${caseNumber}: Empty input field`);
-    }
-    if (!testCase.context?.trim()) {
-      errors.push(`Test case ${caseNumber}: Empty context field`);
+      errors.push(`Test case ${caseNumber}: Missing or empty input field. Expected column: "Prompt"`);
     }
     
+    // Context is now optional but recommended
+    if (!testCase.context?.trim()) {
+      warnings.push(`Test case ${caseNumber}: Missing or empty context field. Expected column: "Test Case Name" or "Context"`);
+    }
+    
+    // Check for use case index (required for enrichment)
+    if (!testCase.use_case_index) {
+      warnings.push(`Test case ${caseNumber}: Missing use_case_index. Expected column: "Test Case #". This may affect use case enrichment.`);
+    }
+    
+    // Length warnings
     const inputLength = testCase.input?.length || 0;
     const contextLength = testCase.context?.length || 0;
     
@@ -153,8 +214,12 @@ export function validateTestCases(testCases: TestCase[]): ValidationResult {
     }
   });
 
+  // Only fail validation if there are critical errors (missing input)
+  // Warnings about missing context or use_case_index won't fail validation
+  const hasCriticalErrors = errors.some(error => error.includes('Missing or empty input field'));
+  
   return {
-    isValid: errors.length === 0,
+    isValid: !hasCriticalErrors,
     errors,
     warnings
   };
@@ -165,7 +230,7 @@ export async function loadTestCases(
   useCaseConfigs: UseCaseConfig[], 
   useCaseId: string, 
   accessToken: string
-): Promise<TestCase[]> {
+): Promise<{ testCases: TestCase[]; title: string }> {
   const useCase = useCaseConfigs.find(config => config.id === useCaseId);
   if (!useCase) {
     throw new Error(`Use case not found: ${useCaseId}`);
@@ -175,16 +240,16 @@ export async function loadTestCases(
   console.log(`[UseCaseReader] Spreadsheet: ${useCase.spreadsheetId}, Sheet: ${useCase.sheetName}`);
 
   try {
-    const { headers, rows } = await fetchSheetData(
+    const { headers, rows, title } = await fetchSheetData(
       useCase.spreadsheetId,
       useCase.sheetName,
       accessToken
     );
 
     const testCases = convertToTestCases(headers, rows);
-    console.log(`[UseCaseReader] Loaded ${testCases.length} test cases`);
+    console.log(`[UseCaseReader] Loaded ${testCases.length} test cases with title: "${title}"`);
     
-    return testCases;
+    return { testCases, title };
   } catch (error) {
     console.error(`[UseCaseReader] Error loading test cases:`, error);
     throw new Error(`Failed to load test cases: ${error instanceof Error ? error.message : 'Unknown error'}`);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RubricOutcomeWithModelComparison } from '@/types/types';
+import { RubricOutcomeWithModelComparison } from '@/types';
 import { createPrettifiedMarkdown } from '@/utils/markdownUtils';
 
 // Unified section styling configuration
@@ -78,6 +78,11 @@ const getModelDisplayInfo = (modelId: string, modelName: string) => {
       color: 'bg-purple-600', 
       displayName: 'Claude 3 Opus', 
       shortName: 'Claude-3-Opus'
+    },
+    'claude-opus-4-1-20250805': { 
+      color: 'bg-purple-700', 
+      displayName: 'Claude Opus 4.1', 
+      shortName: 'Claude-Opus-4.1'
     },
     'gpt-4o': { 
       color: 'bg-green-500', 

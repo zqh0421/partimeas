@@ -17,6 +17,9 @@ importers:
       '@ant-design/v5-patch-for-react-19':
         specifier: ^1.0.3
         version: 1.0.3(antd@5.26.7(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@anthropic-ai/sdk':
+        specifier: ^0.59.0
+        version: 0.59.0
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.1.0)
@@ -29,6 +32,9 @@ importers:
       '@langchain/google-genai':
         specifier: ^0.0.12
         version: 0.0.12(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))
+      '@langchain/ollama':
+        specifier: ^0.2.3
+        version: 0.2.3(@langchain/core@0.2.36(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)))
       '@langchain/openai':
         specifier: ^0.0.20
         version: 0.0.20(ws@8.18.3(bufferutil@4.0.9))
@@ -49,7 +55,7 @@ importers:
         version: 10.2.1
       langchain:
         specifier: ^0.2.20
-        version: 0.2.20(@langchain/anthropic@0.1.21(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)))(@langchain/google-genai@0.0.12(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)))(fast-xml-parser@4.5.3)(ignore@7.0.5)(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))(ws@8.18.3(bufferutil@4.0.9))
+        version: 0.2.20(@langchain/anthropic@0.1.21(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)))(@langchain/google-genai@0.0.12(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)))(@langchain/ollama@0.2.3(@langchain/core@0.2.36(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))))(fast-xml-parser@4.5.3)(ignore@7.0.5)(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))(ws@8.18.3(bufferutil@4.0.9))
       langsmith:
         specifier: ^0.3.58
         version: 0.3.58(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))
@@ -177,6 +183,10 @@ packages:
 
   '@anthropic-ai/sdk@0.21.1':
     resolution: {integrity: sha512-fqdt74RTdplnaFOYhwNjjK/Ec09Dqv9ekYr7PuC6GdhV1RWkziqbpJBewn42CYYqCr92JeX6g+IXVgXmq9l7XQ==}
+
+  '@anthropic-ai/sdk@0.59.0':
+    resolution: {integrity: sha512-m9w9tC+N+GUNprwEOhU3VKKSYwXA1fIevRCe7kOFonV4xu5vxqmqyoLy+dkdVvc5W1F4WUTVE/7I4criaF9gnw==}
+    hasBin: true
 
   '@babel/runtime@7.28.2':
     resolution: {integrity: sha512-KHp2IflsnGywDjBWDkR9iEqiWSpc8GIi0lgTT3mOElT0PP1tG26P4tmFI2YvAdzgq9RGyoHZQEIEdZy6Ec5xCA==}
@@ -574,6 +584,12 @@ packages:
   '@langchain/google-genai@0.0.12':
     resolution: {integrity: sha512-NDARJ+ZxjlkTHDvNroiG6V+3gW0u0OlMvbDEYAAXR6wFGIV09//ekolr+bA290ZCN77Ei+BEOsd6Ax1wBk3Z4w==}
     engines: {node: '>=18'}
+
+  '@langchain/ollama@0.2.3':
+    resolution: {integrity: sha512-1Obe45jgQspqLMBVlayQbGdywFmri8DgmGRdzNu0li56cG5RReYlRCFVDZBRMMvF9JhsP5eXRyfyivtKfITHWQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/core': '>=0.3.58 <0.4.0'
 
   '@langchain/openai@0.0.20':
     resolution: {integrity: sha512-EQ49+xi7PZYcglSbl85HGW6U01/cMIsGIhFVRgRdSkIoLJf/qduupphhs1h1xauPG0uuwHDcqYaXjzeQ5sRDFA==}
@@ -2508,6 +2524,9 @@ packages:
   obuf@1.1.2:
     resolution: {integrity: sha512-PX1wu0AmAdPqOL1mWhqmlOd8kOIZQwGZw6rh7uby9fTc5lhaOWFLX3I6R1hrF9k3zUY40e6igsLGkDXK92LJNg==}
 
+  ollama@0.5.17:
+    resolution: {integrity: sha512-q5LmPtk6GLFouS+3aURIVl+qcAOPC4+Msmx7uBb3pd+fxI55WnGjmLZ0yijI/CYy79x0QPGx3BwC3u5zv9fBvQ==}
+
   openai@4.104.0:
     resolution: {integrity: sha512-p99EFNsA/yX6UhVO93f5kJsDRLAg+CTA2RBqdHK4RtK8u5IJw32Hyb2dTGKbnnFmnuoBv5r7Z2CURI9sGZpSuA==}
     hasBin: true
@@ -3243,6 +3262,9 @@ packages:
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
 
+  whatwg-fetch@3.6.20:
+    resolution: {integrity: sha512-EqhiFU6daOA8kpjOWTL0olhVOF3i7OrFzSYiGsEMB8GcXS+RrzauAERX65xMeNWVqxA6HXH2m69Z9LaKKdisfg==}
+
   whatwg-url@5.0.0:
     resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
 
@@ -3422,6 +3444,8 @@ snapshots:
       web-streams-polyfill: 3.3.3
     transitivePeerDependencies:
       - encoding
+
+  '@anthropic-ai/sdk@0.59.0': {}
 
   '@babel/runtime@7.28.2': {}
 
@@ -3740,6 +3764,12 @@ snapshots:
       '@langchain/core': 0.1.63(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))
     transitivePeerDependencies:
       - openai
+
+  '@langchain/ollama@0.2.3(@langchain/core@0.2.36(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)))':
+    dependencies:
+      '@langchain/core': 0.2.36(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))
+      ollama: 0.5.17
+      uuid: 10.0.0
 
   '@langchain/openai@0.0.20(ws@8.18.3(bufferutil@4.0.9))':
     dependencies:
@@ -5563,7 +5593,7 @@ snapshots:
     dependencies:
       json-buffer: 3.0.1
 
-  langchain@0.2.20(@langchain/anthropic@0.1.21(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)))(@langchain/google-genai@0.0.12(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)))(fast-xml-parser@4.5.3)(ignore@7.0.5)(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))(ws@8.18.3(bufferutil@4.0.9)):
+  langchain@0.2.20(@langchain/anthropic@0.1.21(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)))(@langchain/google-genai@0.0.12(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)))(@langchain/ollama@0.2.3(@langchain/core@0.2.36(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))))(fast-xml-parser@4.5.3)(ignore@7.0.5)(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))(ws@8.18.3(bufferutil@4.0.9)):
     dependencies:
       '@langchain/core': 0.2.36(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))
       '@langchain/openai': 0.2.11(ws@8.18.3(bufferutil@4.0.9))
@@ -5582,6 +5612,7 @@ snapshots:
     optionalDependencies:
       '@langchain/anthropic': 0.1.21(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))
       '@langchain/google-genai': 0.0.12(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76))
+      '@langchain/ollama': 0.2.3(@langchain/core@0.2.36(openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76)))
       fast-xml-parser: 4.5.3
       ignore: 7.0.5
       ws: 8.18.3(bufferutil@4.0.9)
@@ -5830,6 +5861,10 @@ snapshots:
       es-object-atoms: 1.1.1
 
   obuf@1.1.2: {}
+
+  ollama@0.5.17:
+    dependencies:
+      whatwg-fetch: 3.6.20
 
   openai@4.104.0(ws@8.18.3(bufferutil@4.0.9))(zod@3.25.76):
     dependencies:
@@ -6748,6 +6783,8 @@ snapshots:
   web-streams-polyfill@4.0.0-beta.3: {}
 
   webidl-conversions@3.0.1: {}
+
+  whatwg-fetch@3.6.20: {}
 
   whatwg-url@5.0.0:
     dependencies:

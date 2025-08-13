@@ -38,6 +38,23 @@ export function AssistantsSection({
   const [editingAssistant, setEditingAssistant] = useState<Partial<Assistant> | null>(null);
   const [form] = Form.useForm();
 
+  // Debug logging for props changes
+  useEffect(() => {
+    console.log('AssistantsSection props updated:', {
+      modelConfigs,
+      promptConfigs,
+      assistants
+    });
+  }, [modelConfigs, promptConfigs, assistants]);
+
+  // Ensure form is properly initialized when modal opens
+  useEffect(() => {
+    if (isModalVisible && editingAssistant) {
+      console.log('Modal is visible, ensuring form is initialized with:', editingAssistant);
+      form.setFieldsValue(editingAssistant);
+    }
+  }, [isModalVisible, editingAssistant, form]);
+
   const handleAddAssistant = (type: 'output_generation' | 'evaluation') => {
     const newAssistant = {
       name: '',
@@ -46,28 +63,36 @@ export function AssistantsSection({
       required_to_show: false,
       type: type
     };
+    console.log('handleAddAssistant called with type:', type, 'newAssistant:', newAssistant);
     setEditingAssistant(newAssistant);
     form.setFieldsValue(newAssistant);
+    console.log('Form fields set to:', newAssistant);
     setIsModalVisible(true);
   };
 
   const handleEditAssistant = (assistant: Assistant) => {
+    console.log('handleEditAssistant called with:', assistant);
     setEditingAssistant(assistant);
     setEditingId(assistant.id);
     form.setFieldsValue(assistant);
+    console.log('Form fields set to:', assistant);
     setIsModalVisible(true);
   };
 
   const handleSaveAssistant = async () => {
     try {
+      console.log('handleSaveAssistant called, validating form...');
       const values = await form.validateFields();
+      console.log('Form validation passed, values:', values);
       
       if (editingId) {
         // Update existing assistant
+        console.log('Updating existing assistant with ID:', editingId);
         onUpdateAssistant(editingId, values);
         message.success('Assistant updated successfully');
       } else {
         // Create new assistant
+        console.log('Creating new assistant');
         onAddAssistant(values);
         message.success('Assistant created successfully');
       }
@@ -112,15 +137,20 @@ export function AssistantsSection({
   };
 
   const handleCancel = () => {
+    console.log('handleCancel called, resetting form');
     setIsModalVisible(false);
     setEditingId(null);
     setEditingAssistant(null);
     form.resetFields();
+    console.log('Form reset, current values:', form.getFieldsValue());
   };
 
   const isUuid = (value: string | undefined | null) => {
     if (!value) return false;
-    return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(value);
+    // For now, accept any non-empty string to debug the issue
+    // TODO: Restore strict UUID validation once we confirm models are working
+    return value.length > 0;
+    // return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(value);
   };
 
   const getModelName = (modelId: string) => {
@@ -138,24 +168,33 @@ export function AssistantsSection({
 
   // Group models by provider for better organization
   const getGroupedModelOptions = () => {
+    console.log('getGroupedModelOptions called with modelConfigs:', modelConfigs);
+    
     const grouped: { [key: string]: { label: string; options: { value: string; label: string }[] } } = {};
     
-    modelConfigs
-      .filter(model => isUuid(model.id))
-      .forEach(model => {
-        const provider = model.provider;
-        if (!grouped[provider]) {
-          grouped[provider] = {
-            label: provider.charAt(0).toUpperCase() + provider.slice(1),
-            options: []
-          };
-        }
-        grouped[provider].options.push({
-          value: model.id,
-          label: `${provider}/${model.model}`
-        });
-      });
+    const validModels = modelConfigs.filter(model => {
+      const isValid = isUuid(model.id);
+      console.log(`Model ${model.provider}/${model.model} (ID: ${model.id}) - isValid: ${isValid}`);
+      return isValid;
+    });
     
+    console.log('Valid models after filtering:', validModels);
+    
+    validModels.forEach(model => {
+      const provider = model.provider;
+      if (!grouped[provider]) {
+        grouped[provider] = {
+          label: provider.charAt(0).toUpperCase() + provider.slice(1),
+          options: []
+        };
+      }
+      grouped[provider].options.push({
+        value: model.id,
+        label: `${provider}/${model.model}`
+      });
+    });
+    
+    console.log('Final grouped options:', grouped);
     return Object.values(grouped);
   };
 
@@ -491,6 +530,16 @@ export function AssistantsSection({
         okText={editingId ? 'Update' : 'Create'}
         cancelText="Cancel"
         width={600}
+        forceRender
+        afterOpenChange={(open) => {
+          if (open) {
+            console.log('Modal opened, current form values:', form.getFieldsValue());
+            console.log('Current modelConfigs:', modelConfigs);
+            console.log('Grouped model options:', getGroupedModelOptions());
+            console.log('Form field model_ids value:', form.getFieldValue('model_ids'));
+            console.log('editingAssistant:', editingAssistant);
+          }
+        }}
       >
         <Form
           form={form}
@@ -543,6 +592,15 @@ export function AssistantsSection({
               showSearch={false}
               maxTagCount={3}
               maxTagTextLength={20}
+              value={form.getFieldValue('model_ids') || []}
+              onChange={(value) => {
+                console.log('Select onChange called with:', value);
+                form.setFieldValue('model_ids', value);
+              }}
+              onFocus={() => {
+                console.log('Select onFocus, current form values:', form.getFieldsValue());
+                console.log('Select onFocus, model_ids field value:', form.getFieldValue('model_ids'));
+              }}
             >
               {getGroupedModelOptions().map(group => (
                 <Select.OptGroup key={group.label} label={group.label}>
@@ -554,12 +612,13 @@ export function AssistantsSection({
                 </Select.OptGroup>
               ))}
             </Select>
-            <div style={{ marginTop: 4 }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                You can select multiple models. The assistant will use all selected models for generation/evaluation.
-              </Text>
-            </div>
           </Form.Item>
+          
+          <div style={{ marginTop: -16, marginBottom: 16 }}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              You can select multiple models. The assistant will use all selected models for generation/evaluation.
+            </Text>
+          </div>
 
           <Form.Item
             name="system_prompt_id"

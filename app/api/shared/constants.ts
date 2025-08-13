@@ -64,6 +64,10 @@ export const MODEL_CONFIGS = {
     provider: 'anthropic',
     model: 'claude-4-sonnet-20250219',
   },
+  'claude-opus-4-1-20250805': {
+    provider: 'anthropic',
+    model: 'claude-opus-4-1-20250805',
+  },
   'gemini-pro': {
     provider: 'google',
     model: 'gemini-pro',

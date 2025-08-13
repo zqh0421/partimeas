@@ -147,7 +147,22 @@ export default function MultiLevelSelector({
         const organizedData: Record<string, UseCaseData> = {};
         
         data.testCases.forEach((testCase: any) => {
-          const { use_case_index: index, use_case_title: title, use_case_description: description } = testCase;
+          // Prioritize enriched use case data from database
+          let index, title, description;
+          
+          if (testCase.useCase) {
+            // Use enriched data from database
+            index = testCase.useCase.use_case_index;
+            title = testCase.useCase.use_case_title;
+            description = testCase.useCase.use_case_description;
+            console.log(`[MultiLevelSelector] Using enriched use case data: ${title} (index: ${index})`);
+          } else {
+            // Fallback to spreadsheet data
+            index = testCase.use_case_index;
+            title = testCase.use_case_title;
+            description = testCase.use_case_description;
+            console.log(`[MultiLevelSelector] Using spreadsheet use case data: ${title || 'No title'} (index: ${index})`);
+          }
           
           if (index && title) {
             const useCaseId = `${index}-${title.replace(/\s+/g, '-').toLowerCase()}`;

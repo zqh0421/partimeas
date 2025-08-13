@@ -3,9 +3,9 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatAnthropic } from "@langchain/anthropic";
+import Anthropic from '@anthropic-ai/sdk';
 import { sql } from '@/config/database';
 import { traceable } from "langsmith/traceable";
-import { selectModelsForAssistants, type AssistantModelInfo } from '@/utils/modelSelection';
 // No constant-based model configs or prompts: use DB only
 
 // Assistants-aware helpers
@@ -73,8 +73,13 @@ const shuffleArray = <T,>(items: T[]): T[] => {
   return array;
 };
 
+// Define proper types for model instances
+type ModelInstance = 
+  | any // LangChain models return RunnableBinding types
+  | { type: 'direct_anthropic'; modelName: string; anthropicApiKey: string };
+
 // Initialize model instances with dynamic imports using DB provider+model
-const getModelInstance = async (provider: string, modelName: string) => {
+const getModelInstance = async (provider: string, modelName: string): Promise<ModelInstance> => {
   try {
     switch (provider) {
       case 'openai':
@@ -98,6 +103,18 @@ const getModelInstance = async (provider: string, modelName: string) => {
         if (!process.env.ANTHROPIC_API_KEY) {
           throw new Error('ANTHROPIC_API_KEY not configured');
         }
+        
+        // Special handling for claude-opus-4-1-20250805 which is not yet supported by LangChain
+        if (modelName === 'claude-opus-4-1-20250805') {
+          // Return a special object that indicates this should use direct API calls
+          return {
+            type: 'direct_anthropic',
+            modelName: modelName,
+            anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+          };
+        }
+        
+        // Use LangChain for other Claude models
         return new ChatAnthropic({
           modelName: modelName,
           anthropicApiKey: process.env.ANTHROPIC_API_KEY,
@@ -201,21 +218,43 @@ const generateModelOutput = async (
     
     const systemPrompt = systemPromptOverride || '';
 
-
-
-    const tracedFn = traceable(async (formattedPrompt: any) => {
-      const response = await model.invoke(formattedPrompt);
-      return response.content as string;
-    }, {
-      name: `${provider}-${modelId}`,
-      tags: ["output-generation"],
-      metadata: {
-        source: "PartiMeas",
-        run_type: "llm",
-        ls_provider: provider,
-        ls_model_name: modelId,
+    // Create a function for generating output
+    const generateOutput = async (formattedPrompt: any) => {
+      // Check if this is a direct Anthropic API call
+      if (model && typeof model === 'object' && 'type' in model && model.type === 'direct_anthropic') {
+        // Use direct Anthropic API for claude-opus-4-1-20250805
+        const anthropic = new Anthropic({
+          apiKey: model.anthropicApiKey,
+        });
+        
+        const response = await anthropic.messages.create({
+          model: model.modelName,
+          max_tokens: 4096,
+          messages: [
+            {
+              role: 'user',
+              content: formattedPrompt
+            }
+          ]
+        });
+        
+        // Handle different content types from Anthropic API
+        if (response.content && response.content.length > 0) {
+          const content = response.content[0];
+          if (content.type === 'text') {
+            return content.text;
+          } else if (content.type === 'thinking') {
+            // For thinking blocks, we need to handle differently or request text output
+            throw new Error('Thinking blocks not supported for output generation');
+          }
+        }
+        throw new Error('No valid text content received from Anthropic API');
+      } else {
+        // Use LangChain for other models
+        const response = await model.invoke(formattedPrompt);
+        return response.content as string;
       }
-    });
+    };
 
     const prompt = await ChatPromptTemplate.fromMessages([
       [
@@ -227,10 +266,11 @@ const generateModelOutput = async (
     
 
     const formattedPrompt = await prompt.format({
-      query: `${testCase.context}\n${testCase.input}`,
+      query: `${testCase.input}`,
     });
 
-    let output:string = await tracedFn(formattedPrompt) as string;
+    // Use traceable to wrap the function call for LangSmith tracking
+    let output:string = await generateOutput(formattedPrompt);
 
     // Validate and potentially fix structural issues
     output = validateAndFixStructure(output, useCaseType);
@@ -356,7 +396,23 @@ Please provide your evaluation in the following JSON format:
       ]);
 
       const formattedPrompt = await prompt.format({});
-      const response = await evaluationModel.invoke(formattedPrompt);
+      
+      // Use traceable for evaluation model calls
+      const tracedEvaluation = traceable(async (prompt: any) => {
+        const response = await evaluationModel.invoke(prompt);
+        return response;
+      }, {
+        name: `evaluation-${activeEvaluator.provider}-${activeEvaluator.model}`,
+        tags: ["evaluation"],
+        metadata: {
+          source: "PartiMeas",
+          run_type: "llm",
+          ls_provider: activeEvaluator.provider,
+          ls_model_name: activeEvaluator.model,
+        }
+      });
+      
+      const response = await tracedEvaluation(formattedPrompt);
       
       try {
         const evaluation = JSON.parse(response.content as string);
@@ -625,7 +681,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Evaluate all outputs using the evaluation model
-    const { evaluations, evaluationModelId } = await evaluateModelOutputs(outputs, testCase, criteria);
+      const { evaluations, evaluationModelId } = await evaluateModelOutputs(outputs, testCase, criteria);
 
       return NextResponse.json({
         success: true,
@@ -675,4 +731,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

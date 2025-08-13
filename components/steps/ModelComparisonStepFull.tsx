@@ -33,6 +33,11 @@ const getModelDisplayInfo = (modelId: string, modelName: string) => {
       displayName: 'Claude 3 Opus', 
       shortName: 'Claude-3-Opus'
     },
+    'claude-opus-4-1-20250805': { 
+      color: 'bg-models-claude-700', 
+      displayName: 'Claude Opus 4.1', 
+      shortName: 'Claude-Opus-4.1'
+    },
     
     // GPT models - using green theme
     'gpt-4o': { 
