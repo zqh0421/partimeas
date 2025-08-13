@@ -101,7 +101,12 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
             ...required.slice(0, desired),
             ...optional.slice(0, Math.max(0, desired - required.length))
           ].slice(0, desired);
-          const placeholderIds: string[] = selected.map((a: any) => String(a.model_id || a.id || 'loading'));
+          
+          // Flatten all model_ids from selected assistants into a single array
+          const placeholderIds: string[] = selected.flatMap((a: any) => 
+            Array.isArray(a.model_ids) ? a.model_ids : [a.id || 'loading']
+          );
+          
           if (placeholderIds.length > 0) setSelectedOutputModelIds(placeholderIds);
         } else {
           // Fallback placeholders

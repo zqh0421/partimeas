@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Card, Form, InputNumber, Button, Space, Typography, Alert } from 'antd';
+import { Card, Form, InputNumber, Button, Space, Typography, Alert, Select } from 'antd';
 import { ConfigValue } from '../../types/admin';
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 interface ConfigurationProps {
   configValues: ConfigValue[];
@@ -17,9 +18,13 @@ export function Configuration({ configValues, onConfigChange, hasChanges, onSave
 
   // Initialize form with current values
   React.useEffect(() => {
-    const initialValues: { [key: string]: number } = {};
+    const initialValues: { [key: string]: number | string } = {};
     configValues.forEach(config => {
-      initialValues[config.name] = parseInt(config.value) || 0;
+      if (config.name === 'numOutputsToRun' || config.name === 'numOutputsToShow') {
+        initialValues[config.name] = parseInt(config.value) || 0;
+      } else {
+        initialValues[config.name] = config.value;
+      }
     });
     form.setFieldsValue(initialValues);
   }, [configValues, form]);
@@ -33,12 +38,15 @@ export function Configuration({ configValues, onConfigChange, hasChanges, onSave
     }
   };
 
-  const handleValueChange = (name: string, value: number | null) => {
+  const handleValueChange = (name: string, value: number | string | null) => {
     if (value === null) return;
+    
+    // Convert value to string for storage
+    const stringValue = typeof value === 'number' ? value.toString() : value;
     
     const updatedConfigs = configValues.map(config => 
       config.name === name 
-        ? { ...config, value: value.toString() }
+        ? { ...config, value: stringValue }
         : config
     );
     onConfigChange(updatedConfigs);
@@ -54,20 +62,20 @@ export function Configuration({ configValues, onConfigChange, hasChanges, onSave
       <Card>
         <Title level={4}>Output Generation Configuration</Title>
         <Text type="secondary">
-          Configure how many model outputs to generate and display in the interface.
+          Configure the maximum number of model outputs to generate and display in the interface.
         </Text>
       </Card>
 
       <Card>
         <Form form={form} layout="vertical">
           <Form.Item
-            label="Number of Outputs to Generate (numOutputsToRun)"
+            label="Maximum Outputs to Generate (numOutputsToRun)"
             name="numOutputsToRun"
             rules={[
               { required: true, message: 'Please enter a number' },
               { type: 'number', min: 1, max: 10, message: 'Must be between 1 and 10' }
             ]}
-            extra="This controls how many different model responses are generated for each test case."
+            extra="This controls the maximum number of different model responses that can be generated for each test case. The actual number will be the minimum of this value and the number of available assistants."
           >
             <InputNumber
               min={1}
@@ -78,20 +86,38 @@ export function Configuration({ configValues, onConfigChange, hasChanges, onSave
           </Form.Item>
 
           <Form.Item
-            label="Number of Outputs to Show (numOutputsToShow)"
+            label="Maximum Outputs to Show (numOutputsToShow)"
             name="numOutputsToShow"
             rules={[
               { required: true, message: 'Please enter a number' },
-              { type: 'number', min: 1, max: 10, message: 'Must be between 1 and 10' }
+              { type: 'number', min: 1, max: 4, message: 'Must be between 1 and 4' }
             ]}
-            extra="This controls how many responses are displayed in the user interface. Should be less than or equal to numOutputsToRun."
+            extra="This controls the maximum number of responses that can be displayed in the user interface. Should be less than or equal to the maximum outputs to generate."
           >
             <InputNumber
               min={1}
-              max={10}
+              max={4}
               style={{ width: '100%' }}
               onChange={(value) => handleValueChange('numOutputsToShow', value)}
             />
+          </Form.Item>
+
+          <Form.Item
+            label="Assistant Model Selection Algorithm (assistantModelAlgorithm)"
+            name="assistantModelAlgorithm"
+            rules={[
+              { required: true, message: 'Please select an algorithm' }
+            ]}
+            extra="Choose how models are selected for assistants during output generation. Random Selection: Each assistant randomly selects one model independently. Unique Model: All assistants use different models to ensure variety."
+          >
+            <Select
+              placeholder="Select algorithm"
+              style={{ width: '100%' }}
+              onChange={(value) => handleValueChange('assistantModelAlgorithm', value)}
+            >
+              <Option value="random_selection">Random Selection - Each assistant randomly selects one model independently</Option>
+              <Option value="unique_model">Unique Model - All assistants use different models to ensure variety</Option>
+            </Select>
           </Form.Item>
 
           <Form.Item>

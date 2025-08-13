@@ -5,6 +5,7 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { sql } from '@/config/database';
 import { traceable } from "langsmith/traceable";
+import { selectModelsForAssistants, type AssistantModelInfo } from '@/utils/modelSelection';
 // No constant-based model configs or prompts: use DB only
 
 // Assistants-aware helpers
@@ -21,9 +22,17 @@ type OutputAssistant = {
 // Read all output-generation assistants with flags and prompts
 const getOutputGenerationAssistants = async (): Promise<OutputAssistant[]> => {
   const rows = await sql`
-    SELECT a.id AS assistant_id, a.name, a.required_to_show, a.updated_at, m.provider AS provider, m.model_id AS model, sp.prompt AS system_prompt
+    SELECT 
+      a.id AS assistant_id, 
+      a.name, 
+      a.required_to_show, 
+      a.updated_at, 
+      m.provider AS provider, 
+      m.model_id AS model, 
+      sp.prompt AS system_prompt
     FROM partimeas_assistants a
-    JOIN partimeas_models m ON m.id = a.model_id
+    JOIN partimeas_assistant_models am ON am.assistant_id = a.id
+    JOIN partimeas_models m ON m.id = am.model_id
     JOIN partimeas_system_prompts sp ON sp.id = a.system_prompt_id
     WHERE a.type = 'output_generation'
     ORDER BY a.required_to_show DESC, a.updated_at DESC
@@ -36,6 +45,21 @@ const getOutputGenerationAssistants = async (): Promise<OutputAssistant[]> => {
     systemPrompt: r.system_prompt as string,
     requiredToShow: Boolean(r.required_to_show),
     updatedAt: (r.updated_at || new Date().toISOString()) as string,
+  }));
+};
+
+// Get model configurations for the selected models
+const getModelConfigs = async (): Promise<Array<{ id: string; provider: string; model: string }>> => {
+  const rows = await sql`
+    SELECT id, provider, model_id as model
+    FROM partimeas_models
+    WHERE is_active = true
+  `;
+  
+  return rows.map((row: any) => ({
+    id: row.id,
+    provider: row.provider,
+    model: row.model
   }));
 };
 
@@ -121,7 +145,8 @@ const getActiveEvaluatorModel = async (): Promise<{ provider: string; model: str
     const rows = await sql`
       SELECT m.provider as provider, m.model_id as model
       FROM partimeas_assistants a
-      JOIN partimeas_models m ON m.id = a.model_id
+      JOIN partimeas_assistant_models am ON am.assistant_id = a.id
+      JOIN partimeas_models m ON m.id = am.model_id
       WHERE a.type = 'evaluation' AND a.required_to_show = true
       ORDER BY a.updated_at DESC
       LIMIT 1
@@ -378,12 +403,13 @@ export async function POST(request: NextRequest) {
       // Fetch configuration from database
       let numOutputsToRun = 2; // Default fallback
       let numOutputsToShow = 2; // Default fallback
+      let assistantModelAlgorithm = 'random_selection'; // Default fallback
       
       try {
         const configQuery = `
           SELECT name, value 
           FROM partimeas_configs 
-          WHERE name IN ('numOutputsToRun', 'numOutputsToShow')
+          WHERE name IN ('numOutputsToRun', 'numOutputsToShow', 'assistantModelAlgorithm')
         `;
         const configResult = await sql.query(configQuery);
         
@@ -392,18 +418,25 @@ export async function POST(request: NextRequest) {
             numOutputsToRun = parseInt(row.value) || 2;
           } else if (row.name === 'numOutputsToShow') {
             numOutputsToShow = parseInt(row.value) || 2;
+          } else if (row.name === 'assistantModelAlgorithm') {
+            assistantModelAlgorithm = row.value || 'random_selection';
           }
         });
         
-        console.log(`📊 Configuration loaded - numOutputsToRun: ${numOutputsToRun}, numOutputsToShow: ${numOutputsToShow}`);
+        console.log(`📊 Configuration loaded - numOutputsToRun: ${numOutputsToRun}, numOutputsToShow: ${numOutputsToShow}, algorithm: ${assistantModelAlgorithm}`);
+        
+        // Note: The assistantModelAlgorithm configuration is now available for use
+        // - 'random_selection': Each assistant randomly selects one model independently
+        // - 'unique_model': All assistants use different models to ensure variety
+        // This can be used in future implementations to control model selection behavior
       } catch (error) {
         console.warn('Failed to fetch configuration from database, using defaults:', error);
       }
 
-      // Fetch all output-generation assistants
-      const allOutputAssistants = await getOutputGenerationAssistants();
-      const requiredAssistants = allOutputAssistants.filter(a => a.requiredToShow);
-      const optionalAssistants = allOutputAssistants.filter(a => !a.requiredToShow);
+      // Fetch all output-generation assistants with their model configurations
+      const allOutputAssistantsWithModels = await getOutputGenerationAssistants();
+      const requiredAssistants = allOutputAssistantsWithModels.filter(a => a.requiredToShow);
+      const optionalAssistants = allOutputAssistantsWithModels.filter(a => !a.requiredToShow);
 
       if ((numOutputs ?? 0) < 0) {
         return NextResponse.json({ error: 'numOutputs must be a positive integer' }, { status: 400 });
@@ -412,7 +445,10 @@ export async function POST(request: NextRequest) {
       // Determine how many outputs to generate. If not provided, use database config or default
       const desiredOutputs = typeof numOutputs === 'number'
         ? numOutputs
-        : Math.min(numOutputsToRun, allOutputAssistants.length);
+        : Math.min(numOutputsToRun, allOutputAssistantsWithModels.length);
+      
+      // Also limit numOutputsToShow by the actual number of outputs that can be generated
+      const actualNumOutputsToShow = Math.min(numOutputsToShow, desiredOutputs);
 
       let selectedAssistants: OutputAssistant[] = [];
       if (desiredOutputs === 0) {
@@ -421,20 +457,69 @@ export async function POST(request: NextRequest) {
           phase: 'generate',
           outputs: [],
           errors: [],
-          totalAssistants: allOutputAssistants.length,
+          totalAssistants: allOutputAssistantsWithModels.length,
           selectedAssistants: 0,
           timestamp: new Date().toISOString(),
           message: 'No outputs requested (numOutputs=0)'
         });
       }
 
-      // Take up to desiredOutputs from required first (newest first)
-      selectedAssistants = requiredAssistants.slice(0, desiredOutputs);
-      const remaining = desiredOutputs - selectedAssistants.length;
-      if (remaining > 0 && optionalAssistants.length > 0) {
-        // Randomly sample remaining from optionalAssistants
-        const shuffled = [...optionalAssistants].sort(() => Math.random() - 0.5);
-        selectedAssistants = selectedAssistants.concat(shuffled.slice(0, remaining));
+      // Apply model selection algorithm
+      if (assistantModelAlgorithm === 'unique_model') {
+        console.log('🔧 Using Unique Model algorithm to ensure model variety');
+        
+        // For unique model algorithm, we need to select assistants that have different models
+        const usedModels = new Set<string>();
+        const uniqueModelAssistants: OutputAssistant[] = [];
+        
+        // First, prioritize required assistants
+        for (const assistant of requiredAssistants) {
+          if (uniqueModelAssistants.length >= desiredOutputs) break;
+          
+          // Check if this assistant's model is already used
+          if (!usedModels.has(assistant.model)) {
+            uniqueModelAssistants.push(assistant);
+            usedModels.add(assistant.model);
+          }
+        }
+        
+        // Then, fill remaining slots with optional assistants that have unique models
+        for (const assistant of optionalAssistants) {
+          if (uniqueModelAssistants.length >= desiredOutputs) break;
+          
+          if (!usedModels.has(assistant.model)) {
+            uniqueModelAssistants.push(assistant);
+            usedModels.add(assistant.model);
+          }
+        }
+        
+        // If we still don't have enough unique models, fall back to any available models
+        if (uniqueModelAssistants.length < desiredOutputs) {
+          const remainingRequired = requiredAssistants.filter(a => !uniqueModelAssistants.includes(a));
+          const remainingOptional = optionalAssistants.filter(a => !uniqueModelAssistants.includes(a));
+          
+          const fallbackAssistants = [...remainingRequired, ...remainingOptional];
+          for (const assistant of fallbackAssistants) {
+            if (uniqueModelAssistants.length >= desiredOutputs) break;
+            uniqueModelAssistants.push(assistant);
+          }
+        }
+        
+        selectedAssistants = uniqueModelAssistants.slice(0, desiredOutputs);
+        console.log(`🔧 Unique Model algorithm selected ${selectedAssistants.length} assistants with different models`);
+        
+      } else {
+        // Default random selection algorithm
+        console.log('🔧 Using Random Selection algorithm');
+        
+        // Take up to desiredOutputs from required first (newest first)
+        selectedAssistants = requiredAssistants.slice(0, desiredOutputs);
+        const remaining = desiredOutputs - selectedAssistants.length;
+        if (remaining > 0 && optionalAssistants.length > 0) {
+          // Randomly sample remaining from optionalAssistants
+          const shuffled = [...optionalAssistants].sort(() => Math.random() - 0.5);
+          selectedAssistants = selectedAssistants.concat(shuffled.slice(0, remaining));
+        }
       }
 
       if (selectedAssistants.length === 0) {
@@ -445,6 +530,24 @@ export async function POST(request: NextRequest) {
 
       // Shuffle display order of selected assistants so Response 1..N is randomized
       selectedAssistants = shuffleArray(selectedAssistants);
+      
+      // Log selected assistants and their models for debugging
+      console.log(`🔧 Final selected assistants for ${assistantModelAlgorithm} algorithm:`);
+      selectedAssistants.forEach((assistant, index) => {
+        console.log(`  ${index + 1}. ${assistant.name} (${assistant.provider}/${assistant.model}) - Required: ${assistant.requiredToShow}`);
+      });
+      
+      // Verify unique models if using unique_model algorithm
+      if (assistantModelAlgorithm === 'unique_model') {
+        const selectedModels = selectedAssistants.map(a => a.model);
+        const uniqueModels = new Set(selectedModels);
+        console.log(`🔧 Unique Model verification: ${uniqueModels.size} unique models out of ${selectedModels.length} total`);
+        if (uniqueModels.size < selectedModels.length) {
+          console.warn(`⚠️ Warning: Duplicate models detected in unique_model algorithm!`);
+          console.warn(`  Selected models: ${selectedModels.join(', ')}`);
+          console.warn(`  Unique models: ${Array.from(uniqueModels).join(', ')}`);
+        }
+      }
 
       // Generate outputs from selected assistants in parallel
       const outputGenerations = await Promise.allSettled(
@@ -485,14 +588,19 @@ export async function POST(request: NextRequest) {
         phase: 'generate',
         outputs,
         errors,
-        totalAssistants: allOutputAssistants.length,
+        totalAssistants: allOutputAssistantsWithModels.length,
         selectedAssistants: selectedAssistants.length,
         // Expose the actual model ids selected for this generation run so the UI can reflect accurate loading state
         selectedAssistantsModels: selectedAssistants.map(a => a.model),
         successfulModels: outputs.length,
         failedModels: errors.length,
         // Configuration information for the frontend
-        numOutputsToShow,
+        numOutputsToShow: actualNumOutputsToShow,
+        // Algorithm information for debugging and verification
+        algorithmUsed: assistantModelAlgorithm,
+        algorithmDescription: assistantModelAlgorithm === 'unique_model' 
+          ? 'Unique Model - Ensured different models for variety' 
+          : 'Random Selection - Each assistant independently selected models',
         timestamp: new Date().toISOString(),
         message: 'Output generation completed. Ready to proceed to review page.'
       });

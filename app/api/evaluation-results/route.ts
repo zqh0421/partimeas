@@ -62,7 +62,8 @@ const getActiveEvaluationAssistant = async (): Promise<{
         m.model_id AS model,
         sp.prompt AS system_prompt
       FROM partimeas_assistants a
-      JOIN partimeas_models m ON m.id = a.model_id
+      JOIN partimeas_assistant_models am ON am.assistant_id = a.id
+      JOIN partimeas_models m ON m.id = am.model_id
       JOIN partimeas_system_prompts sp ON sp.id = a.system_prompt_id
       WHERE a.type = 'evaluation' AND a.required_to_show = true
       ORDER BY a.updated_at DESC

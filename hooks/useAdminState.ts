@@ -6,6 +6,7 @@ export function useAdminState() {
     modelConfigs: [],
     promptConfigs: [],
     assistants: [],
+    assistantModels: [],
     configValues: [],
     isLoading: true,
     hasChanges: false,
@@ -18,7 +19,8 @@ export function useAdminState() {
     activeSection: 'assistants',
     deletedModels: [],
     deletedPrompts: [],
-    deletedAssistants: []
+    deletedAssistants: [],
+    deletedAssistantModels: []
   });
 
   // Load initial configuration
@@ -47,7 +49,7 @@ export function useAdminState() {
       console.log('Loading configuration values...');
       let configValues: ConfigValue[] = [];
       try {
-        const configResponse = await fetch('/api/config?name=numOutputsToRun&name=numOutputsToShow');
+        const configResponse = await fetch('/api/config?name=numOutputsToRun&name=numOutputsToShow&name=assistantModelAlgorithm');
         console.log('Config response status:', configResponse.status, configResponse.statusText);
         
         if (configResponse.ok) {
@@ -74,7 +76,8 @@ export function useAdminState() {
       // Ensure default configuration values exist
       const defaultConfigs = [
         { name: 'numOutputsToRun', value: '3', scope: 'global' },
-        { name: 'numOutputsToShow', value: '2', scope: 'global' }
+        { name: 'numOutputsToShow', value: '2', scope: 'global' },
+        { name: 'assistantModelAlgorithm', value: 'random_selection', scope: 'global' }
       ];
       
       defaultConfigs.forEach(defaultConfig => {
@@ -252,15 +255,17 @@ export function useAdminState() {
       const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
       for (const assistant of state.assistants) {
         const isCreate = assistant.id <= 0;
-        const hasInvalidModel = !uuidRegex.test(assistant.model_id || '');
+        const hasInvalidModels = !assistant.model_ids || !Array.isArray(assistant.model_ids) || 
+          assistant.model_ids.length === 0 || !assistant.model_ids.every(id => uuidRegex.test(id));
         const hasInvalidPrompt = !uuidRegex.test(assistant.system_prompt_id || '');
-        if ((isCreate || hasInvalidModel || hasInvalidPrompt) && (hasInvalidModel || hasInvalidPrompt)) {
-          throw new Error('Please select a saved Model and System Prompt before saving assistants.');
+        if ((isCreate || hasInvalidModels || hasInvalidPrompt) && (hasInvalidModels || hasInvalidPrompt)) {
+          throw new Error('Please select at least one saved Model and a System Prompt before saving assistants.');
         }
       }
 
       // Save assistants individually since they have their own API
       const assistantPromises = state.assistants.map(async (assistant) => {
+        // No transformation needed since we now use model_ids directly
         if (assistant.id > 0) {
           // Update existing assistant
           return fetch('/api/admin/assistants', {

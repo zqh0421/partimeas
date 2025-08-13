@@ -41,7 +41,7 @@ export function AssistantsSection({
   const handleAddAssistant = (type: 'output_generation' | 'evaluation') => {
     const newAssistant = {
       name: '',
-      model_id: '',
+      model_ids: [] as string[],
       system_prompt_id: '',
       required_to_show: false,
       type: type
@@ -128,6 +128,37 @@ export function AssistantsSection({
     return model ? `${model.provider}/${model.model}` : 'Unknown Model';
   };
 
+  const getModelNames = (modelIds: string[]) => {
+    if (!Array.isArray(modelIds) || modelIds.length === 0) return 'No Models';
+    return modelIds.map(modelId => {
+      const model = modelConfigs.find(m => m.id === modelId);
+      return model ? `${model.provider}/${model.model}` : 'Unknown Model';
+    }).join(', ');
+  };
+
+  // Group models by provider for better organization
+  const getGroupedModelOptions = () => {
+    const grouped: { [key: string]: { label: string; options: { value: string; label: string }[] } } = {};
+    
+    modelConfigs
+      .filter(model => isUuid(model.id))
+      .forEach(model => {
+        const provider = model.provider;
+        if (!grouped[provider]) {
+          grouped[provider] = {
+            label: provider.charAt(0).toUpperCase() + provider.slice(1),
+            options: []
+          };
+        }
+        grouped[provider].options.push({
+          value: model.id,
+          label: `${provider}/${model.model}`
+        });
+      });
+    
+    return Object.values(grouped);
+  };
+
   const getPromptName = (promptId: string) => {
     const prompt = promptConfigs.find(p => p.id === promptId);
     return prompt ? prompt.name : 'Unknown Prompt';
@@ -185,7 +216,7 @@ export function AssistantsSection({
             <Row gutter={[24, 0]}>
               <Col span={12}>
                 <div style={{ marginBottom: 16 }}>
-                  <Text strong>Number of Outputs to Generate</Text>
+                  <Text strong>Maximum Outputs to Generate</Text>
                   <div style={{ marginTop: 4 }}>
                     <InputNumber
                       min={1}
@@ -216,14 +247,14 @@ export function AssistantsSection({
                     />
                   </div>
                   <Text type="secondary" style={{ fontSize: '12px' }}>
-                    This controls how many different model responses are generated for each test case (1-10).
+                    This controls the maximum number of different model responses that can be generated for each test case (1-10). The actual number will be the minimum of this value and the number of available assistants.
                   </Text>
                 </div>
               </Col>
               
               <Col span={12}>
                 <div style={{ marginBottom: 16 }}>
-                  <Text strong>Number of Outputs to Show</Text>
+                  <Text strong>Maximum Outputs to Show</Text>
                   <div style={{ marginTop: 4 }}>
                     <InputNumber
                       min={1}
@@ -234,7 +265,7 @@ export function AssistantsSection({
                         if (value !== null) {
                           const numOutputsToRun = parseInt(configValues.find(c => c.name === 'numOutputsToRun')?.value || '3');
                           if (value > numOutputsToRun) {
-                            message.error(`Cannot be greater than Number of Outputs to Generate (${numOutputsToRun})`);
+                            message.error(`Cannot be greater than Maximum Outputs to Generate (${numOutputsToRun})`);
                             return;
                           }
                           const updatedConfigs = configValues.map(config => 
@@ -248,7 +279,41 @@ export function AssistantsSection({
                     />
                   </div>
                   <Text type="secondary" style={{ fontSize: '12px' }}>
-                    This controls how many responses are displayed in the user interface (1-4, ≤ numOutputsToRun).
+                    This controls the maximum number of responses that can be displayed in the user interface (1-4, ≤ maximum outputs to generate).
+                  </Text>
+                </div>
+              </Col>
+            </Row>
+
+            {/* Algorithm Selection Row */}
+            <Row gutter={[24, 0]} style={{ marginTop: 16 }}>
+              <Col span={24}>
+                <div style={{ marginBottom: 16 }}>
+                  <Text strong>Model Selection Algorithm</Text>
+                  <div style={{ marginTop: 4 }}>
+                    <Select
+                      style={{ width: '100%' }}
+                      value={configValues.find(c => c.name === 'assistantModelAlgorithm')?.value || 'random_selection'}
+                      onChange={(value) => {
+                        const updatedConfigs = configValues.map(config => 
+                          config.name === 'assistantModelAlgorithm' 
+                            ? { ...config, value: value }
+                            : config
+                        );
+                        onConfigChange(updatedConfigs);
+                      }}
+                      placeholder="Select algorithm"
+                    >
+                      <Select.Option value="random_selection">
+                        Random Selection - Each assistant randomly selects one model independently
+                      </Select.Option>
+                      <Select.Option value="unique_model">
+                        Unique Model - All assistants use different models to ensure variety
+                      </Select.Option>
+                    </Select>
+                  </div>
+                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                    Choose how models are selected for assistants during output generation. Random Selection allows each assistant to independently choose models, while Unique Model ensures all assistants use different models for variety.
                   </Text>
                 </div>
               </Col>
@@ -266,10 +331,10 @@ export function AssistantsSection({
                 key: 'name',
               },
               {
-                title: 'Model',
-                dataIndex: 'model_id',
-                key: 'model_id',
-                render: (modelId: string) => getModelName(modelId),
+                title: 'Models',
+                dataIndex: 'model_ids',
+                key: 'model_ids',
+                render: (modelIds: string[]) => getModelNames(modelIds),
               },
               {
                 title: 'System Prompt',
@@ -363,10 +428,10 @@ export function AssistantsSection({
                 key: 'name',
               },
               {
-                title: 'Model',
-                dataIndex: 'model_id',
-                key: 'model_id',
-                render: (modelId: string) => getModelName(modelId),
+                title: 'Models',
+                dataIndex: 'model_ids',
+                key: 'model_ids',
+                render: (modelIds: string[]) => getModelNames(modelIds),
               },
               {
                 title: 'System Prompt',
@@ -454,19 +519,46 @@ export function AssistantsSection({
           </Form.Item>
 
           <Form.Item
-            name="model_id"
-            label="Model"
-            rules={[{ required: true, message: 'Please select a model' }]}
+            name="model_ids"
+            label="Models"
+            rules={[
+              { 
+                required: true, 
+                message: 'Please select at least one model' 
+              },
+              {
+                validator: (_, value) => {
+                  if (!Array.isArray(value) || value.length === 0) {
+                    return Promise.reject(new Error('Please select at least one model'));
+                  }
+                  return Promise.resolve();
+                }
+              }
+            ]}
           >
-              <Select placeholder="Select a model">
-               {modelConfigs
-                 .filter(model => isUuid(model.id))
-                 .map(model => (
-                <Option key={model.id} value={model.id}>
-                  {model.provider}/{model.model}
-                </Option>
-                ))}
+            <Select
+              mode="multiple"
+              placeholder="Select one or more models..."
+              style={{ width: '100%' }}
+              showSearch={false}
+              maxTagCount={3}
+              maxTagTextLength={20}
+            >
+              {getGroupedModelOptions().map(group => (
+                <Select.OptGroup key={group.label} label={group.label}>
+                  {group.options.map(option => (
+                    <Select.Option key={option.value} value={option.value}>
+                      {option.label}
+                    </Select.Option>
+                  ))}
+                </Select.OptGroup>
+              ))}
             </Select>
+            <div style={{ marginTop: 4 }}>
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                You can select multiple models. The assistant will use all selected models for generation/evaluation.
+              </Text>
+            </div>
           </Form.Item>
 
           <Form.Item

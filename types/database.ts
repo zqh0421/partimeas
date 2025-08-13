@@ -137,6 +137,7 @@ export interface SystemPromptWithRelations extends SystemPrompt {
 
 export interface ModelWithRelations extends Model {
   evaluatorModels?: EvaluatorModel[];
+  assistants?: AssistantModel[];
 }
 
 export interface EvaluatorPromptWithRelations extends EvaluatorPrompt {
@@ -146,6 +147,16 @@ export interface EvaluatorPromptWithRelations extends EvaluatorPrompt {
 export interface EvaluatorModelWithRelations extends EvaluatorModel {
   model?: Model;
   evaluatorPrompt?: EvaluatorPrompt;
+}
+
+export interface AssistantWithRelations extends Assistant {
+  models?: Model[];
+  assistantModels?: AssistantModel[];
+}
+
+export interface AssistantModelWithRelations extends AssistantModel {
+  assistant?: Assistant;
+  model?: Model;
 }
 
 // Utility types for API responses
@@ -190,6 +201,16 @@ export interface EvaluatorModelFilters {
   isActive?: boolean;
 }
 
+export interface AssistantFilters {
+  type?: 'output_generation' | 'evaluation';
+  required_to_show?: boolean;
+}
+
+export interface AssistantModelFilters {
+  assistant_id?: number;
+  model_id?: string;
+}
+
 // SQL CRUD Operations
 export interface DatabaseOperations {
   // Create operations
@@ -198,6 +219,8 @@ export interface DatabaseOperations {
   createModel(data: NewModel): Promise<Model>;
   createEvaluatorPrompt(data: NewEvaluatorPrompt): Promise<EvaluatorPrompt>;
   createEvaluatorModel(data: NewEvaluatorModel): Promise<EvaluatorModel>;
+  createAssistant(data: NewAssistant): Promise<Assistant>;
+  createAssistantModel(data: NewAssistantModel): Promise<AssistantModel>;
 
   // Read operations
   getSystemPrompt(id: string): Promise<SystemPrompt | null>;
@@ -210,6 +233,10 @@ export interface DatabaseOperations {
   getEvaluatorPrompts(filters?: EvaluatorPromptFilters, page?: number, limit?: number): Promise<PaginatedResponse<EvaluatorPrompt>>;
   getEvaluatorModel(id: string): Promise<EvaluatorModel | null>;
   getEvaluatorModels(filters?: EvaluatorModelFilters, page?: number, limit?: number): Promise<PaginatedResponse<EvaluatorModel>>;
+  getAssistant(id: number): Promise<Assistant | null>;
+  getAssistants(filters?: AssistantFilters, page?: number, limit?: number): Promise<PaginatedResponse<Assistant>>;
+  getAssistantModel(id: number): Promise<AssistantModel | null>;
+  getAssistantModels(filters?: AssistantModelFilters, page?: number, limit?: number): Promise<PaginatedResponse<AssistantModel>>;
 
   // Update operations
   updateSystemPrompt(id: string, data: Partial<NewSystemPrompt>): Promise<SystemPrompt>;
@@ -217,6 +244,8 @@ export interface DatabaseOperations {
   updateModel(id: string, data: Partial<NewModel>): Promise<Model>;
   updateEvaluatorPrompt(id: string, data: Partial<NewEvaluatorPrompt>): Promise<EvaluatorPrompt>;
   updateEvaluatorModel(id: string, data: Partial<NewEvaluatorModel>): Promise<EvaluatorModel>;
+  updateAssistant(id: number, data: Partial<NewAssistant>): Promise<Assistant>;
+  updateAssistantModel(id: number, data: Partial<NewAssistantModel>): Promise<AssistantModel>;
 
   // Delete operations
   deleteSystemPrompt(id: string): Promise<boolean>;
@@ -224,4 +253,41 @@ export interface DatabaseOperations {
   deleteModel(id: string): Promise<boolean>;
   deleteEvaluatorPrompt(id: string): Promise<boolean>;
   deleteEvaluatorModel(id: string): Promise<boolean>;
+  deleteAssistant(id: number): Promise<boolean>;
+  deleteAssistantModel(id: number): Promise<boolean>;
+}
+
+// Assistant types
+export interface Assistant {
+  id: number;
+  name: string;
+  system_prompt_id: string;
+  required_to_show: boolean;
+  type: 'output_generation' | 'evaluation';
+  metadata?: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface NewAssistant {
+  name: string;
+  system_prompt_id: string;
+  required_to_show?: boolean;
+  type: 'output_generation' | 'evaluation';
+  metadata?: any;
+}
+
+// Assistant-Model relationship types
+export interface AssistantModel {
+  id: number;
+  assistant_id: number;
+  model_id: string;
+  metadata?: any;
+  createdAt: Date;
+}
+
+export interface NewAssistantModel {
+  assistant_id: number;
+  model_id: string;
+  metadata?: any;
 } 
