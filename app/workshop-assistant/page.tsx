@@ -110,7 +110,13 @@ function OutputAnalysisFullPageContent() {
 
   // Group ID state
   const [showGroupIdModal, setShowGroupIdModal] = useState(false);
-  const [currentGroupId, setCurrentGroupId] = useState<string | null>(null);
+  const [currentGroupId, setCurrentGroupId] = useState<string | null>(() => {
+    // Try to load from localStorage on component mount
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('partimeas_group_id');
+    }
+    return null;
+  });
 
   // Debug logging for group ID modal
   useEffect(() => {
@@ -191,6 +197,11 @@ function OutputAnalysisFullPageContent() {
   const handleGroupIdConfirm = (groupId: string) => {
     setCurrentGroupId(groupId);
     setShowGroupIdModal(false);
+    
+    // Save to localStorage for persistence
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('partimeas_group_id', groupId);
+    }
   };
 
   // Handle group ID modal cancel
@@ -198,6 +209,21 @@ function OutputAnalysisFullPageContent() {
     setShowGroupIdModal(false);
     // Reset to setup step if user cancels group ID entry
     setCurrentStep('sync');
+    
+    // Clear group ID from localStorage when user cancels
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('partimeas_group_id');
+    }
+    setCurrentGroupId(null);
+  };
+
+  // Function to clear group ID (for reset purposes)
+  const clearGroupId = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('partimeas_group_id');
+    }
+    setCurrentGroupId(null);
+    setShowGroupIdModal(true); // Show modal again for new input
   };
 
   // Helper function to toggle original text expansion
@@ -688,6 +714,7 @@ function OutputAnalysisFullPageContent() {
         isGeneratingOutputs={isGeneratingOutputs}
         groupId={currentGroupId}
         onEditGroupId={() => setShowGroupIdModal(true)}
+        onClearGroupId={clearGroupId}
       />
 
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">

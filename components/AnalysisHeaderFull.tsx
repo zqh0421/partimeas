@@ -9,6 +9,7 @@ interface AnalysisHeaderFullProps {
   isGeneratingOutputs?: boolean; // Keep this prop for future use if needed
   groupId?: string | null;
   onEditGroupId?: () => void;
+  onClearGroupId?: () => void;
 }
 
 export default function AnalysisHeaderFull({ 
@@ -16,7 +17,8 @@ export default function AnalysisHeaderFull({
   currentSessionId,
   isGeneratingOutputs = false,
   groupId,
-  onEditGroupId
+  onEditGroupId,
+  onClearGroupId
 }: AnalysisHeaderFullProps) {
   const [copySuccess, setCopySuccess] = useState(false);
 
