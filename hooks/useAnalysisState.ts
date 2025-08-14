@@ -209,6 +209,33 @@ export function useAnalysisState(useCaseType: string = Object.keys(USE_CASE_PROM
   const updateSelectionState = useCallback((updates: Partial<SelectionState>) => {
     setSelectionState(prev => ({ ...prev, ...updates }));
   }, []);
+
+  // Stable setter functions to avoid recreating identities on every state change
+  // UI setters
+  const setUICurrentStep = useCallback((step: AnalysisStep) => updateUIState({ currentStep: step }), [updateUIState]);
+  const setUIIsLoading = useCallback((isLoading: boolean) => updateUIState({ isLoading }), [updateUIState]);
+  const setUIIsTestCasesSummaryOpen = useCallback((isOpen: boolean) => updateUIState({ isTestCasesSummaryOpen: isOpen }), [updateUIState]);
+  const setUIValidationError = useCallback((error: string) => updateUIState({ validationError: error }), [updateUIState]);
+
+  // Data setters
+  const setDataTestCases = useCallback((testCases: TestCase[]) => updateDataState({ testCases }), [updateDataState]);
+  const setDataTestCasesWithModelOutputs = useCallback((v: TestCaseWithModelOutputs[]) => updateDataState({ testCasesWithModelOutputs: v }), [updateDataState]);
+  const setDataCriteria = useCallback((criteria: CriteriaData[]) => updateDataState({ criteria }), [updateDataState]);
+  const setDataOutcomes = useCallback((outcomes: RubricOutcome[]) => updateDataState({ outcomes }), [updateDataState]);
+  const setDataOutcomesWithModelComparison = useCallback((v: RubricOutcomeWithModelComparison[]) => updateDataState({ outcomesWithModelComparison: v }), [updateDataState]);
+
+  // Evaluation setters
+  const setEvalShouldStart = useCallback((shouldStart: boolean) => updateEvaluationState({ shouldStartEvaluation: shouldStart }), [updateEvaluationState]);
+  const setEvalProgress = useCallback((progress: number) => updateEvaluationState({ evaluationProgress: progress }), [updateEvaluationState]);
+  const setEvalCurrentIndex = useCallback((index: number) => updateEvaluationState({ currentTestCaseIndex: index }), [updateEvaluationState]);
+
+  // Selection setters
+  const setSelSelectedTestCaseIndex = useCallback((index: number) => updateSelectionState({ selectedTestCaseIndex: index }), [updateSelectionState]);
+  const setSelSelectedUseCaseId = useCallback((id: string) => updateSelectionState({ selectedUseCaseId: id }), [updateSelectionState]);
+  const setSelSelectedScenarioCategory = useCallback((category: string) => updateSelectionState({ selectedScenarioCategory: category }), [updateSelectionState]);
+  const setSelSelectedCriteriaId = useCallback((id: string) => updateSelectionState({ selectedCriteriaId: id }), [updateSelectionState]);
+  const setSelSelectedSystemPrompt = useCallback((prompt: string) => updateSelectionState({ selectedSystemPrompt: prompt }), [updateSelectionState]);
+  const setSelCurrentUseCaseType = useCallback((type: string) => updateSelectionState({ currentUseCaseType: type }), [updateSelectionState]);
   
   const updateSystemPromptForUseCase = useCallback((testCases: TestCase[]) => {
     if (!useCaseConfig.USE_CASE_TYPES.includes(useCaseType)) return;
@@ -227,40 +254,40 @@ export function useAnalysisState(useCaseType: string = Object.keys(USE_CASE_PROM
   const uiApi = useMemo(() => ({
     ...uiState,
     update: updateUIState,
-    setCurrentStep: (step: AnalysisStep) => updateUIState({ currentStep: step }),
-    setIsLoading: (isLoading: boolean) => updateUIState({ isLoading }),
-    setIsTestCasesSummaryOpen: (isOpen: boolean) => updateUIState({ isTestCasesSummaryOpen: isOpen }),
-    setValidationError: (error: string) => updateUIState({ validationError: error }),
-  }), [uiState, updateUIState]);
+    setCurrentStep: setUICurrentStep,
+    setIsLoading: setUIIsLoading,
+    setIsTestCasesSummaryOpen: setUIIsTestCasesSummaryOpen,
+    setValidationError: setUIValidationError,
+  }), [uiState, updateUIState, setUICurrentStep, setUIIsLoading, setUIIsTestCasesSummaryOpen, setUIValidationError]);
   
   const dataApi = useMemo(() => ({
     ...dataState,
     update: updateDataState,
-    setTestCases: (testCases: TestCase[]) => updateDataState({ testCases }),
-    setTestCasesWithModelOutputs: (v: TestCaseWithModelOutputs[]) => updateDataState({ testCasesWithModelOutputs: v }),
-    setCriteria: (criteria: CriteriaData[]) => updateDataState({ criteria }),
-    setOutcomes: (outcomes: RubricOutcome[]) => updateDataState({ outcomes }),
-    setOutcomesWithModelComparison: (v: RubricOutcomeWithModelComparison[]) => updateDataState({ outcomesWithModelComparison: v }),
-  }), [dataState, updateDataState]);
+    setTestCases: setDataTestCases,
+    setTestCasesWithModelOutputs: setDataTestCasesWithModelOutputs,
+    setCriteria: setDataCriteria,
+    setOutcomes: setDataOutcomes,
+    setOutcomesWithModelComparison: setDataOutcomesWithModelComparison,
+  }), [dataState, updateDataState, setDataTestCases, setDataTestCasesWithModelOutputs, setDataCriteria, setDataOutcomes, setDataOutcomesWithModelComparison]);
   
   const evaluationApi = useMemo(() => ({
     ...evaluationState,
     update: updateEvaluationState,
-    setShouldStartEvaluation: (shouldStart: boolean) => updateEvaluationState({ shouldStartEvaluation: shouldStart }),
-    setEvaluationProgress: (progress: number) => updateEvaluationState({ evaluationProgress: progress }),
-    setCurrentTestCaseIndex: (index: number) => updateEvaluationState({ currentTestCaseIndex: index }),
-  }), [evaluationState, updateEvaluationState]);
+    setShouldStartEvaluation: setEvalShouldStart,
+    setEvaluationProgress: setEvalProgress,
+    setCurrentTestCaseIndex: setEvalCurrentIndex,
+  }), [evaluationState, updateEvaluationState, setEvalShouldStart, setEvalProgress, setEvalCurrentIndex]);
   
   const selectionApi = useMemo(() => ({
     ...selectionState,
     update: updateSelectionState,
-    setSelectedTestCaseIndex: (index: number) => updateSelectionState({ selectedTestCaseIndex: index }),
-    setSelectedUseCaseId: (id: string) => updateSelectionState({ selectedUseCaseId: id }),
-    setSelectedScenarioCategory: (category: string) => updateSelectionState({ selectedScenarioCategory: category }),
-    setSelectedCriteriaId: (id: string) => updateSelectionState({ selectedCriteriaId: id }),
-    setSelectedSystemPrompt: (prompt: string) => updateSelectionState({ selectedSystemPrompt: prompt }),
-    setCurrentUseCaseType: (type: string) => updateSelectionState({ currentUseCaseType: type }),
-  }), [selectionState, updateSelectionState]);
+    setSelectedTestCaseIndex: setSelSelectedTestCaseIndex,
+    setSelectedUseCaseId: setSelSelectedUseCaseId,
+    setSelectedScenarioCategory: setSelSelectedScenarioCategory,
+    setSelectedCriteriaId: setSelSelectedCriteriaId,
+    setSelectedSystemPrompt: setSelSelectedSystemPrompt,
+    setCurrentUseCaseType: setSelCurrentUseCaseType,
+  }), [selectionState, updateSelectionState, setSelSelectedTestCaseIndex, setSelSelectedUseCaseId, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedSystemPrompt, setSelCurrentUseCaseType]);
 
   
   const api = useMemo(() => ({
@@ -270,48 +297,48 @@ export function useAnalysisState(useCaseType: string = Object.keys(USE_CASE_PROM
     selection: selectionApi,
     useCase: { updateSystemPromptForUseCase, determineUseCase },
     currentStep: uiState.currentStep,
-    setCurrentStep: (step: AnalysisStep) => updateUIState({ currentStep: step }),
+    setCurrentStep: setUICurrentStep,
     isLoading: uiState.isLoading,
-    setIsLoading: (isLoading: boolean) => updateUIState({ isLoading }),
+    setIsLoading: setUIIsLoading,
     validationError: uiState.validationError,
-    setValidationError: (error: string) => updateUIState({ validationError: error }),
+    setValidationError: setUIValidationError,
 
     // ===== Legacy: Data =====
     testCases: dataState.testCases,
-    setTestCases: dataApi.setTestCases,
+    setTestCases: setDataTestCases,
     testCasesWithModelOutputs: dataState.testCasesWithModelOutputs,
-    setTestCasesWithModelOutputs: dataApi.setTestCasesWithModelOutputs,
+    setTestCasesWithModelOutputs: setDataTestCasesWithModelOutputs,
     criteria: dataState.criteria,
-    setCriteria: dataApi.setCriteria,
+    setCriteria: setDataCriteria,
     outcomes: dataState.outcomes,
-    setOutcomes: dataApi.setOutcomes,
+    setOutcomes: setDataOutcomes,
     outcomesWithModelComparison: dataState.outcomesWithModelComparison,
-    setOutcomesWithModelComparison: dataApi.setOutcomesWithModelComparison,
+    setOutcomesWithModelComparison: setDataOutcomesWithModelComparison,
 
     // ===== Legacy: Selection =====
     selectedTestCaseIndex: selectionState.selectedTestCaseIndex,
-    setSelectedTestCaseIndex: selectionApi.setSelectedTestCaseIndex,
+    setSelectedTestCaseIndex: setSelSelectedTestCaseIndex,
     selectedUseCaseId: selectionState.selectedUseCaseId,
-    setSelectedUseCaseId: selectionApi.setSelectedUseCaseId,
+    setSelectedUseCaseId: setSelSelectedUseCaseId,
     selectedScenarioCategory: selectionState.selectedScenarioCategory,
-    setSelectedScenarioCategory: selectionApi.setSelectedScenarioCategory,
+    setSelectedScenarioCategory: setSelSelectedScenarioCategory,
     selectedCriteriaId: selectionState.selectedCriteriaId,
-    setSelectedCriteriaId: selectionApi.setSelectedCriteriaId,
+    setSelectedCriteriaId: setSelSelectedCriteriaId,
     selectedSystemPrompt: selectionState.selectedSystemPrompt,
-    setSelectedSystemPrompt: selectionApi.setSelectedSystemPrompt,
+    setSelectedSystemPrompt: setSelSelectedSystemPrompt,
     currentUseCaseType: selectionState.currentUseCaseType,
-    setCurrentUseCaseType: selectionApi.setCurrentUseCaseType,
+    setCurrentUseCaseType: setSelCurrentUseCaseType,
 
     // ===== Legacy: Evaluation =====
     shouldStartEvaluation: evaluationState.shouldStartEvaluation,
-    setShouldStartEvaluation: evaluationApi.setShouldStartEvaluation,
+    setShouldStartEvaluation: setEvalShouldStart,
     evaluationProgress: evaluationState.evaluationProgress,
-    setEvaluationProgress: evaluationApi.setEvaluationProgress,
+    setEvaluationProgress: setEvalProgress,
     currentTestCaseIndex: evaluationState.currentTestCaseIndex,
-    setCurrentTestCaseIndex: evaluationApi.setCurrentTestCaseIndex,
+    setCurrentTestCaseIndex: setEvalCurrentIndex,
 
     // ===== Legacy: Use case =====
     updateSystemPromptForUseCase,
-  }), [uiApi, dataApi, evaluationApi, selectionApi, updateSystemPromptForUseCase, uiState, updateUIState]);
+  }), [uiApi, dataApi, evaluationApi, selectionApi, updateSystemPromptForUseCase, uiState, setUICurrentStep, setUIIsLoading, setUIValidationError, setDataTestCases, setDataTestCasesWithModelOutputs, setDataCriteria, setDataOutcomes, setDataOutcomesWithModelComparison, setSelSelectedTestCaseIndex, setSelSelectedUseCaseId, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedSystemPrompt, setSelCurrentUseCaseType, setEvalShouldStart, setEvalProgress, setEvalCurrentIndex]);
   return api;
 } 

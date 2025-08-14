@@ -5,7 +5,6 @@ import { useAnalysisState } from '@/hooks/useAnalysisState';
 import { useAnalysisHandlers } from '@/hooks/useAnalysisHandlers';
 import { useConfig } from '@/hooks/useConfig';
 import { useSessionLoader } from '@/hooks/useSessionLoader';
-import { USE_CASE_PROMPTS } from '@/app/api/shared/constants';
 import VerticalStepper from '@/components/steps/VerticalStepper';
 import SetupStep from '@/components/steps/SetupStep';
 import AnalysisStep from '@/components/steps/AnalysisStep';
