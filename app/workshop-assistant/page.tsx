@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useAnalysisState } from '@/hooks/useAnalysisState';
 import { useAnalysisHandlers } from '@/hooks/useAnalysisHandlers';
 import { useConfig } from '@/hooks/useConfig';
-import { useSessionLoader } from '@/hooks/useSessionLoader';
+// Removed useSessionLoader - now using dedicated session pages
 import VerticalStepper from '@/components/steps/VerticalStepper';
 import SetupStep from '@/components/steps/SetupStep';
 import AnalysisStep from '@/components/steps/AnalysisStep';
@@ -75,15 +75,8 @@ function OutputAnalysisFullPageContent() {
     setValidationError,
   } = useAnalysisState(); // Use dynamic default from USE_CASE_PROMPTS
 
-  // Session loading functionality
-  const {
-    sessionId,
-    sessionData,
-    isLoadingSession,
-    sessionError,
-    clearSession,
-    loadSession
-  } = useSessionLoader();
+  // Session functionality - now using dedicated session pages
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   // Analysis-specific internal state (previously in UnifiedAnalysis component)
   const [analysisStep, setAnalysisStep] = useState<'setup' | 'running' | 'complete'>('setup');
@@ -97,8 +90,7 @@ function OutputAnalysisFullPageContent() {
   const [selectedOutputModelIds, setSelectedOutputModelIds] = useState<string[]>([]);
   const [isRealEvaluation, setIsRealEvaluation] = useState<boolean>(false);
   
-  // Track current session ID from generated responses
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  // Track current session ID from generated responses (removed duplicate declaration)
 
   // Get configuration values
   const { numOutputsToShow } = useConfig();
@@ -128,85 +120,9 @@ function OutputAnalysisFullPageContent() {
     }
   });
 
-  // Load session data when sessionData changes
-  useEffect(() => {
-    if (sessionData && sessionData.responses.length > 0) {
-      console.log('📋 Loading session data:', sessionData);
-      
-      // Convert session responses to test cases format
-      const sessionTestCases = [{
-        id: 'session-test-case',
-        input: sessionData.test_case_prompt || 'Session test case',
-        context: sessionData.test_case_scenario_category || 'Session context',
-        useCase: 'session-loaded',
-        scenarioCategory: sessionData.test_case_scenario_category || 'session'
-      }];
-      
-      // Convert session responses to model outputs format
-      const sessionModelOutputs = sessionData.responses.map((response, index) => ({
-        id: response.id,
-        modelId: `${response.provider}/${response.model}`,
-        modelName: response.model,
-        output: response.response_content,
-        timestamp: response.created_at,
-        rubricScores: {},
-        feedback: '',
-        suggestions: []
-      }));
-      
-      // Create TestCaseWithModelOutputs from session data
-      const sessionTestCasesWithOutputs: TestCaseWithModelOutputs[] = [{
-        id: 'session-test-case',
-        input: sessionData.test_case_prompt || 'Session test case',
-        context: sessionData.test_case_scenario_category || 'Session context',
-        modelOutputs: sessionModelOutputs,
-        useCase: 'session-loaded',
-        scenarioCategory: sessionData.test_case_scenario_category || 'session'
-      }];
-      
-      // Set the data
-      setTestCases(sessionTestCases);
-      setTestCasesWithModelOutputs(sessionTestCasesWithOutputs);
-      setLocalTestCasesWithModelOutputs(sessionTestCasesWithOutputs);
-      
-      // Set the current session ID from the loaded session
-      setCurrentSessionId(sessionData.id);
-      console.log(`📋 Loaded session ID from URL: ${sessionData.id}`);
-      console.log(`🔗 Copy Link button will now appear for loaded session: ${sessionData.id}`);
-      
-      // Set analysis step to complete since we have data
-      setAnalysisStep('complete');
-      setCurrentPhase('complete');
-      setHasStartedEvaluation(false);
-      setIsGeneratingOutputs(false);
-      
-      // Collapse step 1 and show step 2 content
-      setIsStep1Collapsed(true);
-      
-      console.log('✅ Session data loaded successfully');
-    }
-  }, [
-    sessionData,
-    setTestCasesWithModelOutputs,
-    setLocalTestCasesWithModelOutputs,
-    setAnalysisStep,
-    setCurrentPhase,
-    setHasStartedEvaluation,
-    setIsGeneratingOutputs,
-    setIsStep1Collapsed,
-    setCurrentSessionId
-  ]);
+  // Session functionality - currentSessionId will be set when responses are generated
 
-  // Handle session errors
-  useEffect(() => {
-    if (sessionError) {
-      console.error('❌ Session loading error:', sessionError);
-      // Clear the invalid session from URL
-      clearSession();
-      // Also clear the current session ID
-      setCurrentSessionId(null);
-    }
-  }, [sessionError, clearSession]);
+  // Session error handling removed - now using dedicated session pages
 
   // Fetch active evaluation assistant to decide if real or mock evaluation
   useEffect(() => {
@@ -558,11 +474,8 @@ function OutputAnalysisFullPageContent() {
     handlers.handleStartEvaluation();
   };
 
-  // Custom restart handler that clears session
+  // Custom restart handler
   const handleRestart = () => {
-    // Clear session data and URL params
-    clearSession();
-    
     // Reset all state
     setTestCases([]);
     setTestCasesWithModelOutputs([]);
@@ -685,38 +598,18 @@ function OutputAnalysisFullPageContent() {
     }
   ];
 
-  // Show loading state while session is being loaded
-  if (isLoadingSession) {
-    return <LoadingFallback />;
-  }
+  // No session loading state needed - using dedicated session pages
 
   return (
     <div className="min-h-screen bg-gray-50">
       <AnalysisHeaderFull 
-        sessionId={sessionId} 
+        sessionId={null} 
         currentSessionId={currentSessionId}
       />
 
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">
         <div className="space-y-6">
-          {/* Session error display */}
-          {sessionError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">Session Loading Error</h3>
-                  <div className="mt-2 text-sm text-red-700">
-                    <p>{sessionError}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Session error display removed - using dedicated session pages */}
 
           {/* Vertical Stepper */}
           <VerticalStepper steps={steps} />

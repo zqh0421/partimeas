@@ -26,9 +26,9 @@ export default function AnalysisHeaderFull({
       return;
     }
 
-    // Create sharable link with session ID
+    // Create sharable link with session ID - use new session page
     const baseUrl = window.location.origin;
-    const sharableUrl = `${baseUrl}/workshop-assistant?session=${activeSessionId}`;
+    const sharableUrl = `${baseUrl}/workshop-assistant/session/${activeSessionId}`;
     
     try {
       await navigator.clipboard.writeText(sharableUrl);

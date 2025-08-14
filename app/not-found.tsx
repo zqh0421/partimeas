@@ -8,11 +8,9 @@ export default function NotFound() {
   const router = useRouter();
 
   useEffect(() => {
-    // 自动跳转到 workshop-assistant
     router.replace('/workshop-assistant');
   }, [router]);
 
-  // 显示加载状态，防止闪烁
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
