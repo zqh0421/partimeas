@@ -39,7 +39,7 @@ export default function SessionHeader({ sessionId }: SessionHeaderProps) {
           <div className="flex items-center space-x-4">
             <h1 className="text-xl text-slate-600">PartiMeas Workshop Assistant</h1>
           </div>
-          
+{/*           
           <div className="flex items-center space-x-3">
             <button
               onClick={handleCopyLink}
@@ -66,7 +66,7 @@ export default function SessionHeader({ sessionId }: SessionHeaderProps) {
                 </>
               )}
             </button>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

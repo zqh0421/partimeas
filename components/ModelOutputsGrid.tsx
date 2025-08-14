@@ -31,7 +31,8 @@ export default function ModelOutputsGrid({
   showEvaluationFeatures = true,
   isRealEvaluation = false,
   currentPhase = 'generating',
-  numOutputsToShow = 2
+  numOutputsToShow = 2,
+  sessionId
 }: {
   modelOutputs?: ModelOutput[];
   isLoading?: boolean;
@@ -45,13 +46,40 @@ export default function ModelOutputsGrid({
   isRealEvaluation?: boolean;
   currentPhase?: 'generating' | 'evaluating' | 'complete';
   numOutputsToShow?: number;
+  sessionId?: string | null;
 }) {
   const [viewMode, setViewMode] = useState<'enhanced' | 'simple'>('enhanced');
   const [evaluationViewMode, setEvaluationViewMode] = useState<'cards' | 'table'>('cards');
   const [useRealCriteria, setUseRealCriteria] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
   
   // Register loading state if stepId is provided
   useStepLoading(stepId || '', isLoading);
+
+  // Copy test case-specific session link to clipboard
+  const handleCopySessionLink = async () => {
+    if (!sessionId || selectedTestCaseIndex === undefined) return;
+    
+    const baseUrl = window.location.origin;
+    const sharableUrl = `${baseUrl}/workshop-assistant/session/${sessionId}`;
+    
+    try {
+      await navigator.clipboard.writeText(sharableUrl);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy session link:', error);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = sharableUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  };
 
   // Determine which models to show - prioritize actual outputs, fall back to loading models
   // When loading, show the configured number of outputs to display
@@ -90,9 +118,39 @@ export default function ModelOutputsGrid({
 
       {/* Model Outputs */}
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900">
-          Possible Responses
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium text-gray-900">
+            Possible Responses
+          </h3>
+          {/* Only show copy button when sessionId is available (database has returned session_id) */}
+          {sessionId && testCases && selectedTestCaseIndex !== undefined && (
+            <button
+              onClick={handleCopySessionLink}
+              className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                copySuccess
+                  ? 'bg-green-100 text-green-700 border border-green-200'
+                  : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100'
+              }`}
+              title="Copy sharable session link"
+            >
+              {copySuccess ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy Sharable Link
+                </>
+              )}
+            </button>
+          )}
+        </div>
         <div className={`grid ${getGridCols(displayModels.length)} gap-4`}>
           {displayModels.map((item, index) => {
             // Check if this specific model is loading
@@ -109,9 +167,9 @@ export default function ModelOutputsGrid({
                     <h4 className="text-base font-bold text-gray-900 
                     truncate">
                       Response {index + 1}
-                       {/* <span className="text-xs text-gray-400 font-normal">
+                       <span className="text-xs text-gray-400 font-normal">
                          {!isLoadingModel && ` (Internal test: ${item.modelId})`}
-                       </span> */}
+                       </span>
                     </h4>
                   </div>
                 </div>

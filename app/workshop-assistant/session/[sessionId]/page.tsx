@@ -183,6 +183,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
             isRealEvaluation={false}
             currentPhase="complete"
             numOutputsToShow={testCasesWithModelOutputs[0]?.modelOutputs.length || 0}
+            sessionId={sessionId}
           />
         </div>
       )

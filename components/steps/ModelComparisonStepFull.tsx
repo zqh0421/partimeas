@@ -242,7 +242,8 @@ export default function ModelComparisonStep({
   onBackToSync,
   onRestart,
   isLoading = false,
-}: ModelComparisonStepProps) {
+  sessionId
+}: ModelComparisonStepProps & { sessionId?: string | null }) {
   const [showComparisonTool, setShowComparisonTool] = useState(true);
   const [expandedOutputs, setExpandedOutputs] = useState<Set<string>>(new Set());
   const [showRubricDetails, setShowRubricDetails] = useState(false);
@@ -409,11 +410,42 @@ export default function ModelComparisonStep({
           <h3 className="text-xl font-semibold text-gray-900">
             {testCase.modelOutputs.length} Possible Responses with Evaluation
           </h3>
-          {testCase.modelOutputs.length > 1 && (
-            <div className="text-sm text-gray-600">
-              Showing detailed evaluation for each model response
-            </div>
-          )}
+          <div className="flex items-center space-x-3">
+            {testCase.modelOutputs.length > 1 && (
+              <div className="text-sm text-gray-600">
+                Showing detailed evaluation for each model response
+              </div>
+            )}
+            {/* Only show copy button when sessionId is available (database has returned session_id) */}
+            {sessionId && (
+              <button
+                onClick={async () => {
+                  const baseUrl = window.location.origin;
+                  const sharableUrl = `${baseUrl}/workshop-assistant/session/${sessionId}`;
+                  try {
+                    await navigator.clipboard.writeText(sharableUrl);
+                    // You could add a toast notification here if desired
+                  } catch (error) {
+                    console.error('Failed to copy session link:', error);
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = sharableUrl;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors"
+                title="Copy sharable session link"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Copy Sharable Link
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Grouped Content Display */}

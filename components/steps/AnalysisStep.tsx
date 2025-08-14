@@ -31,6 +31,8 @@ interface AnalysisStepProps {
   onEvaluationProgress: (currentIndex: number, progress: number) => void;
   // Optional override for loading model list to reflect actual DB-selected models
   loadingModelListOverride?: string[];
+  // Session ID to control when copy button appears
+  sessionId?: string | null;
 }
 
 export default function AnalysisStep({
@@ -50,6 +52,7 @@ export default function AnalysisStep({
   onEvaluationProgress,
   onModelComparisonEvaluationComplete,
   loadingModelListOverride,
+  sessionId,
 }: AnalysisStepProps) {
   const gridConfig = useMemo(() => {
     const isLoading = currentPhase === 'generating';
@@ -113,6 +116,7 @@ export default function AnalysisStep({
               isRealEvaluation={isRealEvaluation}
               currentPhase={currentPhase}
               numOutputsToShow={numOutputsToShow}
+              sessionId={sessionId}
             />
           ) : (
             <div className="text-center py-8 text-gray-500">

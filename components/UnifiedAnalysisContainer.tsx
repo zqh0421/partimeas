@@ -28,6 +28,9 @@ interface UnifiedAnalysisProps {
   validationError: string;
   isRealEvaluation?: boolean;
   
+  // Test case-specific session IDs to control when copy button appears
+  testCaseSessionIds?: Map<number, string>;
+  
   // Event handlers from parent
   onUseCaseSelected: (useCaseId: string) => void;
   onScenarioCategorySelected: (categoryId: string) => void;
@@ -462,6 +465,7 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
           onEvaluationError={props.onEvaluationError}
           onEvaluationProgress={props.onEvaluationProgress}
           loadingModelListOverride={selectedOutputModelIds}
+          sessionId={props.testCaseSessionIds?.get(props.selectedTestCaseIndex) || null}
         />
       )
     }

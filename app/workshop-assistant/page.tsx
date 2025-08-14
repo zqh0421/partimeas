@@ -79,6 +79,7 @@ function OutputAnalysisFullPageContent() {
 
   // Session functionality - now using dedicated session pages
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [testCaseSessionIds, setTestCaseSessionIds] = useState<Map<number, string>>(new Map());
 
   // Analysis-specific internal state (previously in UnifiedAnalysis component)
   const [analysisStep, setAnalysisStep] = useState<'setup' | 'running' | 'complete'>('setup');
@@ -303,11 +304,16 @@ function OutputAnalysisFullPageContent() {
             setSelectedOutputModelIds(prev => (prev && prev.length > 0 ? prev : data.selectedAssistantsModels));
           }
           
-          // Capture session ID if available
-          if (data?.sessionId && !currentSessionId) {
-            setCurrentSessionId(data.sessionId);
-            console.log(`📋 Captured session ID: ${data.sessionId}`);
-            console.log(`🔗 Copy Link button will now appear for session: ${data.sessionId}`);
+          // Capture session ID if available - store per test case
+          if (data?.sessionId) {
+            setTestCaseSessionIds(prev => new Map(prev).set(index, data.sessionId));
+            console.log(`📋 Captured session ID for test case ${index + 1}: ${data.sessionId}`);
+            
+            // Also set currentSessionId for backward compatibility (first test case)
+            if (index === 0) {
+              setCurrentSessionId(data.sessionId);
+              console.log(`🔗 Copy Link button will now appear for session: ${data.sessionId}`);
+            }
           }
           
           // Update progress
@@ -587,6 +593,7 @@ function OutputAnalysisFullPageContent() {
     
     // Clear current session ID and group ID
     setCurrentSessionId(null);
+    setTestCaseSessionIds(new Map()); // Clear per-test case session IDs
     setCurrentGroupId(null);
     
     // Go back to first step
@@ -699,6 +706,7 @@ function OutputAnalysisFullPageContent() {
           onEvaluationError={handlers.handleEvaluationError}
           onEvaluationProgress={handlers.handleEvaluationProgress}
           loadingModelListOverride={selectedOutputModelIds}
+          sessionId={testCaseSessionIds.get(selectedTestCaseIndex) || null}
         />
       )
     }
