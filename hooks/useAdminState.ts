@@ -422,7 +422,7 @@ export function useAdminState() {
     }));
   };
 
-  const addProviderModels = (provider: 'openai' | 'anthropic' | 'google', modelNames: string[]) => {
+  const addProviderModels = (provider: 'openai' | 'anthropic' | 'google' | 'openrouter', modelNames: string[]) => {
     const newModels: ModelConfig[] = modelNames.map(modelName => ({
       id: `temp-${Date.now()}-${Math.random()}`,
       name: modelName,

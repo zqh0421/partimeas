@@ -7,7 +7,7 @@ const { Title, Text } = Typography;
 
 interface SettingsSectionProps {
   modelConfigs: ModelConfig[];
-  onAddProviderModels: (provider: 'openai' | 'anthropic' | 'google', modelNames: string[]) => void;
+  onAddProviderModels: (provider: 'openai' | 'anthropic' | 'google' | 'openrouter', modelNames: string[]) => void;
   onUpdateModel: (id: string, updates: Partial<ModelConfig>) => void;
   onRemoveModel: (id: string) => void;
   onSaveModels: () => void;

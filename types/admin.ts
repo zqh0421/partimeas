@@ -1,7 +1,7 @@
 export interface ModelConfig {
   id: string;
   name: string;
-  provider: 'openai' | 'anthropic' | 'google';
+  provider: 'openai' | 'anthropic' | 'google' | 'openrouter';
   model: string;
   isEnabled: boolean;
   isEvaluationModel: boolean;
@@ -58,7 +58,7 @@ export interface AdminState {
   success: string | null;
   activeSection: 'output-generation' | 'evaluation' | 'models' | 'assistants';
   // Track database-backed models the user removed in the UI, to delete on save
-  deletedModels?: { id: string; provider: 'openai' | 'anthropic' | 'google'; model: string }[];
+  deletedModels?: { id: string; provider: 'openai' | 'anthropic' | 'google' | 'openrouter'; model: string }[];
   // Track database-backed prompts the user removed in the UI, to delete on save
   deletedPrompts?: { id: string; type: 'system' | 'evaluation' }[];
   // Track database-backed assistants the user removed in the UI, to delete on save

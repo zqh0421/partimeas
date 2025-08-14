@@ -2,13 +2,13 @@ import React from 'react';
 import { ModelConfig } from '../../types/admin';
 
 interface ProviderAddModelModalProps {
-  onAddModels: (provider: 'openai' | 'anthropic' | 'google', modelNames: string[]) => void;
+  onAddModels: (provider: 'openai' | 'anthropic' | 'google' | 'openrouter', modelNames: string[]) => void;
 }
 
 export const ProviderAddModelModal: React.FC<ProviderAddModelModalProps> = ({
   onAddModels
 }) => {
-  const handleAddModels = (provider: 'openai' | 'anthropic' | 'google', modelNames: string[]) => {
+  const handleAddModels = (provider: 'openai' | 'anthropic' | 'google' | 'openrouter', modelNames: string[]) => {
     // Create model configurations for each selected model
     modelNames.forEach(modelName => {
       const modelData: Omit<ModelConfig, 'id'> = {

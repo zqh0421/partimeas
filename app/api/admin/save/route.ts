@@ -7,7 +7,7 @@ import { db } from '@/utils/database';
 interface ModelConfig {
   id: string;
   name: string;
-  provider: 'openai' | 'anthropic' | 'google';
+  provider: 'openai' | 'anthropic' | 'google' | 'openrouter';
   model: string;
   isEnabled: boolean;
   isEvaluationModel: boolean;

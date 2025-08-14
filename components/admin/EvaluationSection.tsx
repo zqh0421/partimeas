@@ -6,7 +6,7 @@ import { Row, Col } from 'antd';
 interface EvaluationSectionProps {
   modelConfigs: ModelConfig[];
   promptConfigs: PromptConfig[];
-  onAddProviderModels: (provider: 'openai' | 'anthropic' | 'google', modelNames: string[]) => void;
+  onAddProviderModels: (provider: 'openai' | 'anthropic' | 'google' | 'openrouter', modelNames: string[]) => void;
   onUpdateModel: (id: string, updates: Partial<ModelConfig>) => void;
   onRemoveModel: (id: string) => void;
   onAddPrompt: (type: 'system' | 'evaluation') => void;

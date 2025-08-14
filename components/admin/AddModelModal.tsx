@@ -27,13 +27,19 @@ const PREDEFINED_MODELS = {
     provider: 'google' as const,
     model: 'gemini-pro',
     description: 'Google Gemini Pro for versatile AI assistance'
+  },
+  'Gemma (OpenRouter)': {
+    provider: 'openrouter' as const,
+    model: 'google/gemma-3n-e2b-it',
+    description: 'Gemma 3N E2B Instruct via OpenRouter'
   }
 };
 
 const PROVIDER_OPTIONS = [
   { value: 'openai', label: 'OpenAI', color: '#10B981' },
   { value: 'anthropic', label: 'Anthropic', color: '#8B5CF6' },
-  { value: 'google', label: 'Google', color: '#F59E0B' }
+  { value: 'google', label: 'Google', color: '#F59E0B' },
+  { value: 'openrouter', label: 'OpenRouter', color: '#2563EB' }
 ];
 
 const MODEL_OPTIONS = {
@@ -52,6 +58,9 @@ const MODEL_OPTIONS = {
   ],
   google: [
     'gemini-pro'
+  ],
+  openrouter: [
+    'google/gemma-3n-e2b-it'
   ]
 };
 
@@ -59,7 +68,7 @@ export function AddModelModal({ visible, onCancel, onConfirm }: AddModelModalPro
   const [form] = Form.useForm();
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customName, setCustomName] = useState('');
-  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'google'>('openai');
+  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'google' | 'openrouter'>('openai');
   const [model, setModel] = useState('');
   const [pasteInput, setPasteInput] = useState('');
 

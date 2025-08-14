@@ -8,9 +8,9 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 interface ProviderModelsSectionProps {
-  provider: 'openai' | 'anthropic' | 'google';
+  provider: 'openai' | 'anthropic' | 'google' | 'openrouter';
   models: ModelConfig[];
-  onAddModels: (provider: 'openai' | 'anthropic' | 'google', modelNames: string[]) => void;
+  onAddModels: (provider: 'openai' | 'anthropic' | 'google' | 'openrouter', modelNames: string[]) => void;
   onUpdateModel: (id: string, updates: Partial<ModelConfig>) => void;
   onRemoveModel: (id: string) => void;
 }
@@ -40,6 +40,9 @@ const PROVIDER_MODELS = {
     'gemini-pro',
     'gemini-1.5-pro',
     'gemini-1.5-flash'
+  ],
+  openrouter: [
+    'google/gemma-3n-e2b-it'
   ]
 };
 
@@ -52,6 +55,9 @@ const PROVIDER_CONFIG = {
   },
   google: {
     name: 'Google',
+  },
+  openrouter: {
+    name: 'OpenRouter',
   }
 };
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/config/database';
-import { MODEL_CONFIGS } from '@/app/api/shared/constants';
+import { MODEL_CONFIGS, OPENROUTER_MODELS } from '@/app/api/shared/constants';
 
 // GET /api/models?provider=
 export async function GET(request: NextRequest) {
@@ -13,7 +13,11 @@ export async function GET(request: NextRequest) {
     const resolveModelKey = (modelName: string): string | null => {
       if (MODEL_CONFIGS[modelName as keyof typeof MODEL_CONFIGS]) return modelName;
       const entry = Object.entries(MODEL_CONFIGS).find(([, cfg]) => cfg.model === modelName);
-      return entry ? entry[0] : null;
+      if (entry) return entry[0];
+      // Also check OpenRouter models mapping
+      if (OPENROUTER_MODELS[modelName as keyof typeof OPENROUTER_MODELS]) return modelName;
+      const orEntry = Object.entries(OPENROUTER_MODELS).find(([, cfg]) => cfg.model === modelName);
+      return orEntry ? orEntry[0] : null;
     };
 
     // Get models from database

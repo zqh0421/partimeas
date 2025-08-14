@@ -12,7 +12,7 @@ import { traceable } from "langsmith/traceable";
 type OutputAssistant = {
   assistantId: number;
   name: string;
-  provider: string; // 'openai' | 'anthropic' | 'google'
+  provider: string; // 'openai' | 'anthropic' | 'google' | 'openrouter'
   model: string; // provider model id, e.g., 'gpt-4o-mini'
   systemPrompt: string; // prompt text
   requiredToShow: boolean;
@@ -198,6 +198,28 @@ const getModelInstance = async (provider: string, modelName: string): Promise<Mo
             ls_model_name: modelName,
           }
         });
+      case 'openrouter':
+        if (!process.env.OPENROUTER_API_KEY) {
+          throw new Error('OPENROUTER_API_KEY not configured');
+        }
+        return new ChatOpenAI(
+          {
+            openAIApiKey: process.env.OPENROUTER_API_KEY,
+            modelName: modelName,
+          },
+          {
+            baseURL: "https://openrouter.ai/api/v1",
+          }
+        ).withConfig({
+          runName: "OpenRouter",
+          tags: ["output-generation", "openrouter"],
+          metadata: {
+            source: "PartiMeas",
+            run_type: "llm",
+            ls_provider: provider,
+            ls_model_name: modelName,
+          }
+        });
       default:
         throw new Error(`Unsupported provider: ${provider}`);
     }
@@ -322,7 +344,7 @@ const generateModelOutput = async (
     const prompt = await ChatPromptTemplate.fromMessages([
       [
         "system",
-        `${systemPrompt}\n\nUse Case: ${getUseCaseDescription(useCaseType, testCase.use_case_description)}`,
+        `${systemPrompt}`,
       ],
       ["human", "{query}"],
     ]);
@@ -334,7 +356,7 @@ const generateModelOutput = async (
 
     // Use traceable to wrap the function call for LangSmith tracking
     const tracedGenerateOutput = traceable(generateOutput, {
-      name: `generate-output-${provider}-${modelId}`,
+      name: `output-${provider}-${modelId}`,
       tags: ["output-generation"],
       metadata: {
         source: "PartiMeas",
@@ -477,16 +499,7 @@ Please provide your evaluation in the following JSON format:
       const tracedEvaluation = traceable(async (prompt: any) => {
         const response = await evaluationModel.invoke(prompt);
         return response;
-      }, {
-        name: `evaluation-${activeEvaluator.provider}-${activeEvaluator.model}`,
-        tags: ["evaluation"],
-        metadata: {
-          source: "PartiMeas",
-          run_type: "llm",
-          ls_provider: activeEvaluator.provider,
-          ls_model_name: activeEvaluator.model,
-        }
-      });
+      }) as any;
       
       const response = await tracedEvaluation(formattedPrompt);
       
@@ -853,6 +866,8 @@ export async function POST(request: NextRequest) {
       errorMessage = 'Anthropic API key not configured. Please add ANTHROPIC_API_KEY to your environment variables.';
     } else if (errorDetails.includes('GOOGLE_API_KEY not configured')) {
       errorMessage = 'Google API key not configured. Please add GOOGLE_API_KEY to your environment variables.';
+    } else if (errorDetails.includes('OPENROUTER_API_KEY not configured')) {
+      errorMessage = 'OpenRouter API key not configured. Please add OPENROUTER_API_KEY to your environment variables.';
     } else if (errorDetails.includes('Unsupported model')) {
       errorMessage = 'One or more models are not supported or not available in your account.';
     } else if (errorDetails.includes('401') || errorDetails.includes('Unauthorized')) {

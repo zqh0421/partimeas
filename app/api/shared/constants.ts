@@ -74,6 +74,16 @@ export const MODEL_CONFIGS = {
   }
 };
 
+// OpenRouter models (proxied via OpenRouter API)
+// Added: google/gemma-3n-e2b-it
+// Use key without provider prefix for brevity in UI, map to full model id
+export const OPENROUTER_MODELS = {
+  'gemma-3n-e2b-it': {
+    provider: 'openrouter',
+    model: 'google/gemma-3n-e2b-it',
+  },
+};
+
 // Default output generation models for fallback/loading states
 export const OUTPUT_GENERATION_MODELS = [
   'output_generation-gpt-4o-mini',

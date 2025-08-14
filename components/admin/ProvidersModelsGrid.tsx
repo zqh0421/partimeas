@@ -8,7 +8,7 @@ const { Text } = Typography;
 
 interface ProvidersModelsGridProps {
   models: ModelConfig[];
-  onAddModels: (provider: 'openai' | 'anthropic' | 'google', modelNames: string[]) => void;
+  onAddModels: (provider: 'openai' | 'anthropic' | 'google' | 'openrouter', modelNames: string[]) => void;
   onUpdateModel: (id: string, updates: Partial<ModelConfig>) => void;
   onRemoveModel: (id: string) => void;
   onSave: () => void;
@@ -27,6 +27,7 @@ export const ProvidersModelsGrid: React.FC<ProvidersModelsGridProps> = ({
   const openaiModels = models.filter(m => m.provider === 'openai');
   const anthropicModels = models.filter(m => m.provider === 'anthropic');
   const googleModels = models.filter(m => m.provider === 'google');
+  const openrouterModels = models.filter(m => m.provider === 'openrouter');
 
   return (
     <Card 
@@ -49,7 +50,7 @@ export const ProvidersModelsGrid: React.FC<ProvidersModelsGridProps> = ({
         </Text>
       </div>
       <Row gutter={[16, 16]}>
-        <Col xs={24} lg={8}>
+        <Col xs={24} lg={6}>
           <ProviderModelsSection
             provider="openai"
             models={openaiModels}
@@ -58,7 +59,7 @@ export const ProvidersModelsGrid: React.FC<ProvidersModelsGridProps> = ({
             onRemoveModel={onRemoveModel}
           />
         </Col>
-        <Col xs={24} lg={8}>
+        <Col xs={24} lg={6}>
           <ProviderModelsSection
             provider="anthropic"
             models={anthropicModels}
@@ -67,10 +68,19 @@ export const ProvidersModelsGrid: React.FC<ProvidersModelsGridProps> = ({
             onRemoveModel={onRemoveModel}
           />
         </Col>
-        <Col xs={24} lg={8}>
+        <Col xs={24} lg={6}>
           <ProviderModelsSection
             provider="google"
             models={googleModels}
+            onAddModels={onAddModels}
+            onUpdateModel={onUpdateModel}
+            onRemoveModel={onRemoveModel}
+          />
+        </Col>
+        <Col xs={24} lg={6}>
+          <ProviderModelsSection
+            provider="openrouter"
+            models={openrouterModels}
             onAddModels={onAddModels}
             onUpdateModel={onUpdateModel}
             onRemoveModel={onRemoveModel}

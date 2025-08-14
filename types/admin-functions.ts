@@ -2,8 +2,8 @@ import { ModelConfig, PromptConfig } from './admin';
 
 export interface AdminFunctions {
   // Model functions
-  addModelConfig: (provider: 'openai' | 'anthropic' | 'google', modelNames: string[]) => void;
-  addProviderModels: (provider: 'openai' | 'anthropic' | 'google', modelNames: string[]) => void;
+  addModelConfig: (provider: 'openai' | 'anthropic' | 'google' | 'openrouter', modelNames: string[]) => void;
+  addProviderModels: (provider: 'openai' | 'anthropic' | 'google' | 'openrouter', modelNames: string[]) => void;
   updateModelConfig: (id: string, updates: Partial<ModelConfig>) => void;
   removeModelConfig: (id: string) => void;
   

@@ -5,6 +5,7 @@ import { USE_CASE_CONFIGS } from '@/config/useCases';
 import { ChevronDownIcon, ChevronRightIcon, CheckIcon } from '@/components/icons';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { TestCase } from '@/types';
+import { saveSelections, restoreSelections, clearSelectionCache, Selection, selectionCache } from '@/utils/selectionCache';
 
 
 interface UseCaseInfo {
@@ -23,10 +24,7 @@ interface UseCaseData extends UseCaseInfo {
   scenarioCategories: Record<string, ScenarioCategory>;
 }
 
-interface Selection {
-  useCaseId: string;
-  scenarioCategoryIds: string[];
-}
+
 
 export default function MultiLevelSelector({
   onSelectionChange,
@@ -84,6 +82,9 @@ export default function MultiLevelSelector({
     setSelections([]);
     onSelectionChange([]);
     onDataLoaded([]);
+    // 清除缓存的选择状态
+    clearSelectionCache();
+    console.log('[MultiLevelSelector] Cleared selections and cache');
   };
 
   const organizeUseCaseData = (testCases: any[], useCaseInfo: UseCaseInfo): UseCaseData => {
@@ -220,6 +221,9 @@ export default function MultiLevelSelector({
     setExpandedUseCases(new Set());
     setUseCaseData({});
     onDataLoaded([]);
+    // 清除缓存的选择状态
+    clearSelectionCache();
+    console.log('[MultiLevelSelector] Refreshed and cleared cache');
     loadAllUseCaseData(true);
   };
 
@@ -263,6 +267,9 @@ export default function MultiLevelSelector({
       setSelections(newSelections);
       onSelectionChange(newSelections);
       
+      // 自动保存选择状态到缓存
+      saveSelections(newSelections, expandedUseCases);
+      
       // Create a Set to avoid duplicate test cases by ID
       const uniqueTestCasesMap = new Map<string, TestCase>();
       newSelections.forEach(selection => {
@@ -283,6 +290,50 @@ export default function MultiLevelSelector({
       onDataLoaded(allSelectedTestCases);
     }
   };
+
+  // 恢复缓存的选择状态
+  useEffect(() => {
+    const restored = restoreSelections();
+    if (restored) {
+      setSelections(restored.selections);
+      setExpandedUseCases(restored.expandedUseCases);
+      console.log('[MultiLevelSelector] Restored cached selections and expanded states');
+      
+      // 当缓存恢复后，需要重新加载对应的测试用例数据
+      if (restored.selections.length > 0) {
+        // 延迟执行，确保useCaseData已经加载完成
+        setTimeout(() => {
+          const uniqueTestCasesMap = new Map<string, TestCase>();
+          restored.selections.forEach(selection => {
+            const useCase = useCaseData[selection.useCaseId];
+            if (useCase) {
+              selection.scenarioCategoryIds.forEach(categoryId => {
+                const category = useCase.scenarioCategories[categoryId];
+                if (category) {
+                  category.testCases.forEach(testCase => {
+                    uniqueTestCasesMap.set(testCase.id, testCase);
+                  });
+                }
+              });
+            }
+          });
+          
+          const allSelectedTestCases = Array.from(uniqueTestCasesMap.values());
+          if (allSelectedTestCases.length > 0) {
+            onDataLoaded(allSelectedTestCases);
+            console.log('[MultiLevelSelector] Restored test cases from cache:', allSelectedTestCases.length);
+          }
+        }, 100);
+      }
+    }
+  }, [useCaseData, onDataLoaded]);
+
+  // 监听展开状态变化并保存缓存
+  useEffect(() => {
+    if (selections.length > 0 || expandedUseCases.size > 0) {
+      saveSelections(selections, expandedUseCases);
+    }
+  }, [expandedUseCases, selections]);
 
   useEffect(() => {
     loadAllUseCaseData();
@@ -371,7 +422,7 @@ export default function MultiLevelSelector({
                     <div className="p-2 border-t border-gray-200">
                       <button
                         onClick={clearSelections}
-                        className="text-sm text-blue-600 hover:text-blue-800"
+                        className="block w-full text-sm text-blue-600 hover:text-blue-800 text-left"
                       >
                         Clear all selections
                       </button>
