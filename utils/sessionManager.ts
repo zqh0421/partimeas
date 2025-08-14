@@ -7,6 +7,7 @@ export interface SessionData {
   test_case_scenario_category: string | null;
   test_case_prompt: string | null;
   random_algorithm_used: string;
+  group_id: string | null;
 }
 
 export interface ResponseData {
@@ -69,7 +70,8 @@ export async function getRecentSessions(
   limit: number = 10,
   offset: number = 0,
   category?: string,
-  algorithm?: string
+  algorithm?: string,
+  groupId?: string
 ): Promise<SessionData[]> {
   try {
     let query = `
@@ -88,6 +90,12 @@ export async function getRecentSessions(
     if (algorithm) {
       query += ` AND random_algorithm_used = $${paramIndex}`;
       params.push(algorithm);
+      paramIndex++;
+    }
+
+    if (groupId) {
+      query += ` AND group_id = $${paramIndex}`;
+      params.push(groupId);
       paramIndex++;
     }
     
@@ -111,6 +119,7 @@ export async function getSessionStats(): Promise<{
   averageResponsesPerSession: number;
   topCategories: Array<{ category: string; count: number }>;
   topAlgorithms: Array<{ algorithm: string; count: number }>;
+  topGroups: Array<{ groupId: string; count: number }>;
 }> {
   try {
     // Get basic counts
@@ -139,19 +148,31 @@ export async function getSessionStats(): Promise<{
       ORDER BY count DESC 
       LIMIT 5
     `;
+
+    // Get top groups
+    const topGroupsQuery = `
+      SELECT group_id as groupId, COUNT(*) as count
+      FROM partimeas_sessions 
+      WHERE group_id IS NOT NULL
+      GROUP BY group_id 
+      ORDER BY count DESC 
+      LIMIT 5
+    `;
     
     const [
       sessionCountResult,
       responseCountResult,
       avgResponsesResult,
       topCategoriesResult,
-      topAlgorithmsResult
+      topAlgorithmsResult,
+      topGroupsResult
     ] = await Promise.all([
       sql.query(sessionCountQuery),
       sql.query(responseCountQuery),
       sql.query(avgResponsesQuery),
       sql.query(topCategoriesQuery),
-      sql.query(topAlgorithmsQuery)
+      sql.query(topAlgorithmsQuery),
+      sql.query(topGroupsQuery)
     ]);
     
     return {
@@ -164,6 +185,10 @@ export async function getSessionStats(): Promise<{
       })),
       topAlgorithms: topAlgorithmsResult.map((row: any) => ({
         algorithm: row.algorithm,
+        count: parseInt(row.count)
+      })),
+      topGroups: topGroupsResult.map((row: any) => ({
+        groupId: row.groupId,
         count: parseInt(row.count)
       }))
     };

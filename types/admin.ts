@@ -56,7 +56,7 @@ export interface AdminState {
   hasConfigChanges: boolean;
   error: string | null;
   success: string | null;
-  activeSection: 'output-generation' | 'evaluation' | 'models' | 'assistants';
+  activeSection: 'output-generation' | 'evaluation' | 'models' | 'assistants' | 'configuration';
   // Track database-backed models the user removed in the UI, to delete on save
   deletedModels?: { id: string; provider: 'openai' | 'anthropic' | 'google' | 'openrouter'; model: string }[];
   // Track database-backed prompts the user removed in the UI, to delete on save
@@ -67,4 +67,4 @@ export interface AdminState {
   deletedAssistantModels?: { id: number; assistant_id: number; model_id: string }[];
 }
 
-export type AdminSection = 'output-generation' | 'evaluation' | 'models' | 'assistants'; 
+export type AdminSection = 'output-generation' | 'evaluation' | 'models' | 'assistants' | 'configuration'; 

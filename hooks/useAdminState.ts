@@ -49,7 +49,7 @@ export function useAdminState() {
       console.log('Loading configuration values...');
       let configValues: ConfigValue[] = [];
       try {
-        const configResponse = await fetch('/api/config?name=numOutputsToRun&name=numOutputsToShow&name=assistantModelAlgorithm');
+        const configResponse = await fetch('/api/config?name=numOutputsToRun&name=numOutputsToShow&name=assistantModelAlgorithm&name=enableGroupIdCollection');
         console.log('Config response status:', configResponse.status, configResponse.statusText);
         
         if (configResponse.ok) {
@@ -77,7 +77,8 @@ export function useAdminState() {
       const defaultConfigs = [
         { name: 'numOutputsToRun', value: '3', scope: 'global' },
         { name: 'numOutputsToShow', value: '2', scope: 'global' },
-        { name: 'assistantModelAlgorithm', value: 'random_selection', scope: 'global' }
+        { name: 'assistantModelAlgorithm', value: 'random_selection', scope: 'global' },
+        { name: 'enableGroupIdCollection', value: 'false', scope: 'global' }
       ];
       
       defaultConfigs.forEach(defaultConfig => {

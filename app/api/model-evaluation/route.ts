@@ -535,10 +535,11 @@ Please provide your evaluation in the following JSON format:
 // Main API route handler
 export async function POST(request: NextRequest) {
   try {
-    const { phase, testCase, criteria, outputs } = await request.json();
+    const { phase, testCase, criteria, outputs, groupId } = await request.json();
     
     console.log(`🚀 Model evaluation request received - Phase: ${phase}`);
     console.log('Test case:', testCase);
+    console.log('Group ID:', groupId);
     
     if (phase === 'generate') {
       console.log('Phase 1: Generating outputs from assistants with prioritization...');
@@ -742,8 +743,8 @@ export async function POST(request: NextRequest) {
         // Create session record
         const sessionQuery = `
           INSERT INTO partimeas_sessions 
-          (response_count, test_case_scenario_category, test_case_prompt, random_algorithm_used)
-          VALUES ($1, $2, $3, $4)
+          (response_count, test_case_scenario_category, test_case_prompt, random_algorithm_used, group_id)
+          VALUES ($1, $2, $3, $4, $5)
           RETURNING id
         `;
         
@@ -751,7 +752,8 @@ export async function POST(request: NextRequest) {
           outputs.length,
           testCase.scenarioCategory || testCase.context || 'General',
           testCase.input,
-          assistantModelAlgorithm
+          assistantModelAlgorithm,
+          groupId || null // Include group_id from request body
         ]);
         
         sessionId = sessionResult[0]?.id;

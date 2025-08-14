@@ -76,6 +76,16 @@ export async function POST(request: NextRequest) {
 
     const result = await sql.query(query, [name, value, scope]);
     
+    // If this is the first time setting enableGroupIdCollection, ensure it has a default value
+    if (name === 'enableGroupIdCollection' && value === undefined) {
+      const defaultQuery = `
+        INSERT INTO partimeas_configs (name, value, scope, created_at, updated_at)
+        VALUES ('enableGroupIdCollection', 'false', 'global', NOW(), NOW())
+        ON CONFLICT (name) DO NOTHING
+      `;
+      await sql.query(defaultQuery);
+    }
+    
     return NextResponse.json({
       success: true,
       config: result[0],

@@ -7,6 +7,7 @@ import SetupStep from '@/components/steps/SetupStep';
 import AnalysisStep from '@/components/steps/AnalysisStep';
 import { RefreshIcon } from '@/components/icons';
 import { TestCase, TestCaseWithModelOutputs, RubricOutcomeWithModelComparison, ModelOutput } from '@/types';
+import { selectionCache } from '@/utils/selectionCache';
 
 interface UnifiedAnalysisProps {
   // Data states from parent
@@ -377,6 +378,7 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
   };
 
   const handleConfirmSelections = () => {
+    // Check if we have current selections
     if (!props.selectedUseCaseId || props.testCases.length === 0) {
       props.setValidationError('Please select a use case and ensure test cases are loaded.');
       return;
@@ -389,6 +391,27 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
   };
 
   // Inline UI rendering (previously in UnifiedAnalysisView)
+  const [hasCachedSelections, setHasCachedSelections] = useState(false);
+  
+  // Check for cached selections on client side only and restore them if no current selections
+  useEffect(() => {
+    const hasCache = selectionCache.hasCache();
+    setHasCachedSelections(hasCache);
+    
+    // If there are cached selections but no current selections, restore them automatically
+    if (hasCache && !props.selectedUseCaseId && props.testCases.length === 0) {
+      const restored = selectionCache.restoreSelections();
+      if (restored && restored.selections.length > 0) {
+        // Trigger the selection change handlers to restore the state
+        if (props.onMultiLevelSelectionChange) {
+          props.onMultiLevelSelectionChange(restored.selections);
+        }
+      }
+    }
+  }, [props.selectedUseCaseId, props.testCases.length, props.onMultiLevelSelectionChange]);
+  
+  // Only show confirm button when there are current selections with preview
+  // Cached selections alone are not sufficient - user must make current selections
   const hasValidSelections = Boolean(props.selectedUseCaseId && props.testCases.length > 0);
 
   // Create steps for the vertical stepper

@@ -1,8 +1,10 @@
+import React from 'react';
 import { ModelConfig, PromptConfig, Assistant, ConfigValue } from '../../types/admin';
 import { OutputGenerationSection } from './OutputGenerationSection';
 import { EvaluationSection } from './EvaluationSection';
 import { ModelsSection } from './ModelsSection';
 import { AssistantsSection } from './AssistantsSection';
+import { Configuration } from './Configuration';
 
 interface MainContentProps {
   activeSection: string;
@@ -122,7 +124,19 @@ export function MainContent({
     );
   }
 
-
+  if (activeSection === 'configuration') {
+    return (
+      <Configuration
+        configValues={configValues}
+        onConfigChange={onConfigChange}
+        hasChanges={hasConfigChanges}
+        onSave={() => {
+          // This will be handled by the parent component
+          // The actual save logic is in the Configuration component itself
+        }}
+      />
+    );
+  }
 
   return null;
 } 

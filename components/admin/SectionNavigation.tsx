@@ -13,6 +13,10 @@ export function SectionNavigation({ activeSection, onSectionChange }: SectionNav
       label: 'Main Settings',
     },
     {
+      key: 'configuration',
+      label: 'Configuration',
+    },
+    {
       key: 'output-generation',
       label: 'Output Generation',
     },

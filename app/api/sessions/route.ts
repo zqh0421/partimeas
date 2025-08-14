@@ -40,8 +40,9 @@ export async function GET(request: NextRequest) {
         const offset = parseInt(searchParams.get('offset') || '0');
         const category = searchParams.get('category') || undefined;
         const algorithm = searchParams.get('algorithm') || undefined;
+        const groupId = searchParams.get('groupId') || undefined;
         
-        const sessions = await getRecentSessions(limit, offset, category, algorithm);
+        const sessions = await getRecentSessions(limit, offset, category, algorithm, groupId);
         
         return NextResponse.json({
           success: true,

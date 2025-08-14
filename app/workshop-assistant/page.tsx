@@ -10,8 +10,10 @@ import SetupStep from '@/components/steps/SetupStep';
 import AnalysisStep from '@/components/steps/AnalysisStep';
 import { RefreshIcon } from '@/components/icons';
 import { AnalysisHeaderFull } from '@/components';
+import { GroupIdModal } from '@/components/GroupIdModal';
 import { TestCaseWithModelOutputs, ModelOutput } from '@/types';
 import { Assistant } from '@/types/admin';
+import { selectionCache } from '@/utils/selectionCache';
 
 // Loading fallback component
 function LoadingFallback() {
@@ -93,7 +95,32 @@ function OutputAnalysisFullPageContent() {
   // Track current session ID from generated responses (removed duplicate declaration)
 
   // Get configuration values
-  const { numOutputsToShow } = useConfig();
+  const config = useConfig();
+  const { numOutputsToShow, enableGroupIdCollection, isLoading: configLoading } = config;
+
+  // Debug logging for configuration
+  useEffect(() => {
+    console.log('Configuration Debug:', {
+      config,
+      enableGroupIdCollection,
+      configLoading,
+      numOutputsToShow
+    });
+  }, [config, enableGroupIdCollection, configLoading, numOutputsToShow]);
+
+  // Group ID state
+  const [showGroupIdModal, setShowGroupIdModal] = useState(false);
+  const [currentGroupId, setCurrentGroupId] = useState<string | null>(null);
+
+  // Debug logging for group ID modal
+  useEffect(() => {
+    console.log('Group ID Modal Debug:', {
+      enableGroupIdCollection,
+      currentGroupId,
+      showGroupIdModal,
+      testCasesLength: testCases.length
+    });
+  }, [enableGroupIdCollection, currentGroupId, showGroupIdModal, testCases.length]);
 
   const handlers = useAnalysisHandlers({
     stateSetters: {
@@ -143,6 +170,35 @@ function OutputAnalysisFullPageContent() {
     };
     fetchActiveEvaluator();
   }, []);
+
+  // Check if group ID is required and not yet provided
+  useEffect(() => {
+    console.log('Group ID Modal Logic Check:', {
+      enableGroupIdCollection,
+      currentGroupId,
+      shouldShowModal: enableGroupIdCollection && !currentGroupId
+    });
+    
+    if (enableGroupIdCollection && !currentGroupId) {
+      console.log('Setting modal to visible!');
+      setShowGroupIdModal(true);
+    }
+  }, [enableGroupIdCollection, currentGroupId]);
+
+
+
+  // Handle group ID confirmation
+  const handleGroupIdConfirm = (groupId: string) => {
+    setCurrentGroupId(groupId);
+    setShowGroupIdModal(false);
+  };
+
+  // Handle group ID modal cancel
+  const handleGroupIdCancel = () => {
+    setShowGroupIdModal(false);
+    // Reset to setup step if user cancels group ID entry
+    setCurrentStep('sync');
+  };
 
   // Helper function to toggle original text expansion
   const toggleOriginalTextExpansion = (modelId: string) => {
@@ -205,7 +261,8 @@ function OutputAnalysisFullPageContent() {
             body: JSON.stringify({
               testCase,
               phase: 'generate',
-              currentUseCaseType: 'original_system123_instructions'
+              currentUseCaseType: 'original_system123_instructions',
+              groupId: currentGroupId // Include group ID in the request
             }),
           });
 
@@ -463,6 +520,7 @@ function OutputAnalysisFullPageContent() {
   };
 
   const handleConfirmSelections = () => {
+    // Check if we have current selections
     if (!selectedUseCaseId || testCases.length === 0) {
       setValidationError('Please select a use case and ensure test cases are loaded.');
       return;
@@ -501,8 +559,9 @@ function OutputAnalysisFullPageContent() {
     setCurrentPhase('generating');
     setSelectedOutputModelIds([]);
     
-    // Clear current session ID
+    // Clear current session ID and group ID
     setCurrentSessionId(null);
+    setCurrentGroupId(null);
     
     // Go back to first step
     setCurrentStep('sync');
@@ -542,6 +601,27 @@ function OutputAnalysisFullPageContent() {
   }, [currentStep, outcomesWithModelComparison.length, outcomes.length, setCurrentStep, setShouldStartEvaluation]);
 
   // UI logic (previously in UnifiedAnalysis component)
+  const [hasCachedSelections, setHasCachedSelections] = useState(false);
+  
+  // Check for cached selections on client side only and restore them if no current selections
+  useEffect(() => {
+    const hasCache = selectionCache.hasCache();
+    setHasCachedSelections(hasCache);
+    
+    // If there are cached selections but no current selections, restore them automatically
+    if (hasCache && !selectedUseCaseId && testCases.length === 0) {
+      const restored = selectionCache.restoreSelections();
+      if (restored && restored.selections.length > 0) {
+        // Trigger the selection change handlers to restore the state
+        if (handlers.handleMultiLevelSelectionChange) {
+          handlers.handleMultiLevelSelectionChange(restored.selections);
+        }
+      }
+    }
+  }, [selectedUseCaseId, testCases.length, handlers.handleMultiLevelSelectionChange]);
+  
+  // Only show confirm button when there are current selections with preview
+  // Cached selections alone are not sufficient - user must make current selections
   const hasValidSelections = Boolean(selectedUseCaseId && testCases.length > 0);
 
   // Create steps for the vertical stepper
@@ -605,6 +685,9 @@ function OutputAnalysisFullPageContent() {
       <AnalysisHeaderFull 
         sessionId={null} 
         currentSessionId={currentSessionId}
+        isGeneratingOutputs={isGeneratingOutputs}
+        groupId={currentGroupId}
+        onEditGroupId={() => setShowGroupIdModal(true)}
       />
 
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">
@@ -628,6 +711,14 @@ function OutputAnalysisFullPageContent() {
           )}
         </div>
       </div>
+
+      {/* Group ID Modal */}
+      <GroupIdModal
+        visible={showGroupIdModal}
+        onConfirm={handleGroupIdConfirm}
+        onCancel={handleGroupIdCancel}
+        loading={false}
+      />
     </div>
   );
 }

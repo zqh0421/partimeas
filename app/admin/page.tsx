@@ -1,6 +1,6 @@
 'use client';
 
-import { Layout } from 'antd';
+import { Layout, App } from 'antd';
 import { useAdminState } from '../../hooks/useAdminState';
 import {
   StatusMessages,
@@ -71,61 +71,63 @@ export default function AdminPage() {
   }
 
   return (
-    <Layout style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <Content style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
-        <Breadcrumb />
+    <App>
+      <Layout style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+        <Content style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+          <Breadcrumb />
 
-        <PageHeader
-          title="Admin Configuration"
-          description="Manage main settings, models, and prompts for output generation and evaluation"
-        />
+          <PageHeader
+            title="Admin Configuration"
+            description="Manage main settings, models, and prompts for output generation and evaluation"
+          />
 
-        <StatusMessages
-          error={state.error}
-          success={state.success}
-          onClearError={clearError}
-          onClearSuccess={clearSuccess}
-        />
+          <StatusMessages
+            error={state.error}
+            success={state.success}
+            onClearError={clearError}
+            onClearSuccess={clearSuccess}
+          />
 
-        <ActionButtons
-          onReload={loadConfiguration}
-        />
+          <ActionButtons
+            onReload={loadConfiguration}
+          />
 
-        <SectionNavigation
-          activeSection={state.activeSection}
-          onSectionChange={setActiveSection}
-        />
+          <SectionNavigation
+            activeSection={state.activeSection}
+            onSectionChange={setActiveSection}
+          />
 
-        <MainContent
-          activeSection={state.activeSection}
-          modelConfigs={state.modelConfigs}
-          promptConfigs={state.promptConfigs}
-          assistants={state.assistants}
-          configValues={state.configValues || []}
-          onAddProviderModels={addProviderModels}
-          onUpdateModel={updateModelConfig}
-          onRemoveModel={removeModelConfig}
-          onAddPrompt={addPromptConfig}
-          onUpdatePrompt={updatePromptConfig}
-          onRemovePrompt={removePromptConfig}
-          onAddAssistant={addAssistant}
-          onUpdateAssistant={updateAssistant}
-          onRemoveAssistant={removeAssistant}
-          onSaveModels={handleSaveModels}
-          onSavePrompts={handleSavePrompts}
-          onSaveAssistants={handleSaveAssistants}
-          onConfigChange={(configs) => {
-            // Update the state with the new config values
-            configs.forEach(config => {
-              updateConfigValue(config.name, config.value);
-            });
-          }}
-          hasModelChanges={state.hasModelChanges}
-          hasPromptChanges={state.hasPromptChanges}
-          hasAssistantChanges={state.hasAssistantChanges}
-          hasConfigChanges={state.hasConfigChanges || false}
-        />
-      </Content>
-    </Layout>
+          <MainContent
+            activeSection={state.activeSection}
+            modelConfigs={state.modelConfigs}
+            promptConfigs={state.promptConfigs}
+            assistants={state.assistants}
+            configValues={state.configValues || []}
+            onAddProviderModels={addProviderModels}
+            onUpdateModel={updateModelConfig}
+            onRemoveModel={removeModelConfig}
+            onAddPrompt={addPromptConfig}
+            onUpdatePrompt={updatePromptConfig}
+            onRemovePrompt={removePromptConfig}
+            onAddAssistant={addAssistant}
+            onUpdateAssistant={updateAssistant}
+            onRemoveAssistant={removeAssistant}
+            onSaveModels={handleSaveModels}
+            onSavePrompts={handleSavePrompts}
+            onSaveAssistants={handleSaveAssistants}
+            onConfigChange={(configs) => {
+              // Update the state with the new config values
+              configs.forEach(config => {
+                updateConfigValue(config.name, config.value);
+              });
+            }}
+            hasModelChanges={state.hasModelChanges}
+            hasPromptChanges={state.hasPromptChanges}
+            hasAssistantChanges={state.hasAssistantChanges}
+            hasConfigChanges={state.hasConfigChanges || false}
+          />
+        </Content>
+      </Layout>
+    </App>
   );
 } 
