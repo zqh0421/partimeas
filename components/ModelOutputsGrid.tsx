@@ -83,7 +83,9 @@ export default function ModelOutputsGrid({
 
   // Determine which models to show - prioritize actual outputs, fall back to loading models
   // When loading, show the configured number of outputs to display
-  const displayModels = modelOutputs && modelOutputs.length > 0 ? modelOutputs : 
+  // When showing actual outputs, limit to numOutputsToShow
+  const displayModels = modelOutputs && modelOutputs.length > 0 ? 
+    modelOutputs.slice(0, numOutputsToShow) : 
     (isLoading ? 
       // Create loading placeholders based on numOutputsToShow
       Array.from({ length: numOutputsToShow }, (_, index) => ({ 
@@ -91,8 +93,8 @@ export default function ModelOutputsGrid({
         output: '', 
         index 
       })) :
-      // Use actual loading model list if available
-      loadingModelList.map((modelId, index) => ({ modelId, output: '', index }))
+      // Use actual loading model list if available, but limit to numOutputsToShow
+      loadingModelList.slice(0, numOutputsToShow).map((modelId, index) => ({ modelId, output: '', index }))
     );
 
   // Empty state - only show if we have no models to display at all
@@ -119,9 +121,16 @@ export default function ModelOutputsGrid({
       {/* Model Outputs */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900">
-            Possible Responses
-          </h3>
+          <div>
+            <h3 className="text-lg font-medium text-gray-900">
+              Possible Responses
+            </h3>
+            {modelOutputs && modelOutputs.length > numOutputsToShow && (
+              <p className="text-sm text-gray-500 mt-1">
+                Showing {numOutputsToShow} of {modelOutputs.length} generated responses
+              </p>
+            )}
+          </div>
           {/* Only show copy button when sessionId is available (database has returned session_id) */}
           {sessionId && testCases && selectedTestCaseIndex !== undefined && (
             <button

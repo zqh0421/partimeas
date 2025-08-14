@@ -8,6 +8,7 @@ import type { SessionWithResponses } from '@/utils/sessionManager';
 import { useRouter } from 'next/navigation';
 import TestCaseNavigation from '@/components/TestCaseNavigation';
 import ModelOutputsGrid from '@/components/ModelOutputsGrid';
+import { useConfig } from '@/hooks/useConfig';
 
 // Loading fallback component
 function LoadingFallback() {
@@ -28,6 +29,10 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  
+  // Get configuration values
+  const config = useConfig();
+  const { numOutputsToShow } = config;
 
   useEffect(() => {
     const loadSession = async () => {
@@ -182,7 +187,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
             showEvaluationFeatures={false}
             isRealEvaluation={false}
             currentPhase="complete"
-            numOutputsToShow={testCasesWithModelOutputs[0]?.modelOutputs.length || 0}
+            numOutputsToShow={numOutputsToShow}
             sessionId={sessionId}
           />
         </div>
