@@ -55,6 +55,40 @@ export async function GET(request: NextRequest) {
       throw new Error('Failed to obtain Google access token');
     }
     
+    // Test Google Sheets API connectivity first
+    console.log('[use-case-data] Testing Google Sheets API connectivity...');
+    if (USE_CASE_CONFIGS.length > 0) {
+      const firstConfig = USE_CASE_CONFIGS[0];
+      console.log(`[use-case-data] Testing with config: ${firstConfig.name}`);
+      console.log(`[use-case-data] Spreadsheet ID: ${firstConfig.spreadsheetId}`);
+      console.log(`[use-case-data] Sheet Name: ${firstConfig.sheetName}`);
+      
+      // Test direct API call
+      const testUrl = `https://sheets.googleapis.com/v4/spreadsheets/${firstConfig.spreadsheetId}/values/${encodeURIComponent(firstConfig.sheetName)}`;
+      console.log(`[use-case-data] Test URL: ${testUrl}`);
+      
+      try {
+        const testResponse = await fetch(testUrl, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log(`[use-case-data] Test API response status: ${testResponse.status}`);
+        
+        if (testResponse.ok) {
+          const testData = await testResponse.json();
+          console.log(`[use-case-data] Test API response data:`, JSON.stringify(testData, null, 2));
+        } else {
+          const errorText = await testResponse.text();
+          console.error(`[use-case-data] Test API error: ${errorText}`);
+        }
+      } catch (testError) {
+        console.error(`[use-case-data] Test API call failed:`, testError);
+      }
+    }
+    
     let allTestCases = [];
     let allTitles = [];
     

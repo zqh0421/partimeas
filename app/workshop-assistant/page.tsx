@@ -111,13 +111,17 @@ function OutputAnalysisFullPageContent() {
 
   // Group ID state
   const [showGroupIdModal, setShowGroupIdModal] = useState(false);
-  const [currentGroupId, setCurrentGroupId] = useState<string | null>(() => {
-    // Try to load from localStorage on component mount
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('partimeas_group_id');
+  const [currentGroupId, setCurrentGroupId] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Load group ID from localStorage after hydration
+  useEffect(() => {
+    setIsHydrated(true);
+    const savedGroupId = localStorage.getItem('partimeas_group_id');
+    if (savedGroupId) {
+      setCurrentGroupId(savedGroupId);
     }
-    return null;
-  });
+  }, []);
 
   // Debug logging for group ID modal
   useEffect(() => {
@@ -180,6 +184,9 @@ function OutputAnalysisFullPageContent() {
 
   // Check if group ID is required and not yet provided
   useEffect(() => {
+    // Only show modal after hydration to prevent SSR mismatch
+    if (!isHydrated) return;
+    
     console.log('Group ID Modal Logic Check:', {
       enableGroupIdCollection,
       currentGroupId,
@@ -190,7 +197,7 @@ function OutputAnalysisFullPageContent() {
       console.log('Setting modal to visible!');
       setShowGroupIdModal(true);
     }
-  }, [enableGroupIdCollection, currentGroupId]);
+  }, [enableGroupIdCollection, currentGroupId, isHydrated]);
 
 
 
@@ -224,7 +231,10 @@ function OutputAnalysisFullPageContent() {
       localStorage.removeItem('partimeas_group_id');
     }
     setCurrentGroupId(null);
-    setShowGroupIdModal(true); // Show modal again for new input
+    // Only show modal if hydrated to prevent SSR mismatch
+    if (isHydrated) {
+      setShowGroupIdModal(true); // Show modal again for new input
+    }
   };
 
   // Helper function to toggle original text expansion
@@ -721,7 +731,11 @@ function OutputAnalysisFullPageContent() {
         currentSessionId={currentSessionId}
         isGeneratingOutputs={isGeneratingOutputs}
         groupId={currentGroupId}
-        onEditGroupId={() => setShowGroupIdModal(true)}
+        onEditGroupId={() => {
+          if (isHydrated) {
+            setShowGroupIdModal(true);
+          }
+        }}
         onClearGroupId={clearGroupId}
       />
 

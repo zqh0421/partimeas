@@ -79,21 +79,41 @@ async function fetchSheetData(
     'Content-Type': 'application/json'
   };
   
-  // console.log(`[UseCaseReader] Fetching: ${url}`);
+  console.log(`[UseCaseReader] Fetching from URL: ${url}`);
+  console.log(`[UseCaseReader] Spreadsheet ID: ${spreadsheetId}`);
+  console.log(`[UseCaseReader] Sheet Name: ${sheetName}`);
+  console.log(`[UseCaseReader] Access token length: ${accessToken?.length || 0}`);
 
   const response = await fetch(url, { headers });
 
+  console.log(`[UseCaseReader] Google Sheets API response received. Status: ${response.status}, OK: ${response.ok}`);
+
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[UseCaseReader] Google Sheets API error response:`, errorText);
     throw new Error(`Google Sheets API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
   
+  console.log(`[UseCaseReader] Google Sheets API response status: ${response.status}`);
+  console.log(`[UseCaseReader] Google Sheets API response data:`, JSON.stringify(data, null, 2));
+  
   // User's modified logic: First row contains headers, second row onwards contains data
-  if (!data.values || data.values.length < 2) {
-    throw new Error('Insufficient data in spreadsheet - need at least 2 rows (headers in row 1, data starting from row 2)');
+  if (!data.values) {
+    console.error(`[UseCaseReader] No 'values' property in API response. Full response:`, data);
+    throw new Error(`Google Sheets API returned no data. Response: ${JSON.stringify(data)}`);
   }
+  
+  if (data.values.length < 2) {
+    console.error(`[UseCaseReader] Insufficient rows in spreadsheet. Got ${data.values.length} rows, need at least 2.`);
+    console.error(`[UseCaseReader] Available rows:`, data.values);
+    throw new Error(`Insufficient data in spreadsheet - got ${data.values.length} rows, need at least 2 rows (headers in row 1, data starting from row 2)`);
+  }
+
+  console.log(`[UseCaseReader] Google Sheets API returned ${data.values.length} total rows`);
+  console.log(`[UseCaseReader] Headers: ${data.values[0].join(', ')}`);
+  console.log(`[UseCaseReader] Data rows: ${data.values.length - 1}`);
 
   return {
     title: 'Test Cases', // No separate title row in this format
@@ -104,19 +124,19 @@ async function fetchSheetData(
 
 // Convert sheet data to test cases
 function convertToTestCases(headers: string[], rows: string[][]): TestCase[] {
-  // console.log('[UseCaseReader] Available headers:', headers);
-  // console.log('[UseCaseReader] Converting rows to test cases...');
+  console.log(`[UseCaseReader] Converting ${rows.length} rows to test cases...`);
+  console.log(`[UseCaseReader] Available headers: ${headers.join(', ')}`);
   
   const testCases: TestCase[] = [];
   let skippedCount = 0;
   
   rows.forEach((row, index) => {
-    // console.log(`[UseCaseReader] Processing row ${index + 1}:`, row);
+    console.log(`[UseCaseReader] Processing row ${index + 1}: ${row.join(' | ')}`);
     
     // Check if the prompt (input) field is empty or missing
     const input = findFieldValue(headers, row, FIELD_MAP.input);
     if (!input || !input.trim()) {
-      // console.log(`[UseCaseReader] Row ${index + 1} - Skipping row with empty prompt`);
+      console.log(`[UseCaseReader] Row ${index + 1} - Skipping row with empty prompt. Input field value: "${input}"`);
       skippedCount++;
       return; // Skip this row
     }
@@ -174,7 +194,8 @@ function convertToTestCases(headers: string[], rows: string[][]): TestCase[] {
     testCases.push(testCase);
   });
   
-  // console.log(`[UseCaseReader] Converted ${testCases.length} valid test cases, skipped ${skippedCount} rows with empty prompts`);
+  console.log(`[UseCaseReader] Conversion completed: ${testCases.length} valid test cases, ${skippedCount} rows skipped`);
+  console.log(`[UseCaseReader] Final test case IDs: ${testCases.map(tc => tc.id).join(', ')}`);
   return testCases;
 }
 

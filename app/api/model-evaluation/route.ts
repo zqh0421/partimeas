@@ -267,7 +267,22 @@ const generateModelOutput = async (
     console.log(`🚀 Starting generation for model: ${provider}/${modelId}`);
     
     // Get model instance
-    const model = (await getModelInstance(provider, modelId));
+
+    let finalProvider = provider;
+    if (modelId.startsWith('claude-') && provider !== 'anthropic') {
+      console.warn(`⚠️ Warning: Claude model ${modelId} has provider ${provider}, expected 'anthropic'`);
+      finalProvider = 'anthropic';
+    } else if ((modelId.startsWith('gpt-') || modelId.startsWith('o1') || modelId.startsWith('o3') || modelId.startsWith('o4')) && provider !== 'openai') {
+      console.warn(`⚠️ Warning: GPT/o-series model ${modelId} has provider ${provider}, expected 'openai'`);
+      finalProvider = 'openai';
+    } else if (modelId.startsWith('gemini-') && provider !== 'google') {
+      console.warn(`⚠️ Warning: Gemini model ${modelId} has provider ${provider}, expected 'google'`);
+      finalProvider = 'google';
+    } else if (modelId.startsWith('google/') && provider !== 'openrouter') {
+      console.warn(`⚠️ Warning: OpenRouter model ${modelId} has provider ${provider}, expected 'openrouter'`);
+      finalProvider = 'openrouter';
+    }
+    const model = (await getModelInstance(finalProvider, modelId));
     console.log(`✅ Model instance created successfully for: ${provider}/${modelId}`);
 
     // Use provided use case label as metadata only
@@ -373,11 +388,39 @@ const generateModelOutput = async (
     // Validate and potentially fix structural issues
     output = validateAndFixStructure(output, useCaseType);
 
+    // Log the actual provider and modelId for debugging
+    console.log(`🔍 generateModelOutput debug - provider: ${provider}, modelId: ${modelId}`);
+    
+    // Use the provider from database (which should be correct)
+    // Only override if there's a clear mismatch that needs fixing
+    finalProvider = provider;
+    
+    // Add validation logging
+    console.log(`🔍 modelId: ${modelId}`);
+    console.log(`🔍 provider: ${provider}`);
+    if (modelId.startsWith('claude-') && provider !== 'anthropic') {
+      console.warn(`⚠️ Warning: Claude model ${modelId} has provider ${provider}, expected 'anthropic'`);
+      finalProvider = 'anthropic';
+    } else if ((modelId.startsWith('gpt-') || modelId.startsWith('o1') || modelId.startsWith('o3') || modelId.startsWith('o4')) && provider !== 'openai') {
+      console.warn(`⚠️ Warning: GPT/o-series model ${modelId} has provider ${provider}, expected 'openai'`);
+      finalProvider = 'openai';
+    } else if (modelId.startsWith('gemini-') && provider !== 'google') {
+      console.warn(`⚠️ Warning: Gemini model ${modelId} has provider ${provider}, expected 'google'`);
+      finalProvider = 'google';
+    } else if (modelId.startsWith('google/') && provider !== 'openrouter') {
+      console.warn(`⚠️ Warning: OpenRouter model ${modelId} has provider ${provider}, expected 'openrouter'`);
+      finalProvider = 'openrouter';
+    }
+    
+    // Final processor update
+    console.log(`🔄 Final processor update for: ${finalProvider}/${modelId}`);
+    
     return {
-      modelId: `${provider}/${modelId}`,
+      modelId: `${finalProvider}/${modelId}`,
       output,
       timestamp: new Date().toISOString(),
-      useCaseType // Include the detected use case type in the response
+      useCaseType, // Include the detected use case type in the response
+      correctProvider: finalProvider // Include the provider for debugging
     };
   } catch (error) {
     console.error(`Error generating output for model ${provider}/${modelId}:`, error);
@@ -701,6 +744,16 @@ export async function POST(request: NextRequest) {
         console.log(`    - systemPrompt length: ${assistant.systemPrompt?.length || 0}`);
       });
       
+      // Debug: Log the actual provider and model values before calling generateModelOutput
+      console.log(`🔍 Debug: selectedAssistants before generateModelOutput:`);
+      selectedAssistants.forEach((assistant, index) => {
+        console.log(`  ${index + 1}. ${assistant.name}:`);
+        console.log(`    - provider: ${assistant.provider}`);
+        console.log(`    - model: ${assistant.model}`);
+        console.log(`    - provider type: ${typeof assistant.provider}`);
+        console.log(`    - model type: ${typeof assistant.model}`);
+      });
+      
       // Generate outputs from selected assistants in parallel
       const outputGenerations = await Promise.allSettled(
         selectedAssistants.map(a =>
@@ -761,8 +814,28 @@ export async function POST(request: NextRequest) {
         
         // Store all responses
         if (sessionId && outputs.length > 0) {
+          console.log(`🔍 Debug: Processing ${outputs.length} outputs for database insertion:`);
+          outputs.forEach((output, index) => {
+            console.log(`  Output ${index}: modelId="${output.modelId}", correctProvider="${output.correctProvider}"`);
+          });
+          
           const responseQueries = outputs.map((output, index) => {
+            // Ensure modelId is properly formatted and handle edge cases
+            if (!output.modelId || typeof output.modelId !== 'string') {
+              console.error(`❌ Invalid modelId for output ${index}:`, output.modelId);
+              throw new Error(`Invalid modelId for output ${index}: ${output.modelId}`);
+            }
+            
             const [provider, model] = output.modelId.split('/');
+            
+            // Validate that we have both provider and model after splitting
+            if (!provider || !model) {
+              console.error(`❌ Invalid modelId format for output ${index}: ${output.modelId}. Expected format: provider/modelId`);
+              throw new Error(`Invalid modelId format for output ${index}: ${output.modelId}. Expected format: provider/modelId`);
+            }
+            
+            // Use the correct provider from the output if available, otherwise fall back to the split result
+            const correctProvider = output.correctProvider || provider;
             return {
               query: `
                 INSERT INTO partimeas_responses 
@@ -772,7 +845,7 @@ export async function POST(request: NextRequest) {
               params: [
                 sessionId,
                 index + 1,
-                provider,
+                correctProvider,
                 model,
                 selectedAssistants[index]?.systemPrompt || '',
                 output.output

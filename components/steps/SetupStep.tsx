@@ -63,7 +63,7 @@ export default function SetupStep({
         <div>
           <h3 className="text-lg font-medium text-gray-900 mb-3">Test Cases ({testCases.length})</h3>
           <div className="flex flex-wrap gap-2 mb-4">
-            {testCases.slice(0, 8).map((_, index) => (
+            {testCases.map((_, index) => (
               <button
                 key={index}
                 onClick={() => onTestCaseSelect(index)}
@@ -76,11 +76,6 @@ export default function SetupStep({
                 {index + 1}
               </button>
             ))}
-            {testCases.length > 8 && (
-              <span className="px-3 py-1 text-sm text-gray-500">
-                +{testCases.length - 8} more
-              </span>
-            )}
           </div>
           
           {/* Selected test case preview */}
