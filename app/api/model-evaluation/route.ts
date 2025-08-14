@@ -29,14 +29,25 @@ const getOutputGenerationAssistants = async (): Promise<OutputAssistant[]> => {
       a.updated_at, 
       m.provider AS provider, 
       m.model_id AS model, 
-      sp.prompt AS system_prompt
+      sp.prompt AS system_prompt,
+      a.system_prompt_id
     FROM partimeas_assistants a
     JOIN partimeas_assistant_models am ON am.assistant_id = a.id
     JOIN partimeas_models m ON m.id = am.model_id
-    JOIN partimeas_system_prompts sp ON sp.id = a.system_prompt_id
+    LEFT JOIN partimeas_system_prompts sp ON sp.id = a.system_prompt_id
     WHERE a.type = 'output_generation'
     ORDER BY a.required_to_show DESC, a.updated_at DESC
   `;
+  
+  // Debug logging for database results
+  console.log(`🔧 Database query results for assistants:`);
+  rows.forEach((r: any, index: number) => {
+    console.log(`  ${index + 1}. ${r.name}:`);
+    console.log(`    - system_prompt_id: ${r.system_prompt_id}`);
+    console.log(`    - system_prompt: ${r.system_prompt ? `"${r.system_prompt.substring(0, 100)}..."` : 'NULL'}`);
+    console.log(`    - system_prompt length: ${r.system_prompt?.length || 0}`);
+  });
+  
   return rows.map((r: any) => ({
     assistantId: r.assistant_id as number,
     name: r.name as string,
@@ -45,6 +56,48 @@ const getOutputGenerationAssistants = async (): Promise<OutputAssistant[]> => {
     systemPrompt: r.system_prompt as string,
     requiredToShow: Boolean(r.required_to_show),
     updatedAt: (r.updated_at || new Date().toISOString()) as string,
+  }));
+};
+
+// Get assistants with all their linked models for unique model algorithm
+const getAssistantsWithLinkedModels = async (): Promise<Array<OutputAssistant & { linkedModels: string[] }>> => {
+  const rows = await sql`
+    SELECT 
+      a.id AS assistant_id, 
+      a.name, 
+      a.required_to_show, 
+      a.updated_at, 
+      sp.prompt AS system_prompt,
+      ARRAY_AGG(m.model_id) AS linked_models,
+      ARRAY_AGG(m.provider) AS providers,
+      a.system_prompt_id
+    FROM partimeas_assistants a
+    JOIN partimeas_assistant_models am ON am.assistant_id = a.id
+    JOIN partimeas_models m ON m.id = am.model_id
+    LEFT JOIN partimeas_system_prompts sp ON sp.id = a.system_prompt_id
+    WHERE a.type = 'output_generation'
+    GROUP BY a.id, a.name, a.required_to_show, a.updated_at, sp.prompt, a.system_prompt_id
+    ORDER BY a.required_to_show DESC, a.updated_at DESC
+  `;
+  
+  // Debug logging for database results
+  console.log(`🔧 Database query results for assistants with linked models:`);
+  rows.forEach((r: any, index: number) => {
+    console.log(`  ${index + 1}. ${r.name}:`);
+    console.log(`    - system_prompt_id: ${r.system_prompt_id}`);
+    console.log(`    - system_prompt: ${r.system_prompt ? `"${r.system_prompt.substring(0, 100)}..."` : 'NULL'}`);
+    console.log(`    - system_prompt length: ${r.system_prompt?.length || 0}`);
+  });
+  
+  return rows.map((r: any) => ({
+    assistantId: r.assistant_id as number,
+    name: r.name as string,
+    provider: r.providers[0] as string, // Use first provider as default
+    model: r.linked_models[0] as string, // Use first model as default
+    systemPrompt: r.system_prompt as string,
+    requiredToShow: Boolean(r.required_to_show),
+    updatedAt: (r.updated_at || new Date().toISOString()) as string,
+    linkedModels: r.linked_models as string[],
   }));
 };
 
@@ -216,7 +269,17 @@ const generateModelOutput = async (
       return useCaseDescriptions[useCase] || 'General Analysis';
     };
     
-    const systemPrompt = systemPromptOverride || '';
+    // Debug logging for system prompts
+    console.log(`🔧 System prompt debug for ${provider}/${modelId}:`);
+    console.log(`  - systemPromptOverride: ${systemPromptOverride ? `"${systemPromptOverride.substring(0, 100)}..."` : 'undefined/null'}`);
+    console.log(`  - systemPromptOverride length: ${systemPromptOverride?.length || 0}`);
+    
+    // Use provided system prompt or fallback to a default one
+    const systemPrompt = systemPromptOverride || 'You are a helpful AI assistant. Please provide thoughtful, accurate, and helpful responses to the user\'s questions.';
+    
+    if (!systemPromptOverride) {
+      console.warn(`⚠️ Warning: No system prompt provided for ${provider}/${modelId}. Using fallback prompt.`);
+    }
 
     // Create a function for generating output
     const generateOutput = async (formattedPrompt: any) => {
@@ -537,45 +600,53 @@ export async function POST(request: NextRequest) {
       if (assistantModelAlgorithm === 'unique_model') {
         console.log('🔧 Using Unique Model algorithm to ensure model variety');
         
-        // For unique model algorithm, we need to select assistants that have different models
-        const usedModels = new Set<string>();
+        // Step 1: Get assistants with all their linked models and randomly select unique models
+        const assistantsWithLinkedModels = await getAssistantsWithLinkedModels();
+        const availableModels = new Set<string>();
+        const assistantModelMap = new Map<number, string[]>();
+        
+        // Collect all available models and map assistants to their linked models
+        for (const assistant of assistantsWithLinkedModels) {
+          if (assistant.linkedModels && assistant.linkedModels.length > 0) {
+            assistantModelMap.set(assistant.assistantId, assistant.linkedModels);
+            assistant.linkedModels.forEach((model: string) => availableModels.add(model));
+          }
+        }
+        
+        // Randomly assign unique models to assistants
+        const shuffledModels = Array.from(availableModels).sort(() => Math.random() - 0.5);
+        const assignedModels = new Set<string>();
         const uniqueModelAssistants: OutputAssistant[] = [];
         
-        // First, prioritize required assistants
-        for (const assistant of requiredAssistants) {
-          if (uniqueModelAssistants.length >= desiredOutputs) break;
-          
-          // Check if this assistant's model is already used
-          if (!usedModels.has(assistant.model)) {
-            uniqueModelAssistants.push(assistant);
-            usedModels.add(assistant.model);
+        for (const assistant of assistantsWithLinkedModels) {
+          const linkedModels = assistantModelMap.get(assistant.assistantId);
+          if (linkedModels && linkedModels.length > 0) {
+            // Find first available model that hasn't been assigned yet
+            const availableModel = linkedModels.find((model: string) => !assignedModels.has(model));
+            if (availableModel) {
+              assignedModels.add(availableModel);
+              uniqueModelAssistants.push({
+                ...assistant,
+                model: availableModel
+              });
+            }
           }
         }
         
-        // Then, fill remaining slots with optional assistants that have unique models
-        for (const assistant of optionalAssistants) {
-          if (uniqueModelAssistants.length >= desiredOutputs) break;
-          
-          if (!usedModels.has(assistant.model)) {
-            uniqueModelAssistants.push(assistant);
-            usedModels.add(assistant.model);
-          }
-        }
+        // Step 2: Get the list of assistants with (1) linked system prompt and (2) linked unique model
+        const validAssistants = uniqueModelAssistants.filter(assistant => 
+          assistant.systemPrompt && assistant.model
+        );
         
-        // If we still don't have enough unique models, fall back to any available models
-        if (uniqueModelAssistants.length < desiredOutputs) {
-          const remainingRequired = requiredAssistants.filter(a => !uniqueModelAssistants.includes(a));
-          const remainingOptional = optionalAssistants.filter(a => !uniqueModelAssistants.includes(a));
-          
-          const fallbackAssistants = [...remainingRequired, ...remainingOptional];
-          for (const assistant of fallbackAssistants) {
-            if (uniqueModelAssistants.length >= desiredOutputs) break;
-            uniqueModelAssistants.push(assistant);
-          }
-        }
+        // Step 3: Randomize the list of assistants to randomize response order
+        const randomizedAssistants = validAssistants.sort(() => Math.random() - 0.5);
         
-        selectedAssistants = uniqueModelAssistants.slice(0, desiredOutputs);
-        console.log(`🔧 Unique Model algorithm selected ${selectedAssistants.length} assistants with different models`);
+        // Step 4: Use the randomized list of assistants to generate outputs
+        selectedAssistants = randomizedAssistants.slice(0, desiredOutputs);
+        
+        console.log(`🔧 Unique Model Algorithm: ${validAssistants.length} assistants with unique models`);
+        console.log(`  Assigned models: ${Array.from(assignedModels).join(', ')}`);
+        console.log(`  Randomized order: ${randomizedAssistants.map(a => a.name).join(' → ')}`);
         
       } else {
         // Default random selection algorithm
@@ -606,18 +677,16 @@ export async function POST(request: NextRequest) {
         console.log(`  ${index + 1}. ${assistant.name} (${assistant.provider}/${assistant.model}) - Required: ${assistant.requiredToShow}`);
       });
       
-      // Verify unique models if using unique_model algorithm
-      if (assistantModelAlgorithm === 'unique_model') {
-        const selectedModels = selectedAssistants.map(a => a.model);
-        const uniqueModels = new Set(selectedModels);
-        console.log(`🔧 Unique Model verification: ${uniqueModels.size} unique models out of ${selectedModels.length} total`);
-        if (uniqueModels.size < selectedModels.length) {
-          console.warn(`⚠️ Warning: Duplicate models detected in unique_model algorithm!`);
-          console.warn(`  Selected models: ${selectedModels.join(', ')}`);
-          console.warn(`  Unique models: ${Array.from(uniqueModels).join(', ')}`);
-        }
-      }
 
+
+      // Debug: Log system prompts for selected assistants
+      console.log(`🔧 System prompt debug for selected assistants:`);
+      selectedAssistants.forEach((assistant, index) => {
+        console.log(`  ${index + 1}. ${assistant.name}:`);
+        console.log(`    - systemPrompt: ${assistant.systemPrompt ? `"${assistant.systemPrompt.substring(0, 100)}..."` : 'undefined/null'}`);
+        console.log(`    - systemPrompt length: ${assistant.systemPrompt?.length || 0}`);
+      });
+      
       // Generate outputs from selected assistants in parallel
       const outputGenerations = await Promise.allSettled(
         selectedAssistants.map(a =>

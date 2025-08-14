@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+// 移除可能有问题的 CSS 导入，改用内联样式或 Tailwind 类
 
 interface CustomStyles {
   headings?: {
@@ -18,19 +20,22 @@ interface CustomStyles {
   table?: string;
 }
 
-interface SimpleMarkdownRendererProps {
+interface EnhancedMarkdownRendererProps {
   content: string;
   className?: string;
   customStyles?: CustomStyles;
+  enableCodeHighlighting?: boolean;
   enableGfm?: boolean;
 }
 
-export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
+export const EnhancedMarkdownRenderer: React.FC<EnhancedMarkdownRendererProps> = ({
   content,
   className = '',
   customStyles = {},
+  enableCodeHighlighting = true,
   enableGfm = true,
 }) => {
+  // 默认样式配置
   const defaultStyles: Required<CustomStyles> = {
     headings: {
       h1: 'text-2xl font-bold text-gray-900 mb-4 mt-6',
@@ -47,6 +52,7 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
     table: 'w-full border-collapse border border-gray-300 mb-4',
   };
 
+  // 合并自定义样式
   const styles: Required<CustomStyles> = {
     headings: { ...defaultStyles.headings, ...customStyles.headings },
     paragraphs: customStyles.paragraphs || defaultStyles.paragraphs,
@@ -56,6 +62,7 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
     table: customStyles.table || defaultStyles.table,
   };
 
+  // 自定义组件渲染器
   const components = {
     h1: ({ children, ...props }: any) => (
       <h1 className={styles.headings.h1} {...props}>
@@ -98,7 +105,7 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
       </ul>
     ),
     ol: ({ children, ...props }: any) => (
-      <ol className={`${styles.lists} list-inside`} {...props}>
+      <ol className={`${styles.lists} list-decimal list-inside`} {...props}>
         {children}
       </ol>
     ),
@@ -117,13 +124,16 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
         );
       }
       return (
-        <pre className="bg-gray-900 text-gray-200 p-4 rounded-lg overflow-x-auto mb-4 font-mono text-sm border border-gray-700">
-          <code className={codeClassName} {...props}>
-            {children}
-          </code>
-        </pre>
+        <code className={codeClassName} {...props}>
+          {children}
+        </code>
       );
     },
+    pre: ({ children, ...props }: any) => (
+      <pre className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto mb-4 font-mono text-sm border border-gray-700" {...props}>
+        {children}
+      </pre>
+    ),
     blockquote: ({ children, ...props }: any) => (
       <blockquote className={styles.blockquote} {...props}>
         {children}
@@ -156,6 +166,7 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
         {children}
       </tr>
     ),
+    // 任务列表支持
     input: ({ checked, ...props }: any) => (
       <input
         type="checkbox"
@@ -165,18 +176,19 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
         {...props}
       />
     ),
+    // 链接样式
     a: ({ children, href, ...props }: any) => (
       <a
         href={href}
         className="text-blue-600 hover:text-blue-800 underline"
         target="_blank"
         rel="noopener noreferrer"
-        title={href}
         {...props}
       >
         {children}
       </a>
     ),
+    // 强调文本
     strong: ({ children, ...props }: any) => (
       <strong className="font-bold text-gray-800" {...props}>
         {children}
@@ -187,148 +199,40 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
         {children}
       </em>
     ),
+    // 删除线
     del: ({ children, ...props }: any) => (
       <del className="line-through text-gray-500" {...props}>
         {children}
       </del>
     ),
+    // 水平分割线
     hr: ({ ...props }: any) => (
       <hr className="my-6 border-gray-300" {...props} />
     ),
   };
 
-  // 配置插件
+  // 配置插件 - 使用更兼容的配置
   const plugins = [];
   if (enableGfm) {
     plugins.push(remarkGfm);
   }
 
+  const rehypePlugins = [];
+  if (enableCodeHighlighting) {
+    // 使用更安全的配置
+    try {
+      rehypePlugins.push(rehypeHighlight);
+    } catch (error) {
+      console.warn('rehype-highlight plugin could not be loaded:', error);
+    }
+  }
+
   return (
     <div className={`prose max-w-none ${className}`}>
-      <style>
-        {`
-          .prose ul ul,
-          .prose ol ol,
-          .prose ul ol,
-          .prose ol ul {
-            margin-left: 0.5rem;
-            margin-top: 0.5rem;
-            margin-bottom: 0.5rem;
-          }
-          
-          .prose ul ul ul,
-          .prose ol ol ol,
-          .prose ul ol ol,
-          .prose ol ul ul {
-            margin-left: 1rem;
-          }
-
-          .prose ol {
-            counter-reset: list-counter;
-          }
-          
-          .prose ol > li {
-            counter-increment: list-counter;
-          }
-          
-          .prose ol ol {
-            counter-reset: sub-list-counter;
-          }
-          
-          .prose ol ol > li {
-            counter-increment: sub-list-counter;
-          }
-          
-          .prose ol ol ol {
-            counter-reset: sub-sub-list-counter;
-          }
-          
-          .prose ol ol ol > li {
-            counter-increment: sub-sub-list-counter;
-          }
-          
-          .prose ol {
-            list-style: none;
-          }
-          
-          .prose ol > li {
-            position: relative;
-            padding-left: 1.5em;
-          }
-          
-          .prose ol > li::before {
-            content: counter(list-counter) ". ";
-            position: absolute;
-            left: 0;
-            font-weight: 500;
-            color: #374151;
-          }
-          
-          .prose ol ol > li::before {
-            content: counter(sub-list-counter, lower-alpha) ". ";
-          }
-          
-          .prose ol ol ol > li::before {
-            content: counter(sub-sub-list-counter, lower-roman) ". ";
-          }
-
-          .prose ul {
-            list-style: none;
-          }
-          
-          .prose ul > li {
-            position: relative;
-            padding-left: 1.5em;
-          }
-          
-          .prose ul > li::before {
-            content: "•";
-            position: absolute;
-            left: 0;
-            font-weight: bold;
-          }
-          
-          .prose ul ul > li::before {
-            content: "◦";
-          }
-          
-          .prose ul ul ul > li::before {
-            content: "▪";
-          }
-
-          .prose li {
-            margin-bottom: 0.25rem;
-          }
-          
-          .prose li:last-child {
-            margin-bottom: 0;
-          }
-          
-          /* 链接自动截断和样式优化 */
-          .prose a {
-            word-break: break-all;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            display: inline;
-            vertical-align: baseline;
-          }
-          
-          .prose a:hover {
-            word-break: break-word;
-          }
-          
-          /* 长链接的容器样式 */
-          .prose p:has(a),
-          .prose li:has(a) {
-            overflow-wrap: break-word;
-            word-wrap: break-word;
-            word-break: break-all;
-          }
-        `}
-      </style>
       <ReactMarkdown
         components={components}
         remarkPlugins={plugins}
+        rehypePlugins={rehypePlugins}
       >
         {content}
       </ReactMarkdown>
@@ -336,4 +240,4 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
   );
 };
 
-export default SimpleMarkdownRenderer; 
+export default EnhancedMarkdownRenderer; 

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ModelOutput, TestCase } from '@/types';
-import { createPrettifiedMarkdown } from '@/utils/markdownUtils';
+import SimpleMarkdownRenderer from '@/components/SimpleMarkdownRenderer';
 import { useStepLoading } from '@/components/steps/VerticalStepper';
 import TestCaseNavigation from '@/components/TestCaseNavigation';
 import RealCriteriaTable from '@/components/evaluation/RealCriteriaTable';
@@ -109,9 +109,9 @@ export default function ModelOutputsGrid({
                     <h4 className="text-base font-bold text-gray-900 
                     truncate">
                       Response {index + 1}
-                       {/* <span className="text-xs text-gray-400 font-normal">
+                       <span className="text-xs text-gray-400 font-normal">
                          {!isLoadingModel && ` (Internal test: ${item.modelId})`}
-                       </span> */}
+                       </span>
                     </h4>
                   </div>
                 </div>
@@ -132,11 +132,13 @@ export default function ModelOutputsGrid({
                     </div>
                   ) : (
                     // Actual content
-                    <div 
-                      className="text-sm leading-relaxed overflow-y-auto"
-                      dangerouslySetInnerHTML={{ __html: 
-                      createPrettifiedMarkdown(item.output) }}
-                    />
+                    <div className="text-sm leading-relaxed overflow-y-auto">
+                      <SimpleMarkdownRenderer 
+                        content={item.output}
+                        enableGfm={true}
+                        className="text-sm"
+                      />
+                    </div>
                   )}
                 </div>
               </div>
