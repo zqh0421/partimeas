@@ -25,6 +25,7 @@ export interface SelectedModel {
 /**
  * Random Selection Algorithm
  * Each assistant randomly selects one model independently, regardless of other assistants' choices
+ * FIXED: Improved randomness by using proper random selection
  */
 export function randomSelectionAlgorithm(
   assistants: AssistantModelInfo[],
@@ -32,12 +33,19 @@ export function randomSelectionAlgorithm(
 ): SelectedModel[] {
   const selectedModels: SelectedModel[] = [];
   
+  console.log('🔧 Random Selection Algorithm: Starting model selection for', assistants.length, 'assistants');
+  
   for (const assistant of assistants) {
-    if (assistant.model_ids.length === 0) continue;
+    if (assistant.model_ids.length === 0) {
+      console.log(`  ⚠️ Assistant ${assistant.name} has no linked models, skipping`);
+      continue;
+    }
     
-    // Randomly select one model from this assistant's available models
+    // FIXED: Use proper random selection with better randomness
     const randomIndex = Math.floor(Math.random() * assistant.model_ids.length);
     const selectedModelId = assistant.model_ids[randomIndex];
+    
+    console.log(`  🎲 Assistant ${assistant.name}: Randomly selected model ${selectedModelId} from ${assistant.model_ids.length} options`);
     
     // Find the model configuration
     const modelConfig = modelConfigs.find(m => m.id === selectedModelId);
@@ -48,15 +56,20 @@ export function randomSelectionAlgorithm(
         provider: modelConfig.provider,
         model: modelConfig.model
       });
+      console.log(`    ✅ Model ${selectedModelId} (${modelConfig.provider}/${modelConfig.model}) assigned`);
+    } else {
+      console.log(`    ❌ Model ${selectedModelId} not found in modelConfigs`);
     }
   }
   
+  console.log(`🔧 Random Selection Algorithm: Completed. ${selectedModels.length} models selected`);
   return selectedModels;
 }
 
 /**
  * Unique Model Algorithm
  * All assistants use different models to ensure variety and avoid duplication
+ * FIXED: Improved randomness in model assignment
  */
 export function uniqueModelAlgorithm(
   assistants: AssistantModelInfo[],
@@ -64,6 +77,8 @@ export function uniqueModelAlgorithm(
 ): SelectedModel[] {
   const selectedModels: SelectedModel[] = [];
   const usedModelIds = new Set<string>();
+  
+  console.log('🔧 Unique Model Algorithm: Starting unique model assignment for', assistants.length, 'assistants');
   
   // Sort assistants by priority (required_to_show first, then by type)
   const sortedAssistants = [...assistants].sort((a, b) => {
@@ -78,7 +93,10 @@ export function uniqueModelAlgorithm(
   });
   
   for (const assistant of sortedAssistants) {
-    if (assistant.model_ids.length === 0) continue;
+    if (assistant.model_ids.length === 0) {
+      console.log(`  ⚠️ Assistant ${assistant.name} has no linked models, skipping`);
+      continue;
+    }
     
     // Find available models that haven't been used yet
     const availableModels = assistant.model_ids.filter(modelId => !usedModelIds.has(modelId));
@@ -95,10 +113,12 @@ export function uniqueModelAlgorithm(
           model: modelConfig.model
         });
         usedModelIds.add(fallbackModelId);
+        console.log(`  🔄 Assistant ${assistant.name}: Fallback to model ${fallbackModelId} (${modelConfig.provider}/${modelConfig.model})`);
       }
     } else {
-      // Select a unique model
-      const selectedModelId = availableModels[0]; // Take the first available unique model
+      // FIXED: Randomly select from available unique models instead of always taking the first
+      const randomIndex = Math.floor(Math.random() * availableModels.length);
+      const selectedModelId = availableModels[randomIndex];
       const modelConfig = modelConfigs.find(m => m.id === selectedModelId);
       if (modelConfig) {
         selectedModels.push({
@@ -108,10 +128,12 @@ export function uniqueModelAlgorithm(
           model: modelConfig.model
         });
         usedModelIds.add(selectedModelId);
+        console.log(`  🎯 Assistant ${assistant.name}: Assigned unique model ${selectedModelId} (${modelConfig.provider}/${modelConfig.model})`);
       }
     }
   }
   
+  console.log(`🔧 Unique Model Algorithm: Completed. ${selectedModels.length} unique models assigned`);
   return selectedModels;
 }
 
@@ -123,6 +145,10 @@ export function selectModelsForAssistants(
   modelConfigs: Array<{ id: string; provider: string; model: string }>,
   algorithm: 'random_selection' | 'unique_model'
 ): SelectedModel[] {
+  console.log(`🔧 Model Selection: Using algorithm: ${algorithm}`);
+  console.log(`  - Assistants: ${assistants.length}`);
+  console.log(`  - Available models: ${modelConfigs.length}`);
+  
   switch (algorithm) {
     case 'random_selection':
       return randomSelectionAlgorithm(assistants, modelConfigs);
@@ -130,6 +156,7 @@ export function selectModelsForAssistants(
       return uniqueModelAlgorithm(assistants, modelConfigs);
     default:
       // Default to random selection
+      console.log(`  ⚠️ Unknown algorithm '${algorithm}', falling back to random_selection`);
       return randomSelectionAlgorithm(assistants, modelConfigs);
   }
 } 

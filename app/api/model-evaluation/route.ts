@@ -670,22 +670,42 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        // Randomly assign unique models to assistants
+        // FIXED: Improved randomization - shuffle both models and assistants for better randomness
         const shuffledModels = Array.from(availableModels).sort(() => Math.random() - 0.5);
+        const shuffledAssistants = [...assistantsWithLinkedModels].sort(() => Math.random() - 0.5);
+        
         const assignedModels = new Set<string>();
         const uniqueModelAssistants: OutputAssistant[] = [];
         
-        for (const assistant of assistantsWithLinkedModels) {
+        // FIXED: Process assistants in random order for better model distribution
+        for (const assistant of shuffledAssistants) {
           const linkedModels = assistantModelMap.get(assistant.assistantId);
           if (linkedModels && linkedModels.length > 0) {
-            // Find first available model that hasn't been assigned yet
-            const availableModel = linkedModels.find((model: string) => !assignedModels.has(model));
-            if (availableModel) {
-              assignedModels.add(availableModel);
+            // Find available models that haven't been assigned yet
+            const availableModels = linkedModels.filter((model: string) => !assignedModels.has(model));
+            
+            if (availableModels.length > 0) {
+              // FIXED: Randomly select from available models instead of always taking the first
+              const randomIndex = Math.floor(Math.random() * availableModels.length);
+              const selectedModel = availableModels[randomIndex];
+              
+              assignedModels.add(selectedModel);
               uniqueModelAssistants.push({
                 ...assistant,
-                model: availableModel
+                model: selectedModel
               });
+              
+              console.log(`  🎯 Assistant ${assistant.name}: Assigned unique model ${selectedModel}`);
+            } else {
+              // Fallback: use any available model if no unique ones left
+              const fallbackModel = linkedModels[0];
+              assignedModels.add(fallbackModel);
+              uniqueModelAssistants.push({
+                ...assistant,
+                model: fallbackModel
+              });
+              
+              console.log(`  🔄 Assistant ${assistant.name}: Fallback to model ${fallbackModel} (no unique models available)`);
             }
           }
         }
@@ -709,13 +729,31 @@ export async function POST(request: NextRequest) {
         // Default random selection algorithm
         console.log('🔧 Using Random Selection algorithm');
         
-        // Take up to desiredOutputs from required first (newest first)
-        selectedAssistants = requiredAssistants.slice(0, desiredOutputs);
-        const remaining = desiredOutputs - selectedAssistants.length;
-        if (remaining > 0 && optionalAssistants.length > 0) {
-          // Randomly sample remaining from optionalAssistants
-          const shuffled = [...optionalAssistants].sort(() => Math.random() - 0.5);
-          selectedAssistants = selectedAssistants.concat(shuffled.slice(0, remaining));
+        // FIXED: Improved random selection - ensure true randomness for each assistant
+        const allAssistants = [...requiredAssistants, ...optionalAssistants];
+        
+        if (allAssistants.length === 0) {
+          console.log('⚠️ No assistants available for random selection');
+          selectedAssistants = [];
+        } else {
+          // FIXED: Use proper random selection instead of just taking first N
+          const shuffledAssistants = allAssistants.sort(() => Math.random() - 0.5);
+          
+          // Prioritize required assistants but still maintain randomness
+          const requiredCount = Math.min(desiredOutputs, requiredAssistants.length);
+          const optionalCount = Math.min(desiredOutputs - requiredCount, optionalAssistants.length);
+          
+          // Take required assistants first (but in random order)
+          const shuffledRequired = requiredAssistants.sort(() => Math.random() - 0.5);
+          const shuffledOptional = optionalAssistants.sort(() => Math.random() - 0.5);
+          
+          selectedAssistants = [
+            ...shuffledRequired.slice(0, requiredCount),
+            ...shuffledOptional.slice(0, optionalCount)
+          ];
+          
+          console.log(`  🎲 Random Selection: ${requiredCount} required + ${optionalCount} optional assistants selected`);
+          console.log(`  Selected: ${selectedAssistants.map(a => a.name).join(', ')}`);
         }
       }
 
