@@ -89,6 +89,9 @@ export default function SetupStep({
               <h4 className="font-medium text-gray-900 mb-2">Test Case {selectedTestCaseIndex + 1} Preview</h4>
               <div className="grid grid-cols-1 text-sm">
                 <div>
+                  <p className="text-gray-600 mt-1 font-bold">
+                    {testCases[selectedTestCaseIndex].scenarioCategory || 'No context available'}
+                  </p>
                   <p className="text-gray-600 mt-1">{testCases[selectedTestCaseIndex].input || 'No input available'}</p>
                 </div>
               </div>

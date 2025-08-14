@@ -451,7 +451,7 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
 
       {/* Footer action after completion */}
       {analysisStep === 'complete' && props.onRestart && (
-        <div className="flex justify-center">
+        <div className="flex justify-center mb-8">
           <button
             onClick={props.onRestart}
             className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-slate-700 font-medium"

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAnalysisState } from '@/hooks/useAnalysisState';
 import { useAnalysisHandlers } from '@/hooks/useAnalysisHandlers';
 import { useConfig } from '@/hooks/useConfig';
+import { useSessionLoader } from '@/hooks/useSessionLoader';
 import { USE_CASE_PROMPTS } from '@/app/api/shared/constants';
 import VerticalStepper from '@/components/steps/VerticalStepper';
 import SetupStep from '@/components/steps/SetupStep';
@@ -62,6 +63,16 @@ export default function OutputAnalysisFullPage() {
     setValidationError,
   } = useAnalysisState(); // Use dynamic default from USE_CASE_PROMPTS
 
+  // Session loading functionality
+  const {
+    sessionId,
+    sessionData,
+    isLoadingSession,
+    sessionError,
+    clearSession,
+    loadSession
+  } = useSessionLoader();
+
   // Analysis-specific internal state (previously in UnifiedAnalysis component)
   const [analysisStep, setAnalysisStep] = useState<'setup' | 'running' | 'complete'>('setup');
   const [hasStartedEvaluation, setHasStartedEvaluation] = useState(false);
@@ -73,6 +84,9 @@ export default function OutputAnalysisFullPage() {
   const [showEvaluationFeatures, setShowEvaluationFeatures] = useState<boolean>(true);
   const [selectedOutputModelIds, setSelectedOutputModelIds] = useState<string[]>([]);
   const [isRealEvaluation, setIsRealEvaluation] = useState<boolean>(false);
+  
+  // Track current session ID from generated responses
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   // Get configuration values
   const { numOutputsToShow } = useConfig();
@@ -101,6 +115,86 @@ export default function OutputAnalysisFullPage() {
       updateSystemPromptForUseCase
     }
   });
+
+  // Load session data when sessionData changes
+  useEffect(() => {
+    if (sessionData && sessionData.responses.length > 0) {
+      console.log('📋 Loading session data:', sessionData);
+      
+      // Convert session responses to test cases format
+      const sessionTestCases = [{
+        id: 'session-test-case',
+        input: sessionData.test_case_prompt || 'Session test case',
+        context: sessionData.test_case_scenario_category || 'Session context',
+        useCase: 'session-loaded',
+        scenarioCategory: sessionData.test_case_scenario_category || 'session'
+      }];
+      
+      // Convert session responses to model outputs format
+      const sessionModelOutputs = sessionData.responses.map((response, index) => ({
+        id: response.id,
+        modelId: `${response.provider}/${response.model}`,
+        modelName: response.model,
+        output: response.response_content,
+        timestamp: response.created_at,
+        rubricScores: {},
+        feedback: '',
+        suggestions: []
+      }));
+      
+      // Create TestCaseWithModelOutputs from session data
+      const sessionTestCasesWithOutputs: TestCaseWithModelOutputs[] = [{
+        id: 'session-test-case',
+        input: sessionData.test_case_prompt || 'Session test case',
+        context: sessionData.test_case_scenario_category || 'Session context',
+        modelOutputs: sessionModelOutputs,
+        useCase: 'session-loaded',
+        scenarioCategory: sessionData.test_case_scenario_category || 'session'
+      }];
+      
+      // Set the data
+      setTestCases(sessionTestCases);
+      setTestCasesWithModelOutputs(sessionTestCasesWithOutputs);
+      setLocalTestCasesWithModelOutputs(sessionTestCasesWithOutputs);
+      
+      // Set the current session ID from the loaded session
+      setCurrentSessionId(sessionData.id);
+      console.log(`📋 Loaded session ID from URL: ${sessionData.id}`);
+      console.log(`🔗 Copy Link button will now appear for loaded session: ${sessionData.id}`);
+      
+      // Set analysis step to complete since we have data
+      setAnalysisStep('complete');
+      setCurrentPhase('complete');
+      setHasStartedEvaluation(false);
+      setIsGeneratingOutputs(false);
+      
+      // Collapse step 1 and show step 2 content
+      setIsStep1Collapsed(true);
+      
+      console.log('✅ Session data loaded successfully');
+    }
+  }, [
+    sessionData,
+    setTestCasesWithModelOutputs,
+    setLocalTestCasesWithModelOutputs,
+    setAnalysisStep,
+    setCurrentPhase,
+    setHasStartedEvaluation,
+    setIsGeneratingOutputs,
+    setIsStep1Collapsed,
+    setCurrentSessionId
+  ]);
+
+  // Handle session errors
+  useEffect(() => {
+    if (sessionError) {
+      console.error('❌ Session loading error:', sessionError);
+      // Clear the invalid session from URL
+      clearSession();
+      // Also clear the current session ID
+      setCurrentSessionId(null);
+    }
+  }, [sessionError, clearSession]);
 
   // Fetch active evaluation assistant to decide if real or mock evaluation
   useEffect(() => {
@@ -196,6 +290,13 @@ export default function OutputAnalysisFullPage() {
           // Capture the selected assistant models as soon as we get the first successful response
           if (Array.isArray(data?.selectedAssistantsModels) && data.selectedAssistantsModels.length > 0) {
             setSelectedOutputModelIds(prev => (prev && prev.length > 0 ? prev : data.selectedAssistantsModels));
+          }
+          
+          // Capture session ID if available
+          if (data?.sessionId && !currentSessionId) {
+            setCurrentSessionId(data.sessionId);
+            console.log(`📋 Captured session ID: ${data.sessionId}`);
+            console.log(`🔗 Copy Link button will now appear for session: ${data.sessionId}`);
           }
           
           // Update progress
@@ -445,6 +546,48 @@ export default function OutputAnalysisFullPage() {
     handlers.handleStartEvaluation();
   };
 
+  // Custom restart handler that clears session
+  const handleRestart = () => {
+    // Clear session data and URL params
+    clearSession();
+    
+    // Reset all state
+    setTestCases([]);
+    setTestCasesWithModelOutputs([]);
+    setLocalTestCasesWithModelOutputs([]);
+    setCriteria([]);
+    setOutcomes([]);
+    setOutcomesWithModelComparison([]);
+    setSelectedUseCaseId('');
+    setSelectedScenarioCategory('');
+    setSelectedCriteriaId('');
+    setSelectedSystemPrompt('');
+    setValidationError('');
+    setShouldStartEvaluation(false);
+    setEvaluationProgress(0);
+    setCurrentTestCaseIndex(0);
+    setSelectedTestCaseIndex(0);
+    
+    // Reset analysis state
+    setAnalysisStep('setup');
+    setHasStartedEvaluation(false);
+    setIsStep1Collapsed(false);
+    setIsGeneratingOutputs(false);
+    setCurrentPhase('generating');
+    setSelectedOutputModelIds([]);
+    
+    // Clear current session ID
+    setCurrentSessionId(null);
+    
+    // Go back to first step
+    setCurrentStep('sync');
+    
+    // Refresh the page to ensure clean state
+    if (typeof window !== 'undefined' && typeof window.location !== 'undefined' && typeof window.location.reload === 'function') {
+      window.location.reload();
+    }
+  };
+
   // Determine current analysis step based on data availability
   useEffect(() => {
     if (outcomesWithModelComparison.length > 0 && currentPhase === 'complete') {
@@ -530,20 +673,54 @@ export default function OutputAnalysisFullPage() {
     }
   ];
 
+  // Show loading state while session is being loaded
+  if (isLoadingSession) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading session data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <AnalysisHeaderFull />
+      <AnalysisHeaderFull 
+        sessionId={sessionId} 
+        currentSessionId={currentSessionId}
+      />
 
-      <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">
         <div className="space-y-6">
+          {/* Session error display */}
+          {sessionError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Session Loading Error</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{sessionError}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Vertical Stepper */}
           <VerticalStepper steps={steps} />
 
           {/* Footer action after completion */}
-          {analysisStep === 'complete' && handlers.handleRestart && (
-            <div className="flex justify-center">
+          {analysisStep === 'complete' && (
+            <div className="flex justify-center mb-8">
               <button
-                onClick={handlers.handleRestart}
+                onClick={handleRestart}
                 className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
               >
                 <RefreshIcon className="w-5 h-5" />
@@ -555,4 +732,4 @@ export default function OutputAnalysisFullPage() {
       </div>
     </div>
   );
-}
+} 

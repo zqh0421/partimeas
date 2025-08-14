@@ -297,7 +297,9 @@ export function useAnalysisHandlers({
       setCurrentStep('sync');
       
       // Refresh the page to ensure clean state - no need to clear state manually
-      window.location.reload();
+      if (typeof window !== 'undefined' && typeof window.location !== 'undefined' && typeof window.location.reload === 'function') {
+        window.location.reload();
+      }
     }, [
       setCurrentStep
     ])

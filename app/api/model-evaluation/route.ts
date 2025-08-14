@@ -721,6 +721,64 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Upload session data to database after successful generation
+      let sessionId: string | null = null;
+      try {
+        console.log('📊 Uploading session data to database...');
+        
+        // Create session record
+        const sessionQuery = `
+          INSERT INTO partimeas_sessions 
+          (response_count, test_case_scenario_category, test_case_prompt, random_algorithm_used)
+          VALUES ($1, $2, $3, $4)
+          RETURNING id
+        `;
+        
+        const sessionResult = await sql.query(sessionQuery, [
+          outputs.length,
+          testCase.scenarioCategory || testCase.context || 'General',
+          testCase.input,
+          assistantModelAlgorithm
+        ]);
+        
+        sessionId = sessionResult[0]?.id;
+        console.log(`✅ Session created with ID: ${sessionId}`);
+        
+        // Store all responses
+        if (sessionId && outputs.length > 0) {
+          const responseQueries = outputs.map((output, index) => {
+            const [provider, model] = output.modelId.split('/');
+            return {
+              query: `
+                INSERT INTO partimeas_responses 
+                (session_id, display_order, provider, model, system_prompt, response_content)
+                VALUES ($1, $2, $3, $4, $5, $6)
+              `,
+              params: [
+                sessionId,
+                index + 1,
+                provider,
+                model,
+                selectedAssistants[index]?.systemPrompt || '',
+                output.output
+              ]
+            };
+          });
+          
+          // Execute all response insertions
+          for (const { query, params } of responseQueries) {
+            await sql.query(query, params);
+          }
+          
+          console.log(`✅ ${outputs.length} responses stored for session ${sessionId}`);
+        }
+        
+      } catch (dbError) {
+        console.error('❌ Failed to upload session data to database:', dbError);
+        // Don't fail the entire request if database upload fails
+        // The outputs are still generated successfully
+      }
+
       return NextResponse.json({
         success: true,
         phase: 'generate',
@@ -740,7 +798,9 @@ export async function POST(request: NextRequest) {
           ? 'Unique Model - Ensured different models for variety' 
           : 'Random Selection - Each assistant independently selected models',
         timestamp: new Date().toISOString(),
-        message: 'Output generation completed. Ready to proceed to review page.'
+        message: 'Output generation completed. Ready to proceed to review page.',
+        // Return session ID for tracking
+        sessionId: sessionId
       });
     }
 
