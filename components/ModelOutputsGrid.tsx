@@ -167,9 +167,9 @@ export default function ModelOutputsGrid({
                     <h4 className="text-base font-bold text-gray-900 
                     truncate">
                       Response {index + 1}
-                       <span className="text-xs text-gray-400 font-normal">
-                         {!isLoadingModel && ` (Internal test: ${item.modelId})`}
-                       </span>
+                       {/* <span className="text-xs text-gray-400 font-normal"> */}
+                         {/* {!isLoadingModel && ` (Internal test: ${item.modelId})`}
+                       </span> */}
                     </h4>
                   </div>
                 </div>
