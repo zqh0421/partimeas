@@ -17,8 +17,25 @@ export function useSessionLoader(): UseSessionLoaderReturn {
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   
-  const searchParams = useSearchParams();
-  const router = useRouter();
+  // Wrap useSearchParams in try-catch to handle potential Suspense boundary issues
+  let searchParams;
+  let router;
+  
+  try {
+    searchParams = useSearchParams();
+    router = useRouter();
+  } catch (error) {
+    console.warn('useSearchParams or useRouter called outside of Suspense boundary:', error);
+    // Provide fallback behavior
+    searchParams = new URLSearchParams();
+    router = {
+      replace: (url: string) => {
+        if (typeof window !== 'undefined') {
+          window.location.href = url;
+        }
+      }
+    };
+  }
 
   // Load session data from API
   const loadSession = useCallback(async (id: string): Promise<boolean> => {
@@ -66,18 +83,30 @@ export function useSessionLoader(): UseSessionLoaderReturn {
     setSessionError(null);
     
     // Remove session param from URL
-    const newSearchParams = new URLSearchParams(searchParams);
-    newSearchParams.delete('session');
-    const newUrl = `${window.location.pathname}${newSearchParams.toString() ? '?' + newSearchParams.toString() : ''}`;
-    router.replace(newUrl);
+    try {
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('session');
+      const newUrl = `${window.location.pathname}${newSearchParams.toString() ? '?' + newSearchParams.toString() : ''}`;
+      router.replace(newUrl);
+    } catch (error) {
+      console.warn('Failed to clear session from URL:', error);
+      // Fallback: just reload the page
+      if (typeof window !== 'undefined') {
+        window.location.href = window.location.pathname;
+      }
+    }
   }, [searchParams, router]);
 
   // Check for session in URL on mount
   useEffect(() => {
-    const sessionParam = searchParams.get('session');
-    
-    if (sessionParam && sessionParam !== sessionId) {
-      loadSession(sessionParam);
+    try {
+      const sessionParam = searchParams.get('session');
+      
+      if (sessionParam && sessionParam !== sessionId) {
+        loadSession(sessionParam);
+      }
+    } catch (error) {
+      console.warn('Failed to get session from search params:', error);
     }
   }, [searchParams, sessionId, loadSession]);
 
