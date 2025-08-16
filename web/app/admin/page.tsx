@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { Layout, App } from 'antd';
-import { useAdminState } from '../../hooks/useAdminState';
+import { Layout, App } from "antd";
+import { useAdminState } from "../hooks/useAdminState";
 import {
   StatusMessages,
   ActionButtons,
@@ -9,8 +9,8 @@ import {
   MainContent,
   LoadingSpinner,
   Breadcrumb,
-  PageHeader
-} from '../../components/admin';
+  PageHeader,
+} from "../components/admin";
 
 const { Content } = Layout;
 
@@ -35,7 +35,7 @@ export default function AdminPage() {
     setActiveSection,
     clearError,
     clearSuccess,
-    updateConfigValue
+    updateConfigValue,
   } = useAdminState();
 
   // Individual save functions for models and prompts
@@ -44,7 +44,7 @@ export default function AdminPage() {
       await saveModelsOnly();
       // You could add specific success handling for models here
     } catch (error) {
-      console.error('Error saving models:', error);
+      console.error("Error saving models:", error);
     }
   };
 
@@ -53,7 +53,7 @@ export default function AdminPage() {
       await savePromptsOnly();
       // You could add specific success handling for prompts here
     } catch (error) {
-      console.error('Error saving prompts:', error);
+      console.error("Error saving prompts:", error);
     }
   };
 
@@ -62,7 +62,7 @@ export default function AdminPage() {
       await saveAssistantsOnly();
       // You could add specific success handling for assistants here
     } catch (error) {
-      console.error('Error saving assistants:', error);
+      console.error("Error saving assistants:", error);
     }
   };
 
@@ -72,8 +72,15 @@ export default function AdminPage() {
 
   return (
     <App>
-      <Layout style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-        <Content style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+      <Layout style={{ minHeight: "100vh", backgroundColor: "#f5f5f5" }}>
+        <Content
+          style={{
+            padding: "24px",
+            maxWidth: 1200,
+            margin: "0 auto",
+            width: "100%",
+          }}
+        >
           <Breadcrumb />
 
           <PageHeader
@@ -88,9 +95,7 @@ export default function AdminPage() {
             onClearSuccess={clearSuccess}
           />
 
-          <ActionButtons
-            onReload={loadConfiguration}
-          />
+          <ActionButtons onReload={loadConfiguration} />
 
           <SectionNavigation
             activeSection={state.activeSection}
@@ -117,7 +122,7 @@ export default function AdminPage() {
             onSaveAssistants={handleSaveAssistants}
             onConfigChange={(configs) => {
               // Update the state with the new config values
-              configs.forEach(config => {
+              configs.forEach((config) => {
                 updateConfigValue(config.name, config.value);
               });
             }}
@@ -130,4 +135,4 @@ export default function AdminPage() {
       </Layout>
     </App>
   );
-} 
+}
