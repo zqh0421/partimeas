@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { LoadingSpinner } from '@/components/icons';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { LoadingSpinner } from "@/app/components/icons";
 
 export default function NotFound() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/workshop-assistant');
+    router.replace("/workshop-assistant");
   }, [router]);
 
   return (

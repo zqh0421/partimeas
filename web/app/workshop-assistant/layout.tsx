@@ -1,6 +1,6 @@
-'use client';
-import { Suspense } from 'react';
-import { LoadingState } from '@/components';
+"use client";
+import { Suspense } from "react";
+import { LoadingState } from "@/app/components";
 
 export default function WorkshopAssistantLayout({
   children,
@@ -12,4 +12,4 @@ export default function WorkshopAssistantLayout({
       {children}
     </Suspense>
   );
-} 
+}

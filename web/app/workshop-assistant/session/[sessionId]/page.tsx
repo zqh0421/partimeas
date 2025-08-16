@@ -1,14 +1,14 @@
-'use client';
-import { Suspense, useEffect, useState, use } from 'react';
-import VerticalStepper from '@/components/steps/VerticalStepper';
-import { RefreshIcon } from '@/components/icons';
-import SessionHeader from '@/components/SessionHeader';
-import { TestCase, TestCaseWithModelOutputs } from '@/types';
-import type { SessionWithResponses } from '@/utils/sessionManager';
-import { useRouter } from 'next/navigation';
-import TestCaseNavigation from '@/components/TestCaseNavigation';
-import ModelOutputsGrid from '@/components/ModelOutputsGrid';
-import { useConfig } from '@/hooks/useConfig';
+"use client";
+import { Suspense, useEffect, useState, use } from "react";
+import VerticalStepper from "@/app/components/steps/VerticalStepper";
+import { RefreshIcon } from "@/app/components/icons";
+import SessionHeader from "@/app/components/SessionHeader";
+import { TestCase, TestCaseWithModelOutputs } from "@/app/types";
+import type { SessionWithResponses } from "@/utils/sessionManager";
+import { useRouter } from "next/navigation";
+import TestCaseNavigation from "@/app/components/TestCaseNavigation";
+import ModelOutputsGrid from "@/app/components/ModelOutputsGrid";
+import { useConfig } from "@/app/hooks/useConfig";
 
 // Loading fallback component
 function LoadingFallback() {
@@ -29,7 +29,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  
+
   // Get configuration values
   const config = useConfig();
   const { numOutputsToShow } = config;
@@ -37,35 +37,46 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     const loadSession = async () => {
       try {
-        console.log('🔍 Attempting to load session:', sessionId);
+        console.log("🔍 Attempting to load session:", sessionId);
         setLoading(true);
-        
+
         // Fetch session data via API to avoid client-side DB access
-        const response = await fetch(`/api/sessions?action=byId&id=${sessionId}`);
+        const response = await fetch(
+          `/api/sessions?action=byId&id=${sessionId}`
+        );
         if (!response.ok) {
           throw new Error(`Failed to load session: ${response.status}`);
         }
         const data = await response.json();
-        const sessionData: SessionWithResponses | null = data?.success ? data.session : null;
-        console.log('📋 Session data loaded:', sessionData ? 'success' : 'not found');
-        
+        const sessionData: SessionWithResponses | null = data?.success
+          ? data.session
+          : null;
+        console.log(
+          "📋 Session data loaded:",
+          sessionData ? "success" : "not found"
+        );
+
         if (!sessionData) {
-          console.log('❌ Session not found');
-          setError('Session not found');
+          console.log("❌ Session not found");
+          setError("Session not found");
           return;
         }
 
         // Validate that the session has the expected number of responses
-        console.log(`📊 Session validation: ${sessionData.responses.length} responses, expected ${sessionData.response_count}`);
+        console.log(
+          `📊 Session validation: ${sessionData.responses.length} responses, expected ${sessionData.response_count}`
+        );
         if (sessionData.responses.length !== sessionData.response_count) {
-          throw new Error(`Session response count mismatch: expected ${sessionData.response_count}, got ${sessionData.responses.length}`);
+          throw new Error(
+            `Session response count mismatch: expected ${sessionData.response_count}, got ${sessionData.responses.length}`
+          );
         }
-        
-        console.log('✅ Session validation passed');
+
+        console.log("✅ Session validation passed");
         setSession(sessionData);
       } catch (err) {
-        console.error('Error loading session:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load session');
+        console.error("Error loading session:", err);
+        setError(err instanceof Error ? err.message : "Failed to load session");
       } finally {
         setLoading(false);
       }
@@ -87,7 +98,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
           <div className="text-red-600 text-xl mb-4">❌ Error</div>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={() => router.push('/workshop-assistant')}
+            onClick={() => router.push("/workshop-assistant")}
             className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
           >
             Go Back
@@ -104,7 +115,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
         <div className="text-center">
           <div className="text-gray-600 text-xl mb-4">Session not found</div>
           <button
-            onClick={() => router.push('/workshop-assistant')}
+            onClick={() => router.push("/workshop-assistant")}
             className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
           >
             Go Back
@@ -115,13 +126,15 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   }
 
   // Convert session responses to test cases format
-  const testCases: TestCase[] = [{
-    id: 'session-test-case',
-    input: session.test_case_prompt || 'Session test case',
-    context: session.test_case_scenario_category || 'Session context',
-    useCase: 'session-loaded',
-    scenarioCategory: session.test_case_scenario_category || 'session'
-  }];
+  const testCases: TestCase[] = [
+    {
+      id: "session-test-case",
+      input: session.test_case_prompt || "Session test case",
+      context: session.test_case_scenario_category || "Session context",
+      useCase: "session-loaded",
+      scenarioCategory: session.test_case_scenario_category || "session",
+    },
+  ];
 
   // Convert session responses to model outputs format
   const sessionModelOutputs = session.responses.map((response) => ({
@@ -131,29 +144,31 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
     output: response.response_content,
     timestamp: response.created_at,
     rubricScores: {},
-    feedback: '',
-    suggestions: []
+    feedback: "",
+    suggestions: [],
   }));
 
   // Create TestCaseWithModelOutputs from session data
-  const testCasesWithModelOutputs: TestCaseWithModelOutputs[] = [{
-    id: 'session-test-case',
-    input: session.test_case_prompt || 'Session test case',
-    context: session.test_case_scenario_category || 'Session context',
-    modelOutputs: sessionModelOutputs,
-    useCase: 'session-loaded',
-    scenarioCategory: session.test_case_scenario_category || 'session'
-  }];
+  const testCasesWithModelOutputs: TestCaseWithModelOutputs[] = [
+    {
+      id: "session-test-case",
+      input: session.test_case_prompt || "Session test case",
+      context: session.test_case_scenario_category || "Session context",
+      modelOutputs: sessionModelOutputs,
+      useCase: "session-loaded",
+      scenarioCategory: session.test_case_scenario_category || "session",
+    },
+  ];
 
   // No handlers needed for read-only session page
 
   // Create steps for the vertical stepper with consistent styling
   const steps = [
     {
-      id: 'setup',
-      title: 'Load Test Cases',
-      description: 'Choose a set of test cases from a use case.',
-      status: 'completed' as const,
+      id: "setup",
+      title: "Load Test Cases",
+      description: "Choose a set of test cases from a use case.",
+      status: "completed" as const,
       isCollapsed: true,
       content: (
         <div className="space-y-6">
@@ -166,13 +181,13 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
             showContent={true}
           />
         </div>
-      )
+      ),
     },
     {
-      id: 'analysis',
-      title: 'Test the Rubric',
-      description: 'Review possible responses to the selected test cases.',
-      status: 'completed' as const,
+      id: "analysis",
+      title: "Test the Rubric",
+      description: "Review possible responses to the selected test cases.",
+      status: "completed" as const,
       isCollapsed: false,
       content: (
         <div className="space-y-6">
@@ -191,8 +206,8 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
             sessionId={sessionId}
           />
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   return (
@@ -202,7 +217,6 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
 
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">
         <div className="space-y-6">
-
           {/* Vertical Stepper - consistent with main page */}
           <VerticalStepper steps={steps} />
 
@@ -222,12 +236,16 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   );
 }
 
-export default function SessionPage({ params }: { params: Promise<{ sessionId: string }> }) {
+export default function SessionPage({
+  params,
+}: {
+  params: Promise<{ sessionId: string }>;
+}) {
   const { sessionId } = use(params);
-  
+
   return (
     <Suspense fallback={<LoadingFallback />}>
       <SessionPageContent sessionId={sessionId} />
     </Suspense>
   );
-} 
+}

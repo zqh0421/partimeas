@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/config/database';
-import { Assistant, AssistantModel } from '@/types/admin';
+import { Assistant, AssistantModel } from '@/app/types/admin';
 
 function isValidUuid(value: string | undefined | null): boolean {
   if (!value || typeof value !== 'string') return false;

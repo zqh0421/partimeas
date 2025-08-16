@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { AntdRegistry } from '@ant-design/nextjs-registry';
-import { ConfigProvider } from 'antd';
-import '@ant-design/v5-patch-for-react-19';
-import LangSmithProvider from '@/components/LangSmithProvider';
+import { AntdRegistry } from "@ant-design/nextjs-registry";
+import { ConfigProvider } from "antd";
+import LangSmithProvider from "@/app/components/LangSmithProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,7 +35,7 @@ export default function RootLayout({
           <ConfigProvider
             theme={{
               token: {
-                colorPrimary: '#3b82f6',
+                colorPrimary: "#3b82f6",
                 borderRadius: 6,
               },
             }}

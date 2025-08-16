@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { systemPromptUtils } from '../../../utils/database';
-import { ApiResponse } from '../../../types/database';
+import { ApiResponse } from '../../types/database';
 
 export async function GET(request: NextRequest) {
   try {

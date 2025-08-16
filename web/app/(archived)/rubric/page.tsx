@@ -9,29 +9,24 @@ import {
   ConfigurationPanel,
   EvaluationCriteriaEditor,
   ResultsComparisonCard,
-} from "@/components";
+} from "@/app/components";
 // Mock data import removed - use real configuration instead
-import {
-  RubricItem,
-  RubricVersion,
-  VersionData,
-} from "@/types";
+import { RubricItem, RubricVersion, VersionData } from "@/app/types";
 import { saveVersion } from "@/utils/rubricUtils";
 
 export default function RubricPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [currentVersion, setCurrentVersion] =
-    useState<RubricVersion>({
-      id: '1',
-      version: 'v1.0',
-      name: 'Default Rubric Version',
-      systemPrompt: 'Configure your system prompt here',
-      evaluationPrompt: 'Configure your evaluation prompt here',
-      rubricItems: [],
-      testCases: [],
-      createdAt: new Date(),
-      history: []
-    });
+  const [currentVersion, setCurrentVersion] = useState<RubricVersion>({
+    id: "1",
+    version: "v1.0",
+    name: "Default Rubric Version",
+    systemPrompt: "Configure your system prompt here",
+    evaluationPrompt: "Configure your evaluation prompt here",
+    rubricItems: [],
+    testCases: [],
+    createdAt: new Date(),
+    history: [],
+  });
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedCriteriaForHistory, setSelectedCriteriaForHistory] =
     useState<RubricItem | null>(null);
@@ -83,9 +78,7 @@ export default function RubricPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
-        <Header 
-          onOpenVersionHistory={openReactFlowBranch}
-        />
+        <Header onOpenVersionHistory={openReactFlowBranch} />
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
@@ -103,11 +96,11 @@ export default function RubricPage() {
           )}
 
           {/* Right Content Area */}
-          <div className={`transition-all duration-300 ease-in-out ${
-            isConfigPanelCollapsed 
-              ? 'lg:col-span-12' 
-              : 'lg:col-span-9'
-          } space-y-4 lg:space-y-6`}>
+          <div
+            className={`transition-all duration-300 ease-in-out ${
+              isConfigPanelCollapsed ? "lg:col-span-12" : "lg:col-span-9"
+            } space-y-4 lg:space-y-6`}
+          >
             {/* Evaluation Criteria Editor Card */}
             <EvaluationCriteriaEditor
               currentVersion={currentVersion}
@@ -143,8 +136,8 @@ export default function RubricPage() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         evaluationPrompt={currentVersion.evaluationPrompt}
-        onEvaluationPromptChange={(prompt) => 
-          setCurrentVersion(prev => ({ ...prev, evaluationPrompt: prompt }))
+        onEvaluationPromptChange={(prompt) =>
+          setCurrentVersion((prev) => ({ ...prev, evaluationPrompt: prompt }))
         }
       />
 
