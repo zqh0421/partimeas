@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { RubricOutcomeWithModelComparison } from "@/app/types";
 import { CloseIcon, ChartBarIcon, RestartIcon } from "@/app/components/icons";
-import { MODEL_COLORS, themeUtils } from "@/utils/theme";
+import { MODEL_COLORS, themeUtils } from "@/app/utils/theme";
 import ModelEvaluationCard from "@/app/components/evaluation/ModelEvaluationCard";
 
 // Helper function to safely calculate average score from rubric scores

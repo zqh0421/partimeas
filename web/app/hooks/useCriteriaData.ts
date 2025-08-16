@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NewCriteriaItem } from '@/utils/criteriaReader';
+import { NewCriteriaItem } from '@/app/utils/criteriaReader';
 
 interface UseCriteriaDataReturn {
   criteria: NewCriteriaItem[];

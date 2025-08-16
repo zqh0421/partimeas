@@ -1,4 +1,4 @@
-import { sql } from '@/config/database';
+import { sql } from '@/app/config/database';
 
 export interface SessionData {
   id: string;

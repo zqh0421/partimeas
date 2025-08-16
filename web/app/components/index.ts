@@ -12,6 +12,3 @@ export { default as TestCaseNavigation } from './TestCaseNavigation';
 export { default as ModelOutputsGrid } from './ModelOutputsGrid';
 
 export { default as RubricEvaluator } from './RubricEvaluator';
-
-export * from './(archived)/rubric';
-export * from './(archived)/output-analysis';

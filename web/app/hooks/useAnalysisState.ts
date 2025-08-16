@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { TestCase, RubricOutcome, CriteriaData, AnalysisStep, TestCaseWithModelOutputs, RubricOutcomeWithModelComparison } from '@/app/types';
-import { USE_CASE_PROMPTS } from '@/app/api/shared/constants';
 
 // Types for better organization
 interface UIState {
@@ -26,11 +25,9 @@ interface EvaluationState {
 
 interface SelectionState {
   selectedTestCaseIndex: number;
-  selectedUseCaseId: string;
   selectedScenarioCategory: string;
   selectedCriteriaId: string;
   selectedSystemPrompt: string;
-  currentUseCaseType: string;
 }
 
 // Hook return type for better type safety
@@ -59,15 +56,12 @@ export interface UseAnalysisStateReturn {
   selection: SelectionState & {
     update: (updates: Partial<SelectionState>) => void;
     setSelectedTestCaseIndex: (index: number) => void;
-    setSelectedUseCaseId: (id: string) => void;
     setSelectedScenarioCategory: (category: string) => void;
     setSelectedCriteriaId: (id: string) => void;
     setSelectedSystemPrompt: (prompt: string) => void;
-    setCurrentUseCaseType: (type: string) => void;
   };
   useCase: {
     updateSystemPromptForUseCase: (testCases: TestCase[]) => void;
-    determineUseCase: (testCases: TestCase[]) => string;
   };
   // Legacy support
   currentStep: AnalysisStep;
@@ -92,30 +86,24 @@ export interface UseAnalysisStateReturn {
   // Selection state legacy support
   selectedTestCaseIndex: number;
   setSelectedTestCaseIndex: (index: number) => void;
-  selectedUseCaseId: string;
-  setSelectedUseCaseId: (id: string) => void;
   selectedScenarioCategory: string;
   setSelectedScenarioCategory: (category: string) => void;
   selectedCriteriaId: string;
   setSelectedCriteriaId: (id: string) => void;
   selectedSystemPrompt: string;
   setSelectedSystemPrompt: (prompt: string) => void;
-  currentUseCaseType: string;
-  setCurrentUseCaseType: (type: string) => void;
   
   // Evaluation state legacy support
   shouldStartEvaluation: boolean;
   setShouldStartEvaluation: (shouldStart: boolean) => void;
   evaluationProgress: number;
   setEvaluationProgress: (progress: number) => void;
-  currentTestCaseIndex: number;
-  setCurrentTestCaseIndex: (index: number) => void;
   
   // Use case functions
   updateSystemPromptForUseCase: (testCases: TestCase[]) => void;
 }
 
-export function useAnalysisState(useCaseType: string = Object.keys(USE_CASE_PROMPTS)[0] || 'original_system123_instructions'): UseAnalysisStateReturn {
+export function useAnalysisState(): UseAnalysisStateReturn {
   // Grouped state for better organization
   const [uiState, setUIState] = useState<UIState>({
     currentStep: 'sync',
@@ -140,58 +128,10 @@ export function useAnalysisState(useCaseType: string = Object.keys(USE_CASE_PROM
 
   const [selectionState, setSelectionState] = useState<SelectionState>({
     selectedTestCaseIndex: 0,
-    selectedUseCaseId: '',
     selectedScenarioCategory: '',
     selectedCriteriaId: '',
-    selectedSystemPrompt: '',
-    currentUseCaseType: useCaseType,
+    selectedSystemPrompt: ''
   });
-
-  // Memoized use case configuration - uses shared constants
-  const useCaseConfig = useMemo(() => {
-    // Use exact matching based on USE_CASE_PROMPTS keys from shared constants
-    return { 
-      USE_CASE_PROMPTS, 
-      USE_CASE_TYPES: Object.keys(USE_CASE_PROMPTS),
-      DEFAULT_USE_CASE: Object.keys(USE_CASE_PROMPTS)[0] || 'original_system123_instructions'
-    };
-  }, []);
-
-  // Optimized use case detection with exact matching
-  const determineUseCase = useMemo(() => {
-    return (testCases: TestCase[]): string => {
-      if (!testCases?.length) return useCaseConfig.DEFAULT_USE_CASE;
-      
-      const firstTestCase = testCases[0];
-      
-      // Check for exact useCase match first
-      if (firstTestCase.useCase) {
-        const useCaseValue = firstTestCase.useCase.toLowerCase().trim();
-        if (useCaseConfig.USE_CASE_TYPES.includes(useCaseValue)) {
-          return useCaseValue;
-        }
-      }
-      
-      // Check for exact match in use_case_title if available
-      if (firstTestCase.use_case_title) {
-        const titleValue = firstTestCase.use_case_title.toLowerCase().trim();
-        if (useCaseConfig.USE_CASE_TYPES.includes(titleValue)) {
-          return titleValue;
-        }
-      }
-      
-      return useCaseConfig.DEFAULT_USE_CASE;
-    };
-  }, [useCaseConfig]);
-
-
-  // Initialize system prompt
-  useEffect(() => {
-    const prompt = useCaseConfig.USE_CASE_PROMPTS[selectionState.currentUseCaseType as keyof typeof useCaseConfig.USE_CASE_PROMPTS];
-    if (prompt && !selectionState.selectedSystemPrompt) {
-      setSelectionState(prev => ({ ...prev, selectedSystemPrompt: prompt }));
-    }
-  }, [selectionState.currentUseCaseType, useCaseConfig, selectionState.selectedSystemPrompt]);
 
   // Helper functions for state updates
   const updateUIState = useCallback((updates: Partial<UIState>) => {
@@ -231,22 +171,12 @@ export function useAnalysisState(useCaseType: string = Object.keys(USE_CASE_PROM
 
   // Selection setters
   const setSelSelectedTestCaseIndex = useCallback((index: number) => updateSelectionState({ selectedTestCaseIndex: index }), [updateSelectionState]);
-  const setSelSelectedUseCaseId = useCallback((id: string) => updateSelectionState({ selectedUseCaseId: id }), [updateSelectionState]);
   const setSelSelectedScenarioCategory = useCallback((category: string) => updateSelectionState({ selectedScenarioCategory: category }), [updateSelectionState]);
   const setSelSelectedCriteriaId = useCallback((id: string) => updateSelectionState({ selectedCriteriaId: id }), [updateSelectionState]);
   const setSelSelectedSystemPrompt = useCallback((prompt: string) => updateSelectionState({ selectedSystemPrompt: prompt }), [updateSelectionState]);
-  const setSelCurrentUseCaseType = useCallback((type: string) => updateSelectionState({ currentUseCaseType: type }), [updateSelectionState]);
   
   const updateSystemPromptForUseCase = useCallback((testCases: TestCase[]) => {
-    if (!useCaseConfig.USE_CASE_TYPES.includes(useCaseType)) return;
-    const detectedUseCase = determineUseCase(testCases);
-    const prompt = useCaseConfig.USE_CASE_PROMPTS[detectedUseCase as keyof typeof useCaseConfig.USE_CASE_PROMPTS];
-    setSelectionState(prev => ({
-      ...prev,
-      currentUseCaseType: detectedUseCase,
-      selectedSystemPrompt: prompt || ''
-    }));
-  }, [determineUseCase, setSelectionState, useCaseConfig, useCaseType]);
+  }, [setSelectionState]);
   
 
   // Organized return object
@@ -282,12 +212,10 @@ export function useAnalysisState(useCaseType: string = Object.keys(USE_CASE_PROM
     ...selectionState,
     update: updateSelectionState,
     setSelectedTestCaseIndex: setSelSelectedTestCaseIndex,
-    setSelectedUseCaseId: setSelSelectedUseCaseId,
     setSelectedScenarioCategory: setSelSelectedScenarioCategory,
     setSelectedCriteriaId: setSelSelectedCriteriaId,
     setSelectedSystemPrompt: setSelSelectedSystemPrompt,
-    setCurrentUseCaseType: setSelCurrentUseCaseType,
-  }), [selectionState, updateSelectionState, setSelSelectedTestCaseIndex, setSelSelectedUseCaseId, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedSystemPrompt, setSelCurrentUseCaseType]);
+  }), [selectionState, updateSelectionState, setSelSelectedTestCaseIndex, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedSystemPrompt]);
 
   
   const api = useMemo(() => ({
@@ -295,7 +223,7 @@ export function useAnalysisState(useCaseType: string = Object.keys(USE_CASE_PROM
     data: dataApi,
     evaluation: evaluationApi,
     selection: selectionApi,
-    useCase: { updateSystemPromptForUseCase, determineUseCase },
+    useCase: { updateSystemPromptForUseCase },
     currentStep: uiState.currentStep,
     setCurrentStep: setUICurrentStep,
     isLoading: uiState.isLoading,
@@ -318,16 +246,12 @@ export function useAnalysisState(useCaseType: string = Object.keys(USE_CASE_PROM
     // ===== Legacy: Selection =====
     selectedTestCaseIndex: selectionState.selectedTestCaseIndex,
     setSelectedTestCaseIndex: setSelSelectedTestCaseIndex,
-    selectedUseCaseId: selectionState.selectedUseCaseId,
-    setSelectedUseCaseId: setSelSelectedUseCaseId,
     selectedScenarioCategory: selectionState.selectedScenarioCategory,
     setSelectedScenarioCategory: setSelSelectedScenarioCategory,
     selectedCriteriaId: selectionState.selectedCriteriaId,
     setSelectedCriteriaId: setSelSelectedCriteriaId,
     selectedSystemPrompt: selectionState.selectedSystemPrompt,
     setSelectedSystemPrompt: setSelSelectedSystemPrompt,
-    currentUseCaseType: selectionState.currentUseCaseType,
-    setCurrentUseCaseType: setSelCurrentUseCaseType,
 
     // ===== Legacy: Evaluation =====
     shouldStartEvaluation: evaluationState.shouldStartEvaluation,
@@ -339,6 +263,6 @@ export function useAnalysisState(useCaseType: string = Object.keys(USE_CASE_PROM
 
     // ===== Legacy: Use case =====
     updateSystemPromptForUseCase,
-  }), [uiApi, dataApi, evaluationApi, selectionApi, updateSystemPromptForUseCase, uiState, setUICurrentStep, setUIIsLoading, setUIValidationError, setDataTestCases, setDataTestCasesWithModelOutputs, setDataCriteria, setDataOutcomes, setDataOutcomesWithModelComparison, setSelSelectedTestCaseIndex, setSelSelectedUseCaseId, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedSystemPrompt, setSelCurrentUseCaseType, setEvalShouldStart, setEvalProgress, setEvalCurrentIndex]);
+  }), [uiApi, dataApi, evaluationApi, selectionApi, updateSystemPromptForUseCase, uiState, setUICurrentStep, setUIIsLoading, setUIValidationError, setDataTestCases, setDataTestCasesWithModelOutputs, setDataCriteria, setDataOutcomes, setDataOutcomesWithModelComparison, setSelSelectedTestCaseIndex, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedSystemPrompt, setEvalShouldStart, setEvalProgress, setEvalCurrentIndex]);
   return api;
 } 

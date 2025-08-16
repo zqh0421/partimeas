@@ -13,7 +13,8 @@ import { AnalysisHeaderFull } from "@/app/components";
 import { GroupIdModal } from "@/app/components/GroupIdModal";
 import { TestCaseWithModelOutputs, ModelOutput } from "@/app/types";
 import { Assistant } from "@/app/types/admin";
-import { selectionCache } from "@/utils/selectionCache";
+import { selectionCache } from "@/app/utils/selectionCache";
+import { TEST_CASE_CONFIG } from "@/app/config/useCases";
 
 // Loading fallback component
 function LoadingFallback() {
@@ -53,15 +54,15 @@ function OutputAnalysisFullPageContent() {
     // Selection states
     selectedTestCaseIndex,
     setSelectedTestCaseIndex,
-    selectedUseCaseId,
-    setSelectedUseCaseId,
+    // selectedUseCaseId,
+    // setSelectedUseCaseId,
     selectedScenarioCategory,
     setSelectedScenarioCategory,
     selectedCriteriaId,
     setSelectedCriteriaId,
     selectedSystemPrompt,
     setSelectedSystemPrompt,
-    currentUseCaseType,
+    // currentUseCaseType,
     updateSystemPromptForUseCase,
 
     // Evaluation states
@@ -69,8 +70,6 @@ function OutputAnalysisFullPageContent() {
     setShouldStartEvaluation,
     evaluationProgress,
     setEvaluationProgress,
-    currentTestCaseIndex,
-    setCurrentTestCaseIndex,
 
     // Validation
     validationError,
@@ -117,7 +116,7 @@ function OutputAnalysisFullPageContent() {
 
   // Debug logging for configuration
   useEffect(() => {
-    console.log("Configuration Debug:", {
+    console.log("🔧 Configuration Debug:", {
       config,
       enableGroupIdCollection,
       configLoading,
@@ -136,12 +135,15 @@ function OutputAnalysisFullPageContent() {
     const savedGroupId = localStorage.getItem("partimeas_group_id");
     if (savedGroupId) {
       setCurrentGroupId(savedGroupId);
+      console.log("📋 Loaded group ID from localStorage:", savedGroupId);
+    } else {
+      console.log("📋 No saved group ID found in localStorage");
     }
   }, []);
 
   // Debug logging for group ID modal
   useEffect(() => {
-    console.log("Group ID Modal Debug:", {
+    console.log("🔍 Group ID Modal Debug:", {
       enableGroupIdCollection,
       currentGroupId,
       showGroupIdModal,
@@ -163,13 +165,12 @@ function OutputAnalysisFullPageContent() {
       setOutcomesWithModelComparison,
       setIsLoading,
       setCurrentStep,
-      setSelectedUseCaseId,
+      // setSelectedUseCaseId,
       setSelectedScenarioCategory,
       setSelectedCriteriaId,
       setValidationError,
       setShouldStartEvaluation,
       setSelectedTestCaseIndex,
-      setCurrentTestCaseIndex,
       setEvaluationProgress,
     },
     data: {
@@ -187,19 +188,30 @@ function OutputAnalysisFullPageContent() {
   useEffect(() => {
     const fetchActiveEvaluator = async () => {
       try {
+        console.log("🔍 Fetching active evaluation assistant...");
         const res = await fetch("/api/admin/assistants?type=evaluation");
         if (!res.ok) throw new Error("Failed to load assistants");
         const data = await res.json();
+        console.log("📋 Evaluation assistants response:", data);
+
         const active = (data.assistants || []).find(
           (a: Assistant) => a.required_to_show
         );
+        console.log("✅ Active evaluation assistant found:", active);
+
         // Always show evaluation features; toggle real vs mock
         setShowEvaluationFeatures(true);
         setIsRealEvaluation(Boolean(active));
+        console.log(
+          "🎯 Evaluation mode set to:",
+          Boolean(active) ? "REAL" : "MOCK"
+        );
       } catch (e) {
+        console.error("❌ Error fetching evaluation assistant:", e);
         // Fallback to mock evaluation UI
         setShowEvaluationFeatures(true);
         setIsRealEvaluation(false);
+        console.log("🔄 Falling back to mock evaluation mode");
       }
     };
     fetchActiveEvaluator();
@@ -224,17 +236,20 @@ function OutputAnalysisFullPageContent() {
 
   // Handle group ID confirmation
   const handleGroupIdConfirm = (groupId: string) => {
+    console.log("✅ Group ID confirmed:", groupId);
     setCurrentGroupId(groupId);
     setShowGroupIdModal(false);
 
     // Save to localStorage for persistence
     if (typeof window !== "undefined") {
       localStorage.setItem("partimeas_group_id", groupId);
+      console.log("💾 Group ID saved to localStorage");
     }
   };
 
   // Handle group ID modal cancel
   const handleGroupIdCancel = () => {
+    console.log("❌ Group ID modal cancelled");
     setShowGroupIdModal(false);
     // Reset to setup step if user cancels group ID entry
     setCurrentStep("sync");
@@ -242,19 +257,23 @@ function OutputAnalysisFullPageContent() {
     // Clear group ID from localStorage when user cancels
     if (typeof window !== "undefined") {
       localStorage.removeItem("partimeas_group_id");
+      console.log("🗑️ Group ID cleared from localStorage");
     }
     setCurrentGroupId(null);
   };
 
   // Function to clear group ID (for reset purposes)
   const clearGroupId = () => {
+    console.log("🗑️ Clearing group ID for reset");
     if (typeof window !== "undefined") {
       localStorage.removeItem("partimeas_group_id");
+      console.log("💾 Group ID removed from localStorage");
     }
     setCurrentGroupId(null);
     // Only show modal if hydrated to prevent SSR mismatch
     if (isHydrated) {
       setShowGroupIdModal(true); // Show modal again for new input
+      console.log("🔄 Group ID modal will be shown again");
     }
   };
 
@@ -273,6 +292,10 @@ function OutputAnalysisFullPageContent() {
 
   // Model output generation function
   const generateModelOutputs = async () => {
+    console.log("🚀 Starting model output generation...");
+    console.log("📊 Test cases to process:", testCases.length);
+    console.log("🔍 Current group ID:", currentGroupId);
+
     setIsGeneratingOutputs(true);
     setCurrentPhase("generating");
     setSelectedOutputModelIds([]);
@@ -280,11 +303,14 @@ function OutputAnalysisFullPageContent() {
     try {
       // Pre-seed loading placeholders from configured assistants to avoid empty state flicker
       try {
+        console.log("🔍 Fetching output generation assistants...");
         const assistantsRes = await fetch(
           "/api/admin/assistants?type=output_generation"
         );
         if (assistantsRes.ok) {
           const assistantsData = await assistantsRes.json();
+          console.log("📋 Output generation assistants:", assistantsData);
+
           const assistants = Array.isArray(assistantsData?.assistants)
             ? assistantsData.assistants
             : [];
@@ -296,18 +322,29 @@ function OutputAnalysisFullPageContent() {
             ...optional.slice(0, Math.max(0, desired - required.length)),
           ].slice(0, desired);
 
+          console.log(
+            "🎯 Selected assistants for output generation:",
+            selected
+          );
+
           // Flatten all model_ids from selected assistants into a single array
           const placeholderIds: string[] = selected.flatMap((a: any) =>
             Array.isArray(a.model_ids) ? a.model_ids : [a.id || "loading"]
           );
 
-          if (placeholderIds.length > 0)
+          if (placeholderIds.length > 0) {
             setSelectedOutputModelIds(placeholderIds);
+            console.log("📋 Set placeholder model IDs:", placeholderIds);
+          }
         } else {
+          console.log(
+            "⚠️ Failed to fetch assistants, using fallback placeholders"
+          );
           // Fallback placeholders
           setSelectedOutputModelIds(["loading-1", "loading-2"]);
         }
-      } catch {
+      } catch (error) {
+        console.error("❌ Error fetching assistants:", error);
         setSelectedOutputModelIds(["loading-1", "loading-2"]);
       }
 
@@ -320,6 +357,17 @@ function OutputAnalysisFullPageContent() {
       // Generate outputs for all test cases in parallel
       const outputPromises = testCases.map(async (testCase, index) => {
         try {
+          console.log(
+            `📤 Sending API request for test case ${index + 1}/${
+              testCases.length
+            }:`,
+            {
+              testCaseId: testCase.id,
+              useCase: testCase.useCase,
+              scenarioCategory: testCase.scenarioCategory,
+            }
+          );
+
           const response = await fetch("/api/model-evaluation", {
             method: "POST",
             headers: {
@@ -340,13 +388,24 @@ function OutputAnalysisFullPageContent() {
           const data = await response.json();
           console.log(
             `✅ Completed test case ${index + 1}/${testCases.length}:`,
-            data
+            {
+              testCaseId: testCase.id,
+              responseStatus: response.status,
+              hasOutputs: Array.isArray(data?.outputs),
+              outputsCount: data?.outputs?.length || 0,
+              sessionId: data?.sessionId,
+            }
           );
+
           // Capture the selected assistant models as soon as we get the first successful response
           if (
             Array.isArray(data?.selectedAssistantsModels) &&
             data.selectedAssistantsModels.length > 0
           ) {
+            console.log(
+              "🎯 Captured selected assistant models:",
+              data.selectedAssistantsModels
+            );
             setSelectedOutputModelIds((prev) =>
               prev && prev.length > 0 ? prev : data.selectedAssistantsModels
             );
@@ -385,7 +444,16 @@ function OutputAnalysisFullPageContent() {
         }
       });
 
+      console.log("⏳ Waiting for all output generation promises to settle...");
       const results = await Promise.allSettled(outputPromises);
+      console.log(
+        "📊 Output generation results:",
+        results.map((r, i) => ({
+          index: i,
+          status: r.status,
+          testCaseId: testCases[i]?.id,
+        }))
+      );
 
       // Process results and create TestCasesWithModelOutputs
       const processedTestCases: TestCaseWithModelOutputs[] = [];
@@ -407,7 +475,16 @@ function OutputAnalysisFullPageContent() {
               useCase: originalTestCase.useCase,
               scenarioCategory: originalTestCase.scenarioCategory,
             });
+            console.log(
+              `✅ Processed test case ${i + 1} with ${
+                modelOutputs.length
+              } outputs`
+            );
           } else {
+            console.log(
+              `⚠️ Test case ${i + 1} API response not successful:`,
+              apiResponse
+            );
             processedTestCases.push({
               id: originalTestCase.id,
               input: originalTestCase.input,
@@ -418,6 +495,7 @@ function OutputAnalysisFullPageContent() {
             });
           }
         } else {
+          console.log(`❌ Test case ${i + 1} failed:`, result.reason);
           // Create empty structure for failed test cases
           processedTestCases.push({
             id: originalTestCase.id,
@@ -430,7 +508,15 @@ function OutputAnalysisFullPageContent() {
         }
       }
 
-      console.log("📋 Created testCasesWithModelOutputs:", processedTestCases);
+      console.log("📋 Created testCasesWithModelOutputs:", {
+        total: processedTestCases.length,
+        withOutputs: processedTestCases.filter(
+          (tc) => tc.modelOutputs.length > 0
+        ).length,
+        withoutOutputs: processedTestCases.filter(
+          (tc) => tc.modelOutputs.length === 0
+        ).length,
+      });
 
       setLocalTestCasesWithModelOutputs(processedTestCases);
       setCurrentPhase("evaluating");
@@ -478,12 +564,16 @@ function OutputAnalysisFullPageContent() {
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Load real evaluation criteria first
-        console.log("📋 Loading evaluation criteria...");
+        console.log(
+          "📋 Loading evaluation criteria from /api/criteria-data..."
+        );
         const criteriaResponse = await fetch("/api/criteria-data");
         if (!criteriaResponse.ok) {
           throw new Error("Failed to load evaluation criteria");
         }
         const criteriaData = await criteriaResponse.json();
+        console.log("📋 Raw criteria data received:", criteriaData);
+
         const rawCriteria = criteriaData.criteria || [];
 
         // Flatten the hierarchical criteria structure for the evaluation API
@@ -519,7 +609,13 @@ function OutputAnalysisFullPageContent() {
         // Call API to perform real evaluations using active evaluator assistant
         const evaluationPromises = testCasesWithOutputs.map(
           async (testCase, index) => {
-            console.log(`📋 Evaluating test case ${index + 1}:`, testCase.id);
+            console.log(`📋 Evaluating test case ${index + 1}:`, {
+              testCaseId: testCase.id,
+              useCase: testCase.useCase,
+              scenarioCategory: testCase.scenarioCategory,
+              outputsCount: testCase.modelOutputs?.length || 0,
+            });
+
             if (!testCase.modelOutputs || testCase.modelOutputs.length === 0) {
               console.log(`⚠️ Test case ${index + 1} has no model outputs`);
               return { testCaseIndex: index, evaluatedOutputs: [] };
@@ -528,21 +624,26 @@ function OutputAnalysisFullPageContent() {
             console.log(
               `📤 Sending evaluation request for test case ${index + 1} with ${
                 testCase.modelOutputs.length
-              } outputs`
+              } outputs to /api/evaluation-results`
             );
+
+            const evaluationPayload = {
+              testCase: {
+                input: testCase.input,
+                context: testCase.context,
+                useCase: testCase.useCase,
+                useContext: testCase.scenarioCategory,
+              },
+              criteria: evaluationCriteria, // Use real criteria instead of empty array
+              modelOutputs: testCase.modelOutputs,
+            };
+
+            console.log("📤 Evaluation payload:", evaluationPayload);
+
             const response = await fetch("/api/evaluation-results", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                testCase: {
-                  input: testCase.input,
-                  context: testCase.context,
-                  useCase: testCase.useCase,
-                  useContext: testCase.scenarioCategory,
-                },
-                criteria: evaluationCriteria, // Use real criteria instead of empty array
-                modelOutputs: testCase.modelOutputs,
-              }),
+              body: JSON.stringify(evaluationPayload),
             });
 
             console.log(
@@ -554,7 +655,11 @@ function OutputAnalysisFullPageContent() {
               throw new Error(err.error || `HTTP ${response.status}`);
             }
             const data = await response.json();
-            console.log(`✅ Evaluation data for test case ${index + 1}:`, data);
+            console.log(`✅ Evaluation data for test case ${index + 1}:`, {
+              hasEvaluations: Array.isArray(data?.evaluations),
+              evaluationsCount: data?.evaluations?.length || 0,
+              responseData: data,
+            });
 
             // Update progress for this test case evaluation
             const progress =
@@ -578,18 +683,37 @@ function OutputAnalysisFullPageContent() {
           let evaluatedOutputs = tc.modelOutputs;
           if (res.status === "fulfilled") {
             const payload = res.value.data;
+            console.log(
+              `📋 Processing evaluation result for test case ${idx + 1}:`,
+              {
+                hasEvaluations: Array.isArray(payload?.evaluations),
+                evaluationsCount: payload?.evaluations?.length || 0,
+              }
+            );
+
             // If server returned rubric-like scores, attach to modelOutputs if possible
             if (payload?.evaluations && Array.isArray(payload.evaluations)) {
               evaluatedOutputs = tc.modelOutputs.map((mo) => {
                 const match = payload.evaluations.find(
                   (e: any) => e.modelId === mo.modelId
                 );
+                if (match) {
+                  console.log(
+                    `✅ Found evaluation match for model ${mo.modelId}:`,
+                    match
+                  );
+                }
                 return {
                   ...mo,
                   rubricScores: match?.criteriaScores || mo.rubricScores || {},
                 } as any;
               });
             }
+          } else {
+            console.log(
+              `❌ Evaluation failed for test case ${idx + 1}:`,
+              res.reason
+            );
           }
           return {
             testCaseId: tc.id,
@@ -653,14 +777,25 @@ function OutputAnalysisFullPageContent() {
   };
 
   const handleConfirmSelections = () => {
+    console.log("✅ Confirm selections clicked");
+    console.log("🔍 Current selections:", {
+      useCaseName: TEST_CASE_CONFIG.name,
+      testCasesCount: testCases.length,
+      selectedTestCaseIndex,
+      selectedScenarioCategory,
+      selectedCriteriaId,
+    });
+
     // Check if we have current selections
-    if (!selectedUseCaseId || testCases.length === 0) {
+    if (!TEST_CASE_CONFIG.name || testCases.length === 0) {
+      console.log("❌ Validation failed: missing use case or test cases");
       setValidationError(
         "Please select a use case and ensure test cases are loaded."
       );
       return;
     }
 
+    console.log("✅ Validation passed, starting evaluation");
     setValidationError("");
     setHasStartedEvaluation(true);
     setIsStep1Collapsed(true);
@@ -669,6 +804,8 @@ function OutputAnalysisFullPageContent() {
 
   // Custom restart handler
   const handleRestart = () => {
+    console.log("🔄 Restart requested - clearing all state");
+
     // Reset all state
     setTestCases([]);
     setTestCasesWithModelOutputs([]);
@@ -676,14 +813,14 @@ function OutputAnalysisFullPageContent() {
     setCriteria([]);
     setOutcomes([]);
     setOutcomesWithModelComparison([]);
-    setSelectedUseCaseId("");
+    // setSelectedUseCaseId("");
     setSelectedScenarioCategory("");
     setSelectedCriteriaId("");
     setSelectedSystemPrompt("");
     setValidationError("");
     setShouldStartEvaluation(false);
     setEvaluationProgress(0);
-    setCurrentTestCaseIndex(0);
+    // setCurrentTestCaseIndex(0);
     setSelectedTestCaseIndex(0);
 
     // Reset analysis state
@@ -702,6 +839,7 @@ function OutputAnalysisFullPageContent() {
     // Go back to first step
     setCurrentStep("sync");
 
+    console.log("🔄 Refreshing page for clean state");
     // Refresh the page to ensure clean state
     if (
       typeof window !== "undefined" &&
@@ -736,6 +874,11 @@ function OutputAnalysisFullPageContent() {
   // Effect to start model output generation when evaluation starts
   useEffect(() => {
     if (hasStartedEvaluation && !isGeneratingOutputs && testCases.length > 0) {
+      console.log("🚀 Effect triggered: starting model output generation", {
+        hasStartedEvaluation,
+        isGeneratingOutputs,
+        testCasesCount: testCases.length,
+      });
       generateModelOutputs();
     }
   }, [hasStartedEvaluation, isGeneratingOutputs, testCases.length]);
@@ -744,6 +887,11 @@ function OutputAnalysisFullPageContent() {
   useEffect(() => {
     if (currentStep !== "outcomes") {
       if (outcomesWithModelComparison.length > 0 || outcomes.length > 0) {
+        console.log("🔄 Navigating to outcomes step", {
+          outcomesWithModelComparisonCount: outcomesWithModelComparison.length,
+          outcomesCount: outcomes.length,
+          currentStep,
+        });
         setCurrentStep("outcomes");
         setShouldStartEvaluation(false);
       }
@@ -763,26 +911,30 @@ function OutputAnalysisFullPageContent() {
   useEffect(() => {
     const hasCache = selectionCache.hasCache();
     setHasCachedSelections(hasCache);
+    console.log("🔍 Selection cache check:", {
+      hasCache,
+      testCasesCount: testCases.length,
+    });
 
     // If there are cached selections but no current selections, restore them automatically
-    if (hasCache && !selectedUseCaseId && testCases.length === 0) {
+    if (hasCache && testCases.length === 0) {
+      console.log("🔄 Restoring cached selections");
       const restored = selectionCache.restoreSelections();
       if (restored && restored.selections.length > 0) {
+        console.log("✅ Cached selections restored:", restored);
         // Trigger the selection change handlers to restore the state
         if (handlers.handleMultiLevelSelectionChange) {
           handlers.handleMultiLevelSelectionChange(restored.selections);
         }
       }
     }
-  }, [
-    selectedUseCaseId,
-    testCases.length,
-    handlers.handleMultiLevelSelectionChange,
-  ]);
+  }, [testCases.length, handlers.handleMultiLevelSelectionChange]);
 
   // Only show confirm button when there are current selections with preview
   // Cached selections alone are not sufficient - user must make current selections
-  const hasValidSelections = Boolean(selectedUseCaseId && testCases.length > 0);
+  const hasValidSelections = Boolean(
+    TEST_CASE_CONFIG.name && testCases.length > 0
+  );
 
   // Create steps for the vertical stepper
   const steps = [

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/config/database';
+import { sql } from '@/app/config/database';
 import { MODEL_CONFIGS, OPENROUTER_MODELS } from '@/app/api/shared/constants';
 
 // GET /api/models?provider=

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/config/database';
+import { sql } from '@/app/config/database';
 import { Assistant, AssistantModel } from '@/app/types/admin';
 
 function isValidUuid(value: string | undefined | null): boolean {

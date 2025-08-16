@@ -4,7 +4,7 @@ import {
   getRecentSessions, 
   getSessionStats,
   searchSessionsByPrompt 
-} from '@/utils/sessionManager';
+} from '@/app/utils/sessionManager';
 
 // GET endpoint to retrieve session data
 export async function GET(request: NextRequest) {
@@ -112,7 +112,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
     
-    const { deleteSession } = await import('@/utils/sessionManager');
+    const { deleteSession } = await import('@/app/utils/sessionManager');
     const deleted = await deleteSession(sessionId);
     
     if (!deleted) {

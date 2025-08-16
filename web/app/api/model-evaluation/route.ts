@@ -4,7 +4,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import Anthropic from '@anthropic-ai/sdk';
-import { sql } from '@/config/database';
+import { sql } from '@/app/config/database';
 import { traceable } from "langsmith/traceable";
 // No constant-based model configs or prompts: use DB only
 

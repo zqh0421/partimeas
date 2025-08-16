@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadCriteria, validateCriteria } from '@/utils/criteriaReader';
-import { CRITERIA_CONFIGS } from '@/config/criteria';
-import { getGoogleAccessToken } from '@/utils/googleAuth';
+import { loadCriteria, validateCriteria } from '@/app/utils/criteriaReader';
+import { CRITERIA_CONFIGS } from '@/app/config/criteria';
+import { getGoogleAccessToken } from '@/app/utils/googleAuth';
 
 export async function GET(request: NextRequest) {
   try {

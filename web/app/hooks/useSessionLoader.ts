@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { SessionWithResponses } from '@/utils/sessionManager';
+import { SessionWithResponses } from '@/app/utils/sessionManager';
 
 export interface UseSessionLoaderReturn {
   sessionId: string | null;

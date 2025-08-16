@@ -8,7 +8,7 @@ import {
   useEffect,
 } from "react";
 import { CheckIcon } from "@/app/components/icons";
-import { STEP_COLORS, ANIMATIONS, themeUtils } from "@/utils/theme";
+import { STEP_COLORS, ANIMATIONS, themeUtils } from "@/app/utils/theme";
 
 // Type definitions
 interface LoadingContextType {

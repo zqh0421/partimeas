@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/config/database';
+import { sql } from '@/app/config/database';
 
 // Get configuration values by name
 export async function GET(request: NextRequest) {

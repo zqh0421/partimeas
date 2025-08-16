@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/utils/database';
+import { db } from '@/app/utils/database';
 
 // Get a specific system prompt by ID
 export async function GET(

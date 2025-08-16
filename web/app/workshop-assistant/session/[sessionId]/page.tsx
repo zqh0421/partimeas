@@ -4,7 +4,7 @@ import VerticalStepper from "@/app/components/steps/VerticalStepper";
 import { RefreshIcon } from "@/app/components/icons";
 import SessionHeader from "@/app/components/SessionHeader";
 import { TestCase, TestCaseWithModelOutputs } from "@/app/types";
-import type { SessionWithResponses } from "@/utils/sessionManager";
+import type { SessionWithResponses } from "@/app/utils/sessionManager";
 import { useRouter } from "next/navigation";
 import TestCaseNavigation from "@/app/components/TestCaseNavigation";
 import ModelOutputsGrid from "@/app/components/ModelOutputsGrid";

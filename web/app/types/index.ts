@@ -227,15 +227,9 @@ export interface RubricVersion {
   history: HistoryEntry[];
 }
 
-export interface UseCaseConfig {
-  id: string;
-  name: string;
-  description: string;
+export interface TestCaseConfig {
   spreadsheetId: string;
   sheetName: string;
-  category: string;
-  tags: string[];
-  dataType: string;
 }
 
 export interface CriteriaConfig {
