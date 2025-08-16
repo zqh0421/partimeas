@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import RubricEvaluator from "@/app/components/RubricEvaluator";
-import { ModelComparisonEvaluator } from "@/app/components";
+// import { ModelComparisonEvaluator } from "@/app/components";
 import ModelOutputsGrid from "@/app/components/ModelOutputsGrid";
 import { TestCase, TestCaseWithModelOutputs, ModelOutput } from "@/app/types";
 // No longer import constants from API; UI receives dynamic selection via props
@@ -89,15 +89,6 @@ export default function AnalysisStep({
           testCases={testCases}
           shouldStart={shouldStartEvaluation}
           onEvaluationComplete={onEvaluationComplete}
-          onError={onEvaluationError}
-          onProgress={onEvaluationProgress}
-        />
-
-        <ModelComparisonEvaluator
-          testCases={testCasesWithModelOutputs}
-          systemPrompt={selectedSystemPrompt}
-          shouldStart={shouldStartEvaluation}
-          onEvaluationComplete={onModelComparisonEvaluationComplete}
           onError={onEvaluationError}
           onProgress={onEvaluationProgress}
         />

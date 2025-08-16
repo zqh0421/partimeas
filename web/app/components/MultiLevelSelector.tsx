@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { USE_CASE_CONFIGS } from "@/config/useCases";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -15,7 +14,7 @@ import {
   clearSelectionCache,
   Selection,
   selectionCache,
-} from "@/utils/selectionCache";
+} from "@/app/utils/selectionCache";
 
 interface UseCaseInfo {
   id: string;
@@ -43,10 +42,10 @@ export default function MultiLevelSelector({
   onError: (error: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [useCases, setUseCases] = useState<UseCaseInfo[]>([]);
   const [useCaseData, setUseCaseData] = useState<Record<string, UseCaseData>>(
     {}
   );
+  const [useCases, setUseCases] = useState<UseCaseInfo[]>([]);
   const [selections, setSelections] = useState<Selection[]>([]);
   const [expandedUseCases, setExpandedUseCases] = useState<Set<string>>(
     new Set()
@@ -75,8 +74,9 @@ export default function MultiLevelSelector({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const isUseCaseSelected = (useCaseId: string): boolean =>
-    selections.some((selection) => selection.useCaseId === useCaseId);
+  const isUseCaseSelected = (useCaseId: string): boolean => {
+    return selections.some((s) => s.useCaseId === useCaseId);
+  };
 
   const isScenarioCategorySelected = (
     useCaseId: string,
@@ -104,7 +104,6 @@ export default function MultiLevelSelector({
     setSelections([]);
     onSelectionChange([]);
     onDataLoaded([]);
-    // 清除缓存的选择状态
     clearSelectionCache();
     console.log("[MultiLevelSelector] Cleared selections and cache");
   };
@@ -113,15 +112,23 @@ export default function MultiLevelSelector({
     testCases: any[],
     useCaseInfo: UseCaseInfo
   ): UseCaseData => {
+    console.log(
+      `[MultiLevelSelector] Organizing ${testCases.length} test cases for use case: ${useCaseInfo.name}`
+    );
+    console.log(`[MultiLevelSelector] Sample test case:`, testCases[0]);
+
     const scenarioCategories: Record<string, ScenarioCategory> = {};
 
-    testCases.forEach((testCase) => {
-      const categoryId =
-        testCase.scenarioCategory || testCase.scenario_category || "default";
-      const categoryName =
-        testCase.scenarioCategoryName ||
-        testCase.scenario_category_name ||
-        categoryId;
+    testCases.forEach((testCase, index) => {
+      console.log(
+        `[MultiLevelSelector] Processing test case ${index}:`,
+        testCase
+      );
+
+      // Use category from spreadsheet as the main grouping, fallback to context
+      const categoryId = testCase.context;
+
+      const categoryName = categoryId;
 
       if (!scenarioCategories[categoryId]) {
         scenarioCategories[categoryId] = {
@@ -146,6 +153,20 @@ export default function MultiLevelSelector({
       scenarioCategories[categoryId].testCases.push(processedTestCase);
     });
 
+    console.log(
+      `[MultiLevelSelector] Created ${
+        Object.keys(scenarioCategories).length
+      } scenario categories for use case ${useCaseInfo.name}:`,
+      Object.keys(scenarioCategories)
+    );
+
+    // Log each category with its test case count
+    Object.entries(scenarioCategories).forEach(([categoryId, category]) => {
+      console.log(
+        `[MultiLevelSelector] Category "${categoryId}": ${category.testCases.length} test cases`
+      );
+    });
+
     return {
       ...useCaseInfo,
       scenarioCategories,
@@ -160,87 +181,96 @@ export default function MultiLevelSelector({
     }
 
     try {
-      const firstConfig = USE_CASE_CONFIGS[0];
-      if (!firstConfig) {
-        throw new Error("No use case configuration found");
-      }
-
-      const response = await fetch(
-        `/api/use-case-data?useCaseId=${firstConfig.id}`
-      );
+      const response = await fetch("/api/test-cases");
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to load use case data");
+        throw new Error(data.error || "Failed to load test case data");
       }
 
-      if (data.success && data.testCases) {
-        const useCaseMap = new Map<string, UseCaseInfo>();
-        const organizedData: Record<string, UseCaseData> = {};
+      if (data.success && data.useCases) {
+        console.log(
+          `[MultiLevelSelector] Loaded ${data.useCases.length} use cases from API`
+        );
+        console.log(`[MultiLevelSelector] Sample use case:`, data.useCases[0]);
 
-        data.testCases.forEach((testCase: any) => {
-          // Prioritize enriched use case data from database
-          let index, title, description;
+        // Convert API use cases to our internal format
+        const apiUseCases: UseCaseInfo[] = data.useCases.map(
+          (apiUseCase: any) => ({
+            id:
+              apiUseCase.id ||
+              apiUseCase.title?.replace(/\s+/g, "-").toLowerCase() ||
+              `uc-${Date.now()}`,
+            name: apiUseCase.title || apiUseCase.name || "Unnamed Use Case",
+            description: apiUseCase.description || "",
+            index: apiUseCase.index || "1",
+          })
+        );
 
-          if (testCase.useCase) {
-            // Use enriched data from database
-            index = testCase.useCase.use_case_index;
-            title = testCase.useCase.use_case_title;
-            description = testCase.useCase.use_case_description;
+        console.log(
+          `[MultiLevelSelector] Converted ${apiUseCases.length} use cases:`,
+          apiUseCases.map((uc) => uc.name)
+        );
+        setUseCases(apiUseCases);
+
+        // If we have test cases, organize them by use case
+        if (data.testCases && data.testCases.length > 0) {
+          console.log(
+            `[MultiLevelSelector] Processing ${data.testCases.length} test cases`
+          );
+
+          const organizedData: Record<string, UseCaseData> = {};
+
+          apiUseCases.forEach((useCase) => {
             console.log(
-              `[MultiLevelSelector] Using enriched use case data: ${title} (index: ${index})`
+              `[MultiLevelSelector] Processing use case: ${useCase.name} (${useCase.id})`
             );
-          } else {
-            // Fallback to spreadsheet data
-            index = testCase.use_case_index;
-            title = testCase.use_case_title;
-            description = testCase.use_case_description;
-            console.log(
-              `[MultiLevelSelector] Using spreadsheet use case data: ${
-                title || "No title"
-              } (index: ${index})`
-            );
-          }
 
-          if (index && title) {
-            const useCaseId = `${index}-${title
-              .replace(/\s+/g, "-")
-              .toLowerCase()}`;
-            if (!useCaseMap.has(useCaseId)) {
-              useCaseMap.set(useCaseId, {
-                id: useCaseId,
-                name: title,
-                description: description || "",
-                index,
-              });
+            // Since there's only one use case, all test cases belong to it
+            const useCaseTestCases = data.testCases;
+
+            console.log(
+              `[MultiLevelSelector] Found ${useCaseTestCases.length} test cases for use case ${useCase.name}`
+            );
+
+            if (useCaseTestCases.length === 0) {
+              console.log(
+                `[MultiLevelSelector] No test cases found for use case ${useCase.name}, creating empty category`
+              );
             }
-          }
-        });
 
-        const uniqueUseCases = Array.from(useCaseMap.values());
-        setUseCases(uniqueUseCases);
-
-        uniqueUseCases.forEach((useCase) => {
-          const useCaseTestCases = data.testCases.filter((testCase: any) => {
-            const testCaseId = `${
-              testCase.use_case_index
-            }-${testCase.use_case_title?.replace(/\s+/g, "-").toLowerCase()}`;
-            return testCaseId === useCase.id;
+            organizedData[useCase.id] = organizeUseCaseData(
+              useCaseTestCases,
+              useCase
+            );
           });
 
-          organizedData[useCase.id] = organizeUseCaseData(
-            useCaseTestCases,
-            useCase
+          setUseCaseData(organizedData);
+          console.log(organizedData);
+          console.log(
+            `[MultiLevelSelector] Organized data for ${
+              Object.keys(organizedData).length
+            } use cases`
           );
-        });
+        } else {
+          // No test cases, create empty use case data
+          const organizedData: Record<string, UseCaseData> = {};
+          apiUseCases.forEach((useCase) => {
+            organizedData[useCase.id] = {
+              ...useCase,
+              scenarioCategories: {},
+            };
+          });
+          setUseCaseData(organizedData);
+        }
 
-        setUseCaseData(organizedData);
         setLastUpdateTime(new Date());
       } else {
-        throw new Error(data.error || "Failed to load data");
+        throw new Error(data.error || "Failed to load use case data");
       }
     } catch (error) {
-      onErrorRef.current?.(`Failed to load use case data: ${error}`);
+      console.error("[MultiLevelSelector] Error loading data:", error);
+      onErrorRef.current?.(`Failed to load test case data: ${error}`);
     } finally {
       setIsLoadingSpreadsheet(false);
       setIsRefreshing(false);
@@ -263,7 +293,6 @@ export default function MultiLevelSelector({
     setExpandedUseCases(new Set());
     setUseCaseData({});
     onDataLoaded([]);
-    // 清除缓存的选择状态
     clearSelectionCache();
     console.log("[MultiLevelSelector] Refreshed and cleared cache");
     loadAllUseCaseData(true);
@@ -312,7 +341,7 @@ export default function MultiLevelSelector({
       setSelections(newSelections);
       onSelectionChange(newSelections);
 
-      // 自动保存选择状态到缓存
+      // Automatically save selection state to cache
       saveSelections(newSelections, expandedUseCases);
 
       // Create a Set to avoid duplicate test cases by ID
@@ -336,7 +365,7 @@ export default function MultiLevelSelector({
     }
   };
 
-  // 恢复缓存的选择状态
+  // Restore cached selection state
   useEffect(() => {
     const restored = restoreSelections();
     if (restored) {
@@ -346,9 +375,9 @@ export default function MultiLevelSelector({
         "[MultiLevelSelector] Restored cached selections and expanded states"
       );
 
-      // 当缓存恢复后，需要重新加载对应的测试用例数据
+      // When cache is restored, need to reload corresponding test case data
       if (restored.selections.length > 0) {
-        // 延迟执行，确保useCaseData已经加载完成
+        // Delay execution to ensure useCaseData has finished loading
         setTimeout(() => {
           const uniqueTestCasesMap = new Map<string, TestCase>();
           restored.selections.forEach((selection) => {
@@ -378,7 +407,7 @@ export default function MultiLevelSelector({
     }
   }, [useCaseData, onDataLoaded]);
 
-  // 监听展开状态变化并保存缓存
+  // Listen for expansion state changes and save to cache
   useEffect(() => {
     if (selections.length > 0 || expandedUseCases.size > 0) {
       saveSelections(selections, expandedUseCases);
@@ -386,6 +415,9 @@ export default function MultiLevelSelector({
   }, [expandedUseCases, selections]);
 
   useEffect(() => {
+    console.log(
+      "[MultiLevelSelector] Component mounted, calling loadAllUseCaseData"
+    );
     loadAllUseCaseData();
   }, [loadAllUseCaseData]);
 
@@ -450,7 +482,7 @@ export default function MultiLevelSelector({
                     </div>
                   ) : useCases.length === 0 ? (
                     <div className="py-4 text-gray-500 text-sm">
-                      No use cases found
+                      No use cases found.
                     </div>
                   ) : (
                     useCases.map((useCase) => (

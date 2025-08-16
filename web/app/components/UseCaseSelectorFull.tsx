@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { USE_CASE_CONFIGS } from '@/config/useCases';
-import { TestCase, UseCaseConfig } from '@/types';
+import { useState, useEffect, useCallback } from "react";
+import { TEST_CASE_CONFIG } from "@/app/config/useCases";
+import { TestCase, TestCaseConfig } from "@/app/types";
 
 interface UseCaseSelectorProps {
   onUseCaseSelected: (useCaseId: string) => void;
@@ -13,19 +13,17 @@ interface UseCaseSelectorProps {
 }
 
 interface HierarchicalData {
-  useCases: {
-    [useCaseId: string]: {
-      name: string;
-      description: string;
-      sheetUseCaseId?: string;
-      sheetUseCaseDescription?: string;
-      sheetUseCaseTitle?: string;
-      sheetUseCaseIndex?: string;
-      scenarioCategories: {
-        [categoryId: string]: {
-          name: string;
-          testCases: TestCase[];
-        };
+  [useCaseId: string]: {
+    name: string;
+    description: string;
+    sheetUseCaseId?: string;
+    sheetUseCaseDescription?: string;
+    sheetUseCaseTitle?: string;
+    sheetUseCaseIndex?: string;
+    scenarioCategories: {
+      [categoryId: string]: {
+        name: string;
+        testCases: TestCase[];
       };
     };
   };
@@ -35,165 +33,165 @@ export default function UseCaseSelector({
   onUseCaseSelected,
   onScenarioCategorySelected,
   onDataLoaded,
-  onError
+  onError,
 }: UseCaseSelectorProps) {
-  const [selectedUseCase, setSelectedUseCase] = useState<string>('');
-  const [selectedScenarioCategory, setSelectedScenarioCategory] = useState<string>('');
+  // const [selectedUseCase, setSelectedUseCase] = useState<string>("");
+  const [selectedScenarioCategory, setSelectedScenarioCategory] =
+    useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-  const [useCases, setUseCases] = useState<UseCaseConfig[]>([]);
-  const [hierarchicalData, setHierarchicalData] = useState<HierarchicalData>({ useCases: {} });
+  const [hierarchicalData, setHierarchicalData] = useState<HierarchicalData>(
+    {}
+  );
 
-  const handleUseCaseSelect = useCallback(async (useCaseId: string) => {
-    setSelectedUseCase(useCaseId);
-    setSelectedScenarioCategory('');
-    setIsLoading(true);
+  const handleUseCaseSelect = useCallback(
+    async (useCaseId: string) => {
+      // setSelectedUseCase(useCaseId);
+      setSelectedScenarioCategory("");
+      // setIsLoading(true);
 
-    try {
-      const response = await fetch(`/api/use-case-data?useCaseId=${useCaseId}`);
-      const data = await response.json();
+      try {
+        const response = await fetch(`/api/test-cases`);
+        const data = await response.json();
+        console.log("[UseCaseSelectorFull] Data:", data);
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load use case data");
+        }
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to load use case data');
+        if (data.success && data.testCases) {
+          // Organize data hierarchically
+          const hierarchical = organizeDataHierarchically(
+            data.testCases,
+            useCaseId
+          );
+          setHierarchicalData(hierarchical);
+          onUseCaseSelected(useCaseId);
+        } else {
+          throw new Error(data.error || "Failed to load data");
+        }
+      } catch (error) {
+        onError(`Failed to load use case data: ${error}`);
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [onUseCaseSelected, onError]
+  );
 
-      if (data.success && data.testCases) {
-        // Organize data hierarchically
-        const hierarchical = organizeDataHierarchically(data.testCases, useCaseId);
-        setHierarchicalData(hierarchical);
-        onUseCaseSelected(useCaseId);
-      } else {
-        throw new Error(data.error || 'Failed to load data');
-      }
-    } catch (error) {
-      onError(`Failed to load use case data: ${error}`);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [onUseCaseSelected, onError]);
-
-  const organizeDataHierarchically = (testCases: any[], useCaseId: string): HierarchicalData => {
-    const useCase = USE_CASE_CONFIGS.find(uc => uc.id === useCaseId);
-    const useCaseName = useCase?.name || useCaseId;
-    const useCaseDescription = useCase?.description || '';
+  const organizeDataHierarchically = (
+    testCases: any[],
+    useCaseId: string
+  ): HierarchicalData => {
+    const useCase = TEST_CASE_CONFIG;
+    const useCaseName = useCase.name;
+    const useCaseDescription = useCase.description;
 
     // Debug logging
-    console.log('Organizing data hierarchically:', {
+    console.log("Organizing data hierarchically:", {
       useCaseId,
       testCasesCount: testCases.length,
       sampleTestCase: testCases[0],
-      testCaseKeys: testCases[0] ? Object.keys(testCases[0]) : []
+      testCaseKeys: testCases[0] ? Object.keys(testCases[0]) : [],
     });
 
-    const scenarioCategories: { [categoryId: string]: { name: string; testCases: TestCase[] } } = {};
+    const scenarioCategories: {
+      [categoryId: string]: { name: string; testCases: TestCase[] };
+    } = {};
 
     testCases.forEach((testCase, index) => {
       // Extract scenario category from the data - prioritize scenario_category field
-      const scenarioCategory = testCase.scenarioCategory || testCase.scenario_category || 'General';
-      
+      const scenarioCategory =
+        testCase.scenarioCategory || testCase.scenario_category || "General";
+
       if (!scenarioCategories[scenarioCategory]) {
         scenarioCategories[scenarioCategory] = {
           name: scenarioCategory,
-          testCases: []
+          testCases: [],
         };
       }
 
       const processedTestCase: TestCase = {
         id: testCase.id || `tc-${index + 1}`,
-        input: testCase.input || '',
-        context: testCase.context || ''
+        input: testCase.input || "",
+        context: testCase.context || "",
       };
 
       // Add optional fields if they exist
       if (testCase.modelName) processedTestCase.modelName = testCase.modelName;
       if (testCase.timestamp) processedTestCase.timestamp = testCase.timestamp;
-      if (testCase.scenarioCategory) processedTestCase.scenarioCategory = testCase.scenarioCategory;
-      
+      if (testCase.scenarioCategory)
+        processedTestCase.scenarioCategory = testCase.scenarioCategory;
+
       // Handle enriched use case data from database
       if (testCase.useCase) {
         // Use the enriched use case data from database
         processedTestCase.useCase = testCase.useCase;
-        processedTestCase.use_case_index = testCase.useCase.use_case_index.toString();
+        processedTestCase.use_case_index =
+          testCase.useCase.use_case_index.toString();
         processedTestCase.use_case_title = testCase.useCase.use_case_title;
-        processedTestCase.use_case_description = testCase.useCase.use_case_description;
-        console.log(`[UseCaseSelector] Enriched test case ${processedTestCase.id} with use case: ${testCase.useCase.use_case_title}`);
+        processedTestCase.use_case_description =
+          testCase.useCase.use_case_description;
+        console.log(
+          `[UseCaseSelector] Enriched test case ${processedTestCase.id} with use case: ${testCase.useCase.use_case_title}`
+        );
       } else if (testCase.use_case_index) {
         // Fallback to spreadsheet data if not enriched
         processedTestCase.use_case_index = testCase.use_case_index;
         processedTestCase.use_case_title = testCase.use_case_title;
         processedTestCase.use_case_description = testCase.use_case_description;
-        console.log(`[UseCaseSelector] Test case ${processedTestCase.id} using spreadsheet use case data: ${testCase.use_case_title || 'No title'}`);
+        console.log(
+          `[UseCaseSelector] Test case ${
+            processedTestCase.id
+          } using spreadsheet use case data: ${
+            testCase.use_case_title || "No title"
+          }`
+        );
       }
 
       scenarioCategories[scenarioCategory].testCases.push(processedTestCase);
     });
 
     return {
-      useCases: {
-        [useCaseId]: {
-          name: useCaseName,
-          description: useCaseDescription,
-          sheetUseCaseId: useCaseId,
-          sheetUseCaseDescription: useCaseDescription,
-          sheetUseCaseTitle: useCaseName,
-          sheetUseCaseIndex: useCaseId,
-          scenarioCategories
-        }
-      }
+      [useCaseId]: {
+        name: useCaseName,
+        description: useCaseDescription,
+        sheetUseCaseId: useCaseId,
+        sheetUseCaseDescription: useCaseDescription,
+        sheetUseCaseTitle: useCaseName,
+        sheetUseCaseIndex: useCaseId,
+        scenarioCategories,
+      },
     };
   };
 
-  // Initialize use cases on component mount
-  useEffect(() => {
-    setUseCases(USE_CASE_CONFIGS);
-  }, []);
-
   // Auto-select first use case when use cases are loaded
-  useEffect(() => {
-    if (useCases.length > 0 && !selectedUseCase) {
-      const firstUseCase = useCases[0];
-      console.log('Auto-selecting first use case:', firstUseCase.id);
-      setSelectedUseCase(firstUseCase.id);
-      handleUseCaseSelect(firstUseCase.id);
-    }
-  }, [useCases, selectedUseCase, handleUseCaseSelect]);
+  // useEffect(() => {
+  //   if (useCases.length > 0 && !selectedUseCase) {
+  //     const firstUseCase = useCases[0];
+  //     console.log("Auto-selecting first use case:", firstUseCase.id);
+  //     setSelectedUseCase(firstUseCase.id);
+  //     handleUseCaseSelect(firstUseCase.id);
+  //   }
+  // }, [useCases, selectedUseCase, handleUseCaseSelect]);
 
-  const handleScenarioCategorySelect = useCallback((categoryId: string) => {
-    setSelectedScenarioCategory(categoryId);
-    onScenarioCategorySelected(categoryId);
-    
-    const currentUseCase = hierarchicalData.useCases[selectedUseCase];
-    if (currentUseCase && currentUseCase.scenarioCategories[categoryId]) {
-      const testCases = currentUseCase.scenarioCategories[categoryId].testCases;
-      onDataLoaded(testCases);
-    }
-  }, [onScenarioCategorySelected, onDataLoaded, hierarchicalData, selectedUseCase]);
+  const handleScenarioCategorySelect = useCallback(
+    (categoryId: string) => {
+      setSelectedScenarioCategory(categoryId);
+      onScenarioCategorySelected(categoryId);
 
-  const currentUseCase = hierarchicalData.useCases[selectedUseCase];
-  const scenarioCategories = currentUseCase ? Object.keys(currentUseCase.scenarioCategories) : [];
+      const currentUseCase = hierarchicalData[TEST_CASE_CONFIG.name];
+      if (currentUseCase && currentUseCase.scenarioCategories[categoryId]) {
+        const testCases =
+          currentUseCase.scenarioCategories[categoryId].testCases;
+        onDataLoaded(testCases);
+      }
+    },
+    [onScenarioCategorySelected, onDataLoaded, hierarchicalData]
+  );
 
-  // Helper function to get display text for use case
-  const getUseCaseDisplayText = (useCase: any, useCaseId: string) => {
-    const dynamicData = hierarchicalData.useCases[useCaseId];
-    
-    // Priority 1: Use sheet data if available (use_case_index + use_case_title)
-    if (dynamicData?.sheetUseCaseTitle && dynamicData?.sheetUseCaseIndex) {
-      return `Use Case #${dynamicData.sheetUseCaseIndex}: ${dynamicData.sheetUseCaseTitle}`;
-    }
-    
-    // Priority 2: Use sheet description if available
-    if (dynamicData?.sheetUseCaseDescription) {
-      const description = dynamicData.sheetUseCaseDescription.length > 60 
-        ? `${dynamicData.sheetUseCaseDescription.substring(0, 60)}...` 
-        : dynamicData.sheetUseCaseDescription;
-      return `Use Case #${dynamicData.sheetUseCaseIndex || useCaseId}: ${description}`;
-    }
-    
-    // Priority 3: Fallback to static data
-    const description = useCase.description.length > 60 
-      ? `${useCase.description.substring(0, 60)}...` 
-      : useCase.description;
-    return `Use Case #${useCase.id}: ${description}`;
-  };
+  const currentUseCase = hierarchicalData[TEST_CASE_CONFIG.name];
+  const scenarioCategories = currentUseCase
+    ? Object.keys(currentUseCase.scenarioCategories)
+    : [];
 
   return (
     <div className="space-y-4">
@@ -202,24 +200,21 @@ export default function UseCaseSelector({
         <div className="p-6">
           {/* Single Row Layout with Dropdowns */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-            
             {/* Use Case Dropdown */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Use Case
               </label>
               <select
-                value={selectedUseCase}
+                value={TEST_CASE_CONFIG.name}
                 onChange={(e) => handleUseCaseSelect(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 disabled={isLoading}
               >
                 <option value="">Select a use case...</option>
-                {useCases.map((useCase) => (
-                  <option key={useCase.id} value={useCase.id}>
-                    {getUseCaseDisplayText(useCase, useCase.id)}
-                  </option>
-                ))}
+                <option value={TEST_CASE_CONFIG.name}>
+                  {TEST_CASE_CONFIG.name}
+                </option>
               </select>
             </div>
 
@@ -232,14 +227,16 @@ export default function UseCaseSelector({
                 value={selectedScenarioCategory}
                 onChange={(e) => handleScenarioCategorySelect(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                disabled={!selectedUseCase || isLoading || scenarioCategories.length === 0}
+                disabled={isLoading || scenarioCategories.length === 0}
               >
                 <option value="">Select scenario category...</option>
                 {scenarioCategories.map((categoryId) => {
-                  const category = currentUseCase!.scenarioCategories[categoryId];
+                  const category =
+                    currentUseCase!.scenarioCategories[categoryId];
                   return (
                     <option key={categoryId} value={categoryId}>
-                      {category.name} ({category.testCases.length} test case{category.testCases.length !== 1 ? 's' : ''})
+                      {category.name} ({category.testCases.length} test case
+                      {category.testCases.length !== 1 ? "s" : ""})
                     </option>
                   );
                 })}
@@ -258,13 +255,15 @@ export default function UseCaseSelector({
           )}
 
           {/* No Data Available */}
-          {selectedUseCase && !isLoading && scenarioCategories.length === 0 && (
+          {!isLoading && scenarioCategories.length === 0 && (
             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">No scenario categories found for this use case.</p>
+              <p className="text-sm text-yellow-800">
+                No scenario categories found for this use case.
+              </p>
             </div>
           )}
         </div>
       </div>
     </div>
   );
-} 
+}

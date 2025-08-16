@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { EvaluationResult } from '@/app/components/RubricEvaluator';
 import { TestCase, RubricOutcome, CriteriaData, TestCaseWithModelOutputs, RubricOutcomeWithModelComparison, ModelOutput } from '@/app/types';
+import { TEST_CASE_CONFIG } from '@/app/config/useCases';
 
 // Types for better organization and type safety
 interface StateSetters {
@@ -11,13 +12,13 @@ interface StateSetters {
   setOutcomesWithModelComparison: (outcomes: RubricOutcomeWithModelComparison[]) => void;
   setIsLoading: (loading: boolean) => void;
   setCurrentStep: (step: 'sync' | 'run' | 'outcomes') => void;
-  setSelectedUseCaseId: (id: string) => void;
+  // setSelectedUseCaseId: (id: string) => void;
   setSelectedScenarioCategory: (category: string) => void;
   setSelectedCriteriaId: (id: string) => void;
   setValidationError: (error: string) => void;
   setShouldStartEvaluation: (start: boolean) => void;
   setSelectedTestCaseIndex: (index: number) => void;
-  setCurrentTestCaseIndex: (index: number) => void;
+  // setCurrentTestCaseIndex: (index: number) => void;
   setEvaluationProgress: (progress: number) => void;
 }
 
@@ -45,13 +46,13 @@ export function useAnalysisHandlers({
     setOutcomesWithModelComparison,
     setIsLoading,
     setCurrentStep,
-    setSelectedUseCaseId,
+    // setSelectedUseCaseId,
     setSelectedScenarioCategory,
     setSelectedCriteriaId,
     setValidationError,
     setShouldStartEvaluation,
     setSelectedTestCaseIndex,
-    setCurrentTestCaseIndex,
+    // setCurrentTestCaseIndex,
     setEvaluationProgress
   } = stateSetters;
 
@@ -146,9 +147,9 @@ export function useAnalysisHandlers({
     console.log(`📊 Progress update: ${completedCount}/${totalEvaluations} LLM responses completed (${Math.round(progress)}%)`);
     console.log(`📍 Current test case: ${currentIndex + 1}/${testCasesWithModelOutputs.length}, Models: ${modelCount}`);
     
-    setCurrentTestCaseIndex(currentIndex);
+    // setCurrentTestCaseIndex(currentIndex);
     setEvaluationProgress(progress);
-  }, [testCasesWithModelOutputs, setCurrentTestCaseIndex, setEvaluationProgress]);
+  }, [testCasesWithModelOutputs, setEvaluationProgress]);
 
   const handleEvaluationError = useCallback((error: string) => {
     alert(`Evaluation failed: ${error}`);
@@ -158,11 +159,11 @@ export function useAnalysisHandlers({
   // Selection handlers group
   const selectionHandlers = {
     handleUseCaseSelected: useCallback((useCaseId: string) => {
-      setSelectedUseCaseId(useCaseId);
+      // setSelectedUseCaseId(TEST_CASE_CONFIG.name);
       setSelectedScenarioCategory(''); // Reset scenario category when use case changes
       clearValidationError();
       console.log('Use case selected:', useCaseId);
-    }, [setSelectedUseCaseId, setSelectedScenarioCategory, clearValidationError]),
+    }, [setSelectedScenarioCategory, clearValidationError]),
 
     handleScenarioCategorySelected: useCallback((categoryId: string) => {
       setSelectedScenarioCategory(categoryId);
@@ -180,15 +181,15 @@ export function useAnalysisHandlers({
       // For backward compatibility, set the first selection as primary
       if (selections.length > 0) {
         const firstSelection = selections[0];
-        setSelectedUseCaseId(firstSelection.useCaseId);
+        // setSelectedUseCaseId(firstSelection.useCaseId);
         if (firstSelection.scenarioCategoryIds.length > 0) {
           setSelectedScenarioCategory(firstSelection.scenarioCategoryIds[0]);
         }
       } else {
-        setSelectedUseCaseId('');
+        // setSelectedUseCaseId('');
         setSelectedScenarioCategory('');
       }
-    }, [setSelectedUseCaseId, setSelectedScenarioCategory, clearValidationError]),
+    }, [setSelectedScenarioCategory, clearValidationError]),
 
     handleCriteriaSelected: useCallback((criteriaId: string) => {
       setSelectedCriteriaId(criteriaId);
