@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { systemPromptUtils } from '../../../utils/database';
-import { ApiResponse } from '../../types/database';
+import { systemPromptUtils } from '@/app/utils/database';
+import { ApiResponse } from '@/app/types/database';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
-    const activeOnly = searchParams.get('activeOnly') !== 'false';
 
     let prompts;
     if (category) {
       prompts = await systemPromptUtils.getByCategory(category);
     } else {
-      prompts = await systemPromptUtils.getAll(activeOnly);
+      prompts = await systemPromptUtils.getAll();
     }
 
     const response: ApiResponse<typeof prompts> = {
@@ -96,10 +95,7 @@ export async function PUT(request: NextRequest) {
       name: body.name,
       description: body.description,
       prompt: body.prompt,
-      category: body.category,
-      version: body.version,
-      isActive: body.isActive,
-      metadata: body.metadata
+      category: body.category
     });
 
     const response: ApiResponse<typeof updatedPrompt> = {
