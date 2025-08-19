@@ -1,9 +1,9 @@
 "use client";
 
+import "@ant-design/v5-patch-for-react-19";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "@/app/components/icons";
-import "@ant-design/v5-patch-for-react-19";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { unstableSetRender } from "antd";
