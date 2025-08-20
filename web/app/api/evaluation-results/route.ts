@@ -302,14 +302,8 @@ const evaluateModelOutput = async (
     const formattedPrompt = await prompt.format({});
     console.log(`   📤 [EVALUATION] Sending prompt to ${evaluationModel.constructor.name}...`);
     
-    // Wrap the evaluation call with traceable for proper tracking
-    const tracedEvaluation = traceable(async (prompt: any) => {
-      const response = await evaluationModel.invoke(prompt);
-      return response;
-    });
-    
     const modelResponseStart = Date.now();
-    const response = await tracedEvaluation(formattedPrompt);
+    const response = traceable(evaluationModel.invoke(formattedPrompt));
     const modelResponseTime = Date.now() - modelResponseStart;
     
     console.log(`   📥 [EVALUATION] Model response received in ${modelResponseTime}ms`);

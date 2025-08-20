@@ -118,17 +118,6 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ All validations passed, proceeding with save...');
 
-    // Create the configuration file path
-    const configDir = path.join(process.cwd(), 'config');
-    const configFile = path.join(configDir, 'admin-config.json');
-
-    // Ensure config directory exists
-    try {
-      await fs.access(configDir);
-    } catch {
-      await fs.mkdir(configDir, { recursive: true });
-    }
-
     // Save prompts to database
     try {
       // Validate prompts before saving
@@ -167,16 +156,6 @@ export async function POST(request: NextRequest) {
       console.error('Error saving prompts to database:', dbError);
       // Continue with file-based save as fallback
     }
-
-    // Save the configuration to file as backup
-    const configData = {
-      models,
-      prompts,
-      lastUpdated: new Date().toISOString(),
-      version: '1.0'
-    };
-
-    await fs.writeFile(configFile, JSON.stringify(configData, null, 2));
 
     return NextResponse.json({
       success: true,
