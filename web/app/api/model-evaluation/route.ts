@@ -229,8 +229,6 @@ const getModelInstance = async (provider: string, modelName: string): Promise<Mo
   }
 };
 
-
-
 // Read active evaluation assistant's provider+model
 const getActiveEvaluatorModel = async (): Promise<{ provider: string; model: string } | null> => {
   try {
@@ -252,8 +250,6 @@ const getActiveEvaluatorModel = async (): Promise<{ provider: string; model: str
     return null;
   }
 };
-
-// No constant-based prompts; assistants' prompts are used
 
 // Helper function to generate output from a single model
 const generateModelOutput = async (
@@ -278,6 +274,9 @@ const generateModelOutput = async (
     } else if (modelId.startsWith('gemini-') && provider !== 'google') {
       console.warn(`⚠️ Warning: Gemini model ${modelId} has provider ${provider}, expected 'google'`);
       finalProvider = 'google';
+    } else if (modelId.startsWith('gemma') && provider !== 'openrouter') {
+      console.warn(`⚠️ Warning: Gemini model ${modelId} has provider ${provider}, expected 'google'`);
+      finalProvider = 'google';
     } else if (modelId.startsWith('google/') && provider !== 'openrouter') {
       console.warn(`⚠️ Warning: OpenRouter model ${modelId} has provider ${provider}, expected 'openrouter'`);
       finalProvider = 'openrouter';
@@ -291,20 +290,6 @@ const generateModelOutput = async (
     console.log(`🔧 Test case object:`, JSON.stringify(testCase, null, 2));
     console.log(`🔧 Test case use_case_description:`, testCase?.use_case_description);
     console.log(`🔧 Test case useCase:`, testCase?.useCase);
-    
-    // Fallback use case descriptions for specific use cases when not available from Google Sheets
-    const getUseCaseDescription = (useCase: string, fallbackDescription?: string) => {
-      if (fallbackDescription) return fallbackDescription;
-      
-      // Hardcoded descriptions for specific use cases
-      const useCaseDescriptions: Record<string, string> = {
-        '4-providing-reflective-questions': 'Providing reflective questions (and explanations for why those questions may be helpful) that the worker could use to facilitate discussion in a future teacher meeting …. including questions that help reflect on the teacher\'s strengths and concerning behaviors. The goal here is to help the S123 worker work with the teacher to help the teacher reflect on their strengths and any concerning behaviors, so that they could collaboratively work together to understand how the teacher could best bring out their strengths.',
-        'identify_magic_moments': 'Identifying magic moments in child development scenarios and analyzing developmental strengths.',
-        'general_analysis': 'General analysis of child development scenarios and teacher interactions.'
-      };
-      
-      return useCaseDescriptions[useCase] || 'General Analysis';
-    };
     
     // Debug logging for system prompts
     console.log(`🔧 System prompt debug for ${provider}/${modelId}:`);
@@ -371,18 +356,18 @@ const generateModelOutput = async (
 
     // Use traceable to wrap the function call for LangSmith tracking
     const tracedGenerateOutput = traceable(generateOutput, {
-      name: `output-${provider}-${modelId}`,
+      name: `output-${finalProvider}-${modelId}`,
       tags: ["output-generation"],
       metadata: {
         source: "PartiMeas",
         run_type: "llm",
-        ls_provider: provider,
+        ls_provider: finalProvider,
         ls_model_name: modelId,
         use_case: useCaseType,
         test_case_id: testCase.id || 'unknown'
       }
     });
-
+    
     let output: string = await tracedGenerateOutput(formattedPrompt);
 
     // Validate and potentially fix structural issues
