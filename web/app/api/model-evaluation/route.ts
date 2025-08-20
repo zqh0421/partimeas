@@ -286,15 +286,15 @@ const generateModelOutput = async (
 
     // Use provided use case label as metadata only
     const useCaseType = useCaseTypeOverride || testCase?.useCase || '';
-    console.log(`🔧 Using use case label: ${useCaseType} (override: ${useCaseTypeOverride || 'none'}) for model: ${provider}/${modelId}`);
-    console.log(`🔧 Test case object:`, JSON.stringify(testCase, null, 2));
-    console.log(`🔧 Test case use_case_description:`, testCase?.use_case_description);
-    console.log(`🔧 Test case useCase:`, testCase?.useCase);
+    // console.log(`🔧 Using use case label: ${useCaseType} (override: ${useCaseTypeOverride || 'none'}) for model: ${provider}/${modelId}`);
+    // console.log(`🔧 Test case object:`, JSON.stringify(testCase, null, 2));
+    // console.log(`🔧 Test case use_case_description:`, testCase?.use_case_description);
+    // console.log(`🔧 Test case useCase:`, testCase?.useCase);
     
     // Debug logging for system prompts
-    console.log(`🔧 System prompt debug for ${provider}/${modelId}:`);
-    console.log(`  - systemPromptOverride: ${systemPromptOverride ? `"${systemPromptOverride.substring(0, 100)}..."` : 'undefined/null'}`);
-    console.log(`  - systemPromptOverride length: ${systemPromptOverride?.length || 0}`);
+    // console.log(`🔧 System prompt debug for ${provider}/${modelId}:`);
+    // console.log(`  - systemPromptOverride: ${systemPromptOverride ? `"${systemPromptOverride.substring(0, 100)}..."` : 'undefined/null'}`);
+    // console.log(`  - systemPromptOverride length: ${systemPromptOverride?.length || 0}`);
     
     // Use provided system prompt or fallback to a default one
     const systemPrompt = systemPromptOverride || 'You are a helpful AI assistant. Please provide thoughtful, accurate, and helpful responses to the user\'s questions.';
@@ -593,7 +593,7 @@ export async function POST(request: NextRequest) {
           } else if (row.name === 'numOutputsToShow') {
             numOutputsToShow = parseInt(row.value) || 2;
           } else if (row.name === 'assistantModelAlgorithm') {
-            assistantModelAlgorithm = row.value || 'random_selection';
+            assistantModelAlgorithm = row.value || 'unique_model';
           }
         });
         
@@ -646,6 +646,9 @@ export async function POST(request: NextRequest) {
         const assistantsWithLinkedModels = await getAssistantsWithLinkedModels();
         const availableModels = new Set<string>();
         const assistantModelMap = new Map<number, string[]>();
+
+        const assignedModels = new Set<string>();
+        const uniqueModelAssistants: OutputAssistant[] = [];
         
         // Collect all available models and map assistants to their linked models
         for (const assistant of assistantsWithLinkedModels) {
@@ -654,20 +657,17 @@ export async function POST(request: NextRequest) {
             assistant.linkedModels.forEach((model: string) => availableModels.add(model));
           }
         }
-        
-        // FIXED: Improved randomization - shuffle both models and assistants for better randomness
-        const shuffledModels = Array.from(availableModels).sort(() => Math.random() - 0.5);
-        const shuffledAssistants = [...assistantsWithLinkedModels].sort(() => Math.random() - 0.5);
-        
-        const assignedModels = new Set<string>();
-        const uniqueModelAssistants: OutputAssistant[] = [];
-        
+        console.log("assistantsWithLinkedModels")
+        console.log(assistantsWithLinkedModels)
         // FIXED: Process assistants in random order for better model distribution
-        for (const assistant of shuffledAssistants) {
+        for (const assistant of assistantsWithLinkedModels) {
           const linkedModels = assistantModelMap.get(assistant.assistantId);
           if (linkedModels && linkedModels.length > 0) {
             // Find available models that haven't been assigned yet
             const availableModels = linkedModels.filter((model: string) => !assignedModels.has(model));
+            console.log("available & assigned:")
+            console.log(availableModels)
+            console.log(assignedModels)
             
             if (availableModels.length > 0) {
               // FIXED: Randomly select from available models instead of always taking the first
@@ -701,7 +701,7 @@ export async function POST(request: NextRequest) {
         );
         
         // Step 3: Randomize the list of assistants to randomize response order
-        const randomizedAssistants = validAssistants.sort(() => Math.random() - 0.5);
+        const randomizedAssistants = [...validAssistants.filter(a => a.requiredToShow).sort(() => Math.random() - 0.5), ...validAssistants.filter(a => !a.requiredToShow).sort(() => Math.random() - 0.5)];
         
         // Step 4: Use the randomized list of assistants to generate outputs
         selectedAssistants = randomizedAssistants.slice(0, desiredOutputs);
