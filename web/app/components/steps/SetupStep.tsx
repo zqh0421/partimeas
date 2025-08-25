@@ -1,7 +1,11 @@
 "use client";
 
 import MultiLevelSelector from "@/app/components/MultiLevelSelector";
+import CriteriaMultiLevelSelector, {
+  CriteriaItem,
+} from "@/app/components/CriteriaMultiLevelSelector";
 import { TestCase } from "@/app/types";
+import { SelectionPath } from "@/app/components/GenericMultiLevelSelector";
 
 interface SetupStepProps {
   testCases: TestCase[];
@@ -9,6 +13,7 @@ interface SetupStepProps {
   validationError: string;
   hasValidSelections: boolean;
   analysisStep: "setup" | "running" | "complete";
+  selectedCriteriaVersionId?: string;
   onMultiLevelSelectionChange?: (
     selections: Array<{
       useCaseId: string;
@@ -21,6 +26,10 @@ interface SetupStepProps {
   onUseCaseError: (error: string) => void;
   onTestCaseSelect: (index: number) => void;
   onConfirmSelections: () => void;
+  onCriteriaVersionSelected?: (versionId: string) => void;
+  onCriteriaSelectionChange?: (selections: SelectionPath[]) => void;
+  onCriteriaDataLoaded?: (requirements: CriteriaItem[]) => void;
+  onCriteriaError?: (error: string) => void;
 }
 
 export default function SetupStep({
@@ -29,6 +38,7 @@ export default function SetupStep({
   validationError,
   hasValidSelections,
   analysisStep,
+  selectedCriteriaVersionId,
   onMultiLevelSelectionChange,
   onUseCaseSelected,
   onScenarioCategorySelected,
@@ -36,6 +46,10 @@ export default function SetupStep({
   onUseCaseError,
   onTestCaseSelect,
   onConfirmSelections,
+  onCriteriaVersionSelected,
+  onCriteriaSelectionChange,
+  onCriteriaDataLoaded,
+  onCriteriaError,
 }: SetupStepProps) {
   const showTestCaseSelector = testCases.length > 0;
 
@@ -59,6 +73,27 @@ export default function SetupStep({
           }}
           onDataLoaded={onUseCaseDataLoaded}
           onError={onUseCaseError}
+        />
+      </div>
+
+      {/* Criteria Selection */}
+      <div>
+        <CriteriaMultiLevelSelector
+          onSelectionChange={(selections) => {
+            // Bubble raw selection paths
+            onCriteriaSelectionChange?.(selections);
+
+            // Derive and bubble a single selected criteria version id (by node id)
+            const selected = selections[0];
+            if (selected && selected.node?.id) {
+              onCriteriaVersionSelected?.(selected.node.id);
+            } else {
+              // Clear when no selection
+              onCriteriaVersionSelected?.("");
+            }
+          }}
+          onDataLoaded={onCriteriaDataLoaded || (() => {})}
+          onError={onCriteriaError || (() => {})}
         />
       </div>
 

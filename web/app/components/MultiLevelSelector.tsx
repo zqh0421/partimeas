@@ -556,7 +556,12 @@ function UseCaseItem({
           <ChevronRightIcon className="h-4 w-4 text-gray-400 mr-2" />
         )}
         <span className="font-medium text-gray-900">
-          {useCase.name || `Use Case ${useCase.id}`}
+          {useCase.name || `Use Case ${useCase.id}`}(
+          {Object.keys(useCaseData?.scenarioCategories || {}).length} test case
+          {Object.keys(useCaseData?.scenarioCategories || {}).length !== 1
+            ? "s"
+            : ""}
+          )
         </span>
         {isSelected && <CheckIcon className="h-4 w-4 text-blue-600 ml-auto" />}
       </div>
@@ -611,8 +616,9 @@ function CategoryItem({
           )}
         </div>
         <span className="text-gray-700">
-          {category.name} ({category.testCases.length} test case
-          {category.testCases.length !== 1 ? "s" : ""})
+          {category.name}
+          {/* ({category.testCases.length} test case */}
+          {/* {category.testCases.length !== 1 ? "s" : ""}) */}
         </span>
       </div>
     </div>

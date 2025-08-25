@@ -6,6 +6,7 @@ import SimpleMarkdownRenderer from "@/app/components/SimpleMarkdownRenderer";
 import { useStepLoading } from "@/app/components/steps/VerticalStepper";
 import TestCaseNavigation from "@/app/components/TestCaseNavigation";
 import RealCriteriaTable from "@/app/components/evaluation/RealCriteriaTable";
+import InputScoringTable from "@/app/components/evaluation/InputScoringTable";
 import MockCriteriaTable from "@/app/components/evaluation/MockCriteriaTable";
 
 // Helper function to determine grid columns based on model count
@@ -38,6 +39,8 @@ export default function ModelOutputsGrid({
   currentPhase = "generating",
   numOutputsToShow = 2,
   sessionId,
+  showFinalResultsHere = true,
+  onCompareClick,
 }: {
   modelOutputs?: ModelOutput[];
   isLoading?: boolean;
@@ -52,6 +55,8 @@ export default function ModelOutputsGrid({
   currentPhase?: "generating" | "evaluating" | "complete";
   numOutputsToShow?: number;
   sessionId?: string | null;
+  showFinalResultsHere?: boolean;
+  onCompareClick?: () => void;
 }) {
   const [viewMode, setViewMode] = useState<"enhanced" | "simple">("enhanced");
   const [evaluationViewMode, setEvaluationViewMode] = useState<
@@ -125,6 +130,117 @@ export default function ModelOutputsGrid({
           onTestCaseSelect={onTestCaseSelect}
           className="mb-6"
         />
+      )}
+
+      {showEvaluationFeatures && (
+        <div className="space-y-4 mt-6">
+          {/* Header with view toggle */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-gray-900">
+              {isRealEvaluation ? "Response Scoring" : ""}
+            </h3>
+          </div>
+
+          <>
+            {/* Loading State - Waiting for responses */}
+            {isLoading && isRealEvaluation && (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="w-6 h-6 border-2 border-transparent border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
+                  <p className="text-sm text-slate-600">
+                    Waiting for responses to be ready...
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Loading State - Evaluating responses */}
+            {!isLoading &&
+              currentPhase === "evaluating" &&
+              isRealEvaluation && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="w-6 h-6 border-2 border-transparent border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
+                    <p className="text-sm text-slate-600">
+                      Evaluating responses...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+            {/* Loading State - Some models still loading */}
+            {!isLoading &&
+              currentPhase !== "evaluating" &&
+              loadingModelList.length > 0 &&
+              isRealEvaluation && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="w-6 h-6 border-2 border-transparent border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
+                    <p className="text-sm text-slate-600">
+                      Waiting for {loadingModelList.length} model(s) to
+                      complete...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+            {/* During evaluation complete in step 2, show input scoring table instead of final results */}
+            {(() => {
+              const shouldShow = !isLoading && currentPhase === "complete" && isRealEvaluation && !showFinalResultsHere;
+              console.log("[ModelOutputsGrid] InputScoringTable render conditions:", {
+                isLoading,
+                currentPhase,
+                isRealEvaluation,
+                showFinalResultsHere,
+                shouldShow,
+                modelOutputsCount: modelOutputs?.length || 0,
+                selectedTestCaseIndex,
+                testCasesCount: testCases?.length || 0
+              });
+              return shouldShow;
+            })() && (
+                <InputScoringTable
+                  responses={(modelOutputs || []).map((mo, i) => ({
+                    id: mo.modelId || `resp-${i + 1}`,
+                    label: `Response ${i + 1}`,
+                  }))}
+                  modelOutputs={modelOutputs}
+                  testCase={testCases && selectedTestCaseIndex !== undefined ? testCases[selectedTestCaseIndex] : undefined}
+                  onCompareClick={onCompareClick}
+                />
+              )}
+
+            {/* Optionally render final results table here (used by session view) */}
+            {!isLoading &&
+              currentPhase === "complete" &&
+              modelOutputs &&
+              modelOutputs.length > 0 &&
+              isRealEvaluation &&
+              showFinalResultsHere && (
+                <RealCriteriaTable
+                  modelScores={modelOutputs.map((modelOutput, index) => ({
+                    modelId: modelOutput.modelId,
+                    modelName: `Response ${index + 1} (${modelOutput.modelId})`,
+                    scores: {
+                      relevance: modelOutput.rubricScores?.relevance || 0,
+                      accuracy: modelOutput.rubricScores?.accuracy || 0,
+                      completeness: modelOutput.rubricScores?.completeness || 0,
+                    },
+                  }))}
+                />
+              )}
+
+            {/* No responses available */}
+            {!isLoading &&
+              currentPhase === "complete" &&
+              (!modelOutputs || modelOutputs.length === 0) &&
+              loadingModelList.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No evaluation results available
+                </div>
+              )}
+          </>
+        </div>
       )}
 
       {/* Model Outputs */}
@@ -256,91 +372,6 @@ export default function ModelOutputsGrid({
           })}
         </div>
       </div>
-
-      {showEvaluationFeatures && (
-        <div className="space-y-4 mt-6">
-          {/* Header with view toggle */}
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-gray-900">
-              {isRealEvaluation ? "Evaluation Results" : ""}
-            </h3>
-          </div>
-
-          <>
-            {/* Loading State - Waiting for responses */}
-            {isLoading && isRealEvaluation && (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-center">
-                  <div className="w-6 h-6 border-2 border-transparent border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
-                  <p className="text-sm text-slate-600">
-                    Waiting for responses to be ready...
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Loading State - Evaluating responses */}
-            {!isLoading &&
-              currentPhase === "evaluating" &&
-              isRealEvaluation && (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-center">
-                    <div className="w-6 h-6 border-2 border-transparent border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
-                    <p className="text-sm text-slate-600">
-                      Evaluating responses...
-                    </p>
-                  </div>
-                </div>
-              )}
-
-            {/* Loading State - Some models still loading */}
-            {!isLoading &&
-              currentPhase !== "evaluating" &&
-              loadingModelList.length > 0 &&
-              isRealEvaluation && (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-center">
-                    <div className="w-6 h-6 border-2 border-transparent border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
-                    <p className="text-sm text-slate-600">
-                      Waiting for {loadingModelList.length} model(s) to
-                      complete...
-                    </p>
-                  </div>
-                </div>
-              )}
-
-            {/* Evaluation Results - When responses are ready and evaluation is complete */}
-            {!isLoading &&
-              currentPhase === "complete" &&
-              modelOutputs &&
-              modelOutputs.length > 0 &&
-              isRealEvaluation && (
-                <RealCriteriaTable
-                  modelScores={modelOutputs.map((modelOutput, index) => ({
-                    modelId: modelOutput.modelId,
-                    modelName: `Response ${index + 1} (${modelOutput.modelId})`,
-                    scores: {
-                      // Pass the actual rubricScores for mapping
-                      relevance: modelOutput.rubricScores?.relevance || 0,
-                      accuracy: modelOutput.rubricScores?.accuracy || 0,
-                      completeness: modelOutput.rubricScores?.completeness || 0,
-                    },
-                  }))}
-                />
-              )}
-
-            {/* No responses available */}
-            {!isLoading &&
-              currentPhase === "complete" &&
-              (!modelOutputs || modelOutputs.length === 0) &&
-              loadingModelList.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No evaluation results available
-                </div>
-              )}
-          </>
-        </div>
-      )}
     </div>
   );
 }

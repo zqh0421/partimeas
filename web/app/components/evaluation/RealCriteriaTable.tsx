@@ -23,51 +23,53 @@ export default function RealCriteriaTable({
     // 遍历每个 category
     hierarchicalData.forEach((category, categoryIndex) => {
       // 遍历每个 criterion
-      category.criteria.forEach((criterion: any, criterionIndex: number) => {
-        const criteriaId = `${category.name}-${criterion.name}`
-          .replace(/\s+/g, "-")
-          .toLowerCase();
+      (category?.criteria ?? []).forEach(
+        (criterion: any, criterionIndex: number) => {
+          const criteriaId = `${category.name}-${criterion.name}`
+            .replace(/\s+/g, "-")
+            .toLowerCase();
 
-        // 转换 subcriteria
-        const subcriteria: Subcriteria[] = criterion.subcriteria.map(
-          (sub: any, subIndex: number) => {
-            const subcriteriaId = `${criteriaId}-${sub.name}`
-              .replace(/\s+/g, "-")
-              .toLowerCase();
+          // 转换 subcriteria
+          const subcriteria: Subcriteria[] = (criterion?.subcriteria ?? []).map(
+            (sub: any, subIndex: number) => {
+              const subcriteriaId = `${criteriaId}-${sub.name}`
+                .replace(/\s+/g, "-")
+                .toLowerCase();
 
-            // 构建 scoreLevels 对象
-            const scoreLevels: { 0: string; 1: string; 2: string } = {
-              0: "Score 0 not available",
-              1: "Score 1 not available",
-              2: "Score 2 not available",
-            };
+              // 构建 scoreLevels 对象
+              const scoreLevels: { 0: string; 1: string; 2: string } = {
+                0: "Score 0 not available",
+                1: "Score 1 not available",
+                2: "Score 2 not available",
+              };
 
-            // 填充实际的分数描述
-            sub.scoreLevels.forEach((scoreLevel: any) => {
-              const score = parseInt(scoreLevel.score);
-              if (score >= 0 && score <= 2) {
-                scoreLevels[score as 0 | 1 | 2] =
-                  scoreLevel.scoreMeaning ||
-                  `Score ${score} description not available`;
-              }
-            });
+              // 填充实际的分数描述
+              (sub?.scoreLevels ?? []).forEach((scoreLevel: any) => {
+                const score = parseInt(scoreLevel?.score);
+                if (score >= 0 && score <= 2) {
+                  scoreLevels[score as 0 | 1 | 2] =
+                    scoreLevel?.scoreMeaning ||
+                    `Score ${score} description not available`;
+                }
+              });
 
-            return {
-              id: subcriteriaId,
-              name: sub.name,
-              description: sub.description || "No description available",
-              scoreLevels,
-            };
-          }
-        );
+              return {
+                id: subcriteriaId,
+                name: sub.name,
+                description: sub.description || "No description available",
+                scoreLevels,
+              };
+            }
+          );
 
-        result.push({
-          id: criteriaId,
-          name: `${category.name} - ${criterion.name}`,
-          description: criterion.description || "No description available",
-          subcriteria,
-        });
-      });
+          result.push({
+            id: criteriaId,
+            name: `${category.name} - ${criterion.name}`,
+            description: criterion.description || "No description available",
+            subcriteria,
+          });
+        }
+      );
     });
 
     console.log("Converted criteria result:", result);
@@ -89,12 +91,12 @@ export default function RealCriteriaTable({
 
       // 遍历层级数据结构，为每个 subcriteria 生成分数
       hierarchicalData.forEach((category) => {
-        category.criteria.forEach((criterion: any) => {
+        (category?.criteria ?? []).forEach((criterion: any) => {
           const criteriaId = `${category.name}-${criterion.name}`
             .replace(/\s+/g, "-")
             .toLowerCase();
 
-          criterion.subcriteria.forEach((sub: any) => {
+          (criterion?.subcriteria ?? []).forEach((sub: any) => {
             const subcriteriaId = `${criteriaId}-${sub.name}`
               .replace(/\s+/g, "-")
               .toLowerCase();
@@ -103,7 +105,10 @@ export default function RealCriteriaTable({
             let score = 0;
 
             // 检查是否有直接匹配的ID
-            if (modelScore.scores[subcriteriaId]) {
+            if (
+              modelScore?.scores &&
+              modelScore.scores[subcriteriaId] != null
+            ) {
               score = modelScore.scores[subcriteriaId];
             } else {
               // 根据名称进行智能映射
@@ -115,37 +120,37 @@ export default function RealCriteriaTable({
                 criterionName.includes("relevance") ||
                 subcriteriaName.includes("relevance")
               ) {
-                score = modelScore.scores["relevance"] || 0;
+                score = modelScore?.scores?.["relevance"] ?? 0;
               } else if (
                 criterionName.includes("accuracy") ||
                 subcriteriaName.includes("accuracy")
               ) {
-                score = modelScore.scores["accuracy"] || 0;
+                score = modelScore?.scores?.["accuracy"] ?? 0;
               } else if (
                 criterionName.includes("complete") ||
                 subcriteriaName.includes("complete")
               ) {
-                score = modelScore.scores["completeness"] || 0;
+                score = modelScore?.scores?.["completeness"] ?? 0;
               } else if (
                 criterionName.includes("clarity") ||
                 subcriteriaName.includes("clear")
               ) {
-                score = modelScore.scores["clarity"] || 0;
+                score = modelScore?.scores?.["clarity"] ?? 0;
               } else if (
                 criterionName.includes("strength") ||
                 subcriteriaName.includes("strength")
               ) {
-                score = modelScore.scores["strengths"] || 1; // 默认中等分数
+                score = modelScore?.scores?.["strengths"] ?? 1; // 默认中等分数
               } else if (
                 criterionName.includes("explanation") ||
                 subcriteriaName.includes("explanation")
               ) {
-                score = modelScore.scores["explanation"] || 1;
+                score = modelScore?.scores?.["explanation"] ?? 1;
               } else if (
                 criterionName.includes("question") ||
                 subcriteriaName.includes("question")
               ) {
-                score = modelScore.scores["questions"] || 1;
+                score = modelScore?.scores?.["questions"] ?? 1;
               } else {
                 // 为演示目的，生成随机分数 (0-2)
                 score = Math.floor(Math.random() * 3);

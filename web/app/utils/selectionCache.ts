@@ -6,6 +6,7 @@ export interface Selection {
 export interface SelectionCache {
   selections: Selection[];
   expandedUseCases: string[];
+  selectedCriteriaVersionId?: string;
   lastUpdated: string;
   version: string;
 }
@@ -108,6 +109,7 @@ class SelectionCacheManager {
   saveSelections(
     selections: Selection[], 
     expandedUseCases: Set<string> | string[],
+    selectedCriteriaVersionId?: string,
     cacheKey: string = 'default'
   ) {
     const expandedArray = Array.isArray(expandedUseCases) 
@@ -117,6 +119,7 @@ class SelectionCacheManager {
     const cache: SelectionCache = {
       selections: [...selections],
       expandedUseCases: expandedArray,
+      selectedCriteriaVersionId,
       lastUpdated: new Date().toISOString(),
       version: CACHE_VERSION
     };
@@ -129,7 +132,8 @@ class SelectionCacheManager {
     
     console.log(`[SelectionCache] Saved selections for key: ${cacheKey}`, {
       selectionsCount: selections.length,
-      expandedCount: expandedArray.length
+      expandedCount: expandedArray.length,
+      criteriaVersionId: selectedCriteriaVersionId
     });
   }
 
@@ -137,6 +141,7 @@ class SelectionCacheManager {
   restoreSelections(cacheKey: string = 'default'): {
     selections: Selection[];
     expandedUseCases: Set<string>;
+    selectedCriteriaVersionId?: string;
   } | null {
     const cache = this.memoryCache.get(cacheKey);
     
@@ -153,12 +158,14 @@ class SelectionCacheManager {
 
     console.log(`[SelectionCache] Restored selections for key: ${cacheKey}`, {
       selectionsCount: cache.selections.length,
-      expandedCount: cache.expandedUseCases.length
+      expandedCount: cache.expandedUseCases.length,
+      criteriaVersionId: cache.selectedCriteriaVersionId
     });
 
     return {
       selections: [...cache.selections],
-      expandedUseCases: new Set(cache.expandedUseCases)
+      expandedUseCases: new Set(cache.expandedUseCases),
+      selectedCriteriaVersionId: cache.selectedCriteriaVersionId
     };
   }
 
@@ -203,8 +210,9 @@ export const selectionCache = new SelectionCacheManager();
 export const saveSelections = (
   selections: Selection[], 
   expandedUseCases: Set<string> | string[],
+  selectedCriteriaVersionId?: string,
   cacheKey?: string
-) => selectionCache.saveSelections(selections, expandedUseCases, cacheKey);
+) => selectionCache.saveSelections(selections, expandedUseCases, selectedCriteriaVersionId, cacheKey);
 
 export const restoreSelections = (cacheKey?: string) => 
   selectionCache.restoreSelections(cacheKey);
@@ -213,4 +221,25 @@ export const clearSelectionCache = (cacheKey?: string) =>
   selectionCache.clearCache(cacheKey);
 
 export const clearAllSelectionCaches = () => 
-  selectionCache.clearAllCaches(); 
+  selectionCache.clearAllCaches();
+
+// 专门用于保存和恢复criteria版本选择的便捷函数
+export const saveCriteriaVersionSelection = (selectedCriteriaVersionId: string) => {
+  // 获取现有缓存，保持其他选择不变
+  const existing = selectionCache.restoreSelections();
+  if (existing) {
+    selectionCache.saveSelections(
+      existing.selections,
+      existing.expandedUseCases,
+      selectedCriteriaVersionId
+    );
+  } else {
+    // 如果没有现有缓存，创建新的
+    selectionCache.saveSelections([], [], selectedCriteriaVersionId);
+  }
+};
+
+export const restoreCriteriaVersionSelection = (): string | null => {
+  const restored = selectionCache.restoreSelections();
+  return restored?.selectedCriteriaVersionId || null;
+}; 

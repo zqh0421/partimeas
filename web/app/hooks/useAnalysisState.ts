@@ -27,6 +27,7 @@ interface SelectionState {
   selectedTestCaseIndex: number;
   selectedScenarioCategory: string;
   selectedCriteriaId: string;
+  selectedCriteriaVersionId: string;
   selectedSystemPrompt: string;
 }
 
@@ -58,6 +59,7 @@ export interface UseAnalysisStateReturn {
     setSelectedTestCaseIndex: (index: number) => void;
     setSelectedScenarioCategory: (category: string) => void;
     setSelectedCriteriaId: (id: string) => void;
+    setSelectedCriteriaVersionId: (id: string) => void;
     setSelectedSystemPrompt: (prompt: string) => void;
   };
   useCase: {
@@ -90,6 +92,8 @@ export interface UseAnalysisStateReturn {
   setSelectedScenarioCategory: (category: string) => void;
   selectedCriteriaId: string;
   setSelectedCriteriaId: (id: string) => void;
+  selectedCriteriaVersionId: string;
+  setSelectedCriteriaVersionId: (id: string) => void;
   selectedSystemPrompt: string;
   setSelectedSystemPrompt: (prompt: string) => void;
   
@@ -130,6 +134,7 @@ export function useAnalysisState(): UseAnalysisStateReturn {
     selectedTestCaseIndex: 0,
     selectedScenarioCategory: '',
     selectedCriteriaId: '',
+    selectedCriteriaVersionId: '',
     selectedSystemPrompt: ''
   });
 
@@ -173,6 +178,7 @@ export function useAnalysisState(): UseAnalysisStateReturn {
   const setSelSelectedTestCaseIndex = useCallback((index: number) => updateSelectionState({ selectedTestCaseIndex: index }), [updateSelectionState]);
   const setSelSelectedScenarioCategory = useCallback((category: string) => updateSelectionState({ selectedScenarioCategory: category }), [updateSelectionState]);
   const setSelSelectedCriteriaId = useCallback((id: string) => updateSelectionState({ selectedCriteriaId: id }), [updateSelectionState]);
+  const setSelSelectedCriteriaVersionId = useCallback((id: string) => updateSelectionState({ selectedCriteriaVersionId: id }), [updateSelectionState]);
   const setSelSelectedSystemPrompt = useCallback((prompt: string) => updateSelectionState({ selectedSystemPrompt: prompt }), [updateSelectionState]);
   
   const updateSystemPromptForUseCase = useCallback((testCases: TestCase[]) => {
@@ -214,8 +220,9 @@ export function useAnalysisState(): UseAnalysisStateReturn {
     setSelectedTestCaseIndex: setSelSelectedTestCaseIndex,
     setSelectedScenarioCategory: setSelSelectedScenarioCategory,
     setSelectedCriteriaId: setSelSelectedCriteriaId,
+    setSelectedCriteriaVersionId: setSelSelectedCriteriaVersionId,
     setSelectedSystemPrompt: setSelSelectedSystemPrompt,
-  }), [selectionState, updateSelectionState, setSelSelectedTestCaseIndex, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedSystemPrompt]);
+  }), [selectionState, updateSelectionState, setSelSelectedTestCaseIndex, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedCriteriaVersionId, setSelSelectedSystemPrompt]);
 
   
   const api = useMemo(() => ({
@@ -250,6 +257,8 @@ export function useAnalysisState(): UseAnalysisStateReturn {
     setSelectedScenarioCategory: setSelSelectedScenarioCategory,
     selectedCriteriaId: selectionState.selectedCriteriaId,
     setSelectedCriteriaId: setSelSelectedCriteriaId,
+    selectedCriteriaVersionId: selectionState.selectedCriteriaVersionId,
+    setSelectedCriteriaVersionId: setSelSelectedCriteriaVersionId,
     selectedSystemPrompt: selectionState.selectedSystemPrompt,
     setSelectedSystemPrompt: setSelSelectedSystemPrompt,
 
@@ -263,6 +272,6 @@ export function useAnalysisState(): UseAnalysisStateReturn {
 
     // ===== Legacy: Use case =====
     updateSystemPromptForUseCase,
-  }), [uiApi, dataApi, evaluationApi, selectionApi, updateSystemPromptForUseCase, uiState, setUICurrentStep, setUIIsLoading, setUIValidationError, setDataTestCases, setDataTestCasesWithModelOutputs, setDataCriteria, setDataOutcomes, setDataOutcomesWithModelComparison, setSelSelectedTestCaseIndex, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedSystemPrompt, setEvalShouldStart, setEvalProgress, setEvalCurrentIndex]);
+  }), [uiApi, dataApi, evaluationApi, selectionApi, updateSystemPromptForUseCase, uiState, setUICurrentStep, setUIIsLoading, setUIValidationError, setDataTestCases, setDataTestCasesWithModelOutputs, setDataCriteria, setDataOutcomes, setDataOutcomesWithModelComparison, setSelSelectedTestCaseIndex, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedCriteriaVersionId, setSelSelectedSystemPrompt, setEvalShouldStart, setEvalProgress, setEvalCurrentIndex]);
   return api;
 } 

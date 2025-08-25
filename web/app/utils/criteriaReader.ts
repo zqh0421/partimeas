@@ -1,9 +1,9 @@
 /**
  * Criteria Reader
- * 
+ *
  * Simple utility for reading criteria data from Google Sheets
  */
-import { CriteriaData, CriteriaConfig, ValidationResult } from '@/app/types';
+import { CriteriaData, CriteriaConfig, ValidationResult } from "@/app/types";
 
 // Build Google Sheets API URL
 function buildSheetsUrl(spreadsheetId: string, sheetName: string): string {
@@ -11,362 +11,392 @@ function buildSheetsUrl(spreadsheetId: string, sheetName: string): string {
   return `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedSheetName}`;
 }
 
-// Fetch data from Google Sheets
-async function fetchSheetData(
-  spreadsheetId: string, 
-  sheetName: string, 
+// Build Google Sheets API URL for getting spreadsheet metadata
+function buildSpreadsheetUrl(spreadsheetId: string): string {
+  return `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`;
+}
+
+// Get all sheet names from a spreadsheet
+async function getSheetNames(
+  spreadsheetId: string,
   accessToken: string
-): Promise<{ headers: string[]; rows: string[][] }> {
-  const url = buildSheetsUrl(spreadsheetId, sheetName);
+): Promise<string[]> {
+  const url = buildSpreadsheetUrl(spreadsheetId);
   const headers = {
-    'Authorization': `Bearer ${accessToken}`,
-    'Content-Type': 'application/json'
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
   };
 
   const response = await fetch(url, { headers });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Google Sheets API error: ${response.status} - ${errorText}`);
+    throw new Error(
+      `Google Sheets API error: ${response.status} - ${errorText}`
+    );
   }
 
   const data = await response.json();
-  
-  if (!data.values || data.values.length < 2) {
-    throw new Error('Insufficient data in spreadsheet - need at least 2 rows (header in row 2)');
+
+  if (!data.sheets || data.sheets.length === 0) {
+    throw new Error("No sheets found in spreadsheet");
   }
 
+  return data.sheets.map((sheet: any) => sheet.properties.title);
+}
+
+// Fetch data from Google Sheets with new format
+async function fetchSheetData(
+  spreadsheetId: string,
+  sheetName: string,
+  accessToken: string
+): Promise<{
+  criterionName: string;
+  criterionDescription: string;
+  headers: string[];
+  rows: string[][];
+} | null> {
+  const url = buildSheetsUrl(spreadsheetId, sheetName);
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+
+  const response = await fetch(url, { headers });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Google Sheets API error: ${response.status} - ${errorText}`
+    );
+  }
+
+  const data = await response.json();
+
+  if (!data.values || data.values.length < 4) {
+    console.warn(
+      `[CriteriaReader] Skipping sheet - insufficient data (need at least 4 rows): ${
+        data.values?.length || 0
+      } rows found`
+    );
+    return null;
+  }
+
+  // Extract criterion name from A1 (format: "Criterion: [name]")
+  const criterionCell =
+    data.values[0] && data.values[0][0] ? data.values[0][0] : "";
+  const criterionName = criterionCell.replace(/^Criterion:\s*/i, "").trim();
+
+  // Extract description from A2 (format: "Description: [description]")
+  const descriptionCell =
+    data.values[1] && data.values[1][0] ? data.values[1][0] : "";
+  const criterionDescription = descriptionCell
+    .replace(/^Description:\s*/i, "")
+    .trim();
+
   return {
-    headers: data.values[1], // 第二行是表头
-    rows: data.values.slice(2) // 第三行开始是数据
+    criterionName,
+    criterionDescription,
+    headers: data.values[2], // A3-E3: table headers
+    rows: data.values.slice(3), // A4+ onwards: data rows
   };
 }
 
-// Field mapping based on actual Google Sheets structure
+// Field mapping based on new Google Sheets structure
+// A3-E3: Category (if needed) | Requirement | # Points to Award | Positive Examples | Negative Examples
 const FIELD_MAP = {
-  category: ['response component'],
-  criteria: ['criterion'],
-  description: ['criterion description (i.e., what to look for)'],
-  subcriteria: ['subcriteria'],
-  subcriteriaDescription: ['subcriteria descriptions (i.e., what to look for)'],
-  score: ['score'],
-  scoreMeaning: ['score meaning'],
-  example: ['brief concrete example(s) to illustrate what each score level actually means']
+  category: ["category (if needed)", "category"],
+  requirement: ["requirement"],
+  points: ["# points to award", "points to award", "points"],
+  positiveExamples: ["positive examples"],
+  negativeExamples: ["negative examples"],
 };
 
+// List of sheet names to ignore when reading criteria
+export const IGNORED_SHEET_NAMES = [
+  "Rubric Info Card",
+  "Rubric",
+  "Copy of Sample Criterion",
+];
+
 // Find field value from headers and row
-function findFieldValue(headers: string[], row: string[], fieldNames: string[]): string {
-  const headerLower = headers.map(h => h.toLowerCase().trim());
+function findFieldValue(
+  headers: string[],
+  row: string[],
+  fieldNames: string[]
+): string {
+  const headerLower = headers.map((h) => h.toLowerCase().trim());
   for (const fieldName of fieldNames) {
     const searchName = fieldName.toLowerCase().trim();
     const index = headerLower.indexOf(searchName);
     if (index >= 0) {
-      const value = row[index] || '';
+      const value = row[index] || "";
       return value;
     }
   }
-  
-  return '';
+
+  return "";
 }
 
-// 层级结构接口
-export interface ScoreLevel {
-  score: string;
-  scoreMeaning: string;
-  example: string;
+// New criteria structure interfaces
+export interface CriteriaRequirement {
+  category?: string;
+  requirement: string;
+  points: string;
+  positiveExamples: string;
+  negativeExamples: string;
 }
 
-export interface SubcriteriaItem {
-  name: string;
-  description: string;
-  scoreLevels: ScoreLevel[];
+export interface CriterionVersion {
+  sheetName: string;
+  criterionName: string;
+  criterionDescription: string;
+  requirements: CriteriaRequirement[];
 }
 
-export interface CriterionItem {
-  name: string;
-  description: string;
-  subcriteria: SubcriteriaItem[];
-}
-
-export interface CategoryItem {
-  name: string;
-  criteria: CriterionItem[];
-}
-
-// 原始行数据接口（用于内部处理）
-interface RawCriteriaItem {
+// Raw row data interface for internal processing
+interface RawRequirementItem {
   id: string;
   rowNumber: number;
-  category: string;
-  criterion: string;
-  criterionDescription: string;
-  subcriteria: string;
-  subcriteriaDescription: string;
-  score: string;
-  scoreMeaning: string;
-  example: string;
+  category?: string;
+  requirement: string;
+  points: string;
+  positiveExamples: string;
+  negativeExamples: string;
 }
 
-// 对外暴露的接口保持兼容
-export interface NewCriteriaItem extends CategoryItem {}
+// Export the new criteria item type
+export interface NewCriteriaItem extends CriterionVersion {}
 
-// Convert sheet data to raw criteria format (internal function)
-function convertToRawCriteria(headers: string[], rows: string[][]): RawCriteriaItem[] {
-  const result = rows.map((row, index) => {
-    // Create the raw data structure
-    const criteriaItem: RawCriteriaItem = {
-      id: `row-${index + 3}`, // 使用行号作为ID（从第3行开始）
-      rowNumber: index + 3, // 添加实际行号
-      category: findFieldValue(headers, row, FIELD_MAP.category),
-      criterion: findFieldValue(headers, row, FIELD_MAP.criteria),
-      criterionDescription: findFieldValue(headers, row, FIELD_MAP.description),
-      subcriteria: findFieldValue(headers, row, FIELD_MAP.subcriteria),
-      subcriteriaDescription: findFieldValue(headers, row, FIELD_MAP.subcriteriaDescription),
-      score: findFieldValue(headers, row, FIELD_MAP.score),
-      scoreMeaning: findFieldValue(headers, row, FIELD_MAP.scoreMeaning),
-      example: findFieldValue(headers, row, FIELD_MAP.example)
-    };
+// Convert sheet data to raw requirements format (internal function)
+function convertToRawRequirements(
+  headers: string[],
+  rows: string[][]
+): RawRequirementItem[] {
+  const result = rows
+    .map((row, index) => {
+      // Create the raw data structure
+      const requirementItem: RawRequirementItem = {
+        id: `row-${index + 4}`, // Row numbering starts from A4 (index 0 = row 4)
+        rowNumber: index + 4,
+        category: findFieldValue(headers, row, FIELD_MAP.category),
+        requirement: findFieldValue(headers, row, FIELD_MAP.requirement),
+        points: findFieldValue(headers, row, FIELD_MAP.points),
+        positiveExamples: findFieldValue(
+          headers,
+          row,
+          FIELD_MAP.positiveExamples
+        ),
+        negativeExamples: findFieldValue(
+          headers,
+          row,
+          FIELD_MAP.negativeExamples
+        ),
+      };
 
-    return criteriaItem;
-  }).filter(criteriaItem => {
-    // 对于层级结构，保留所有有任何内容的行
-    const hasValidCategory = criteriaItem.category?.trim() !== '';
-    const hasValidCriterion = criteriaItem.criterion?.trim() !== '';
-    const hasValidDescription = criteriaItem.criterionDescription?.trim() !== '';
-    const hasValidSubcriteria = criteriaItem.subcriteria?.trim() !== '';
-    const hasValidScore = criteriaItem.score?.trim() !== '';
-    const hasValidScoreMeaning = criteriaItem.scoreMeaning?.trim() !== '';
-    
-    // 如果任何字段有内容就保留这一行
-    const isValid = hasValidCategory || hasValidCriterion || hasValidDescription || 
-                   hasValidSubcriteria || hasValidScore || hasValidScoreMeaning;
-    
-    return isValid;
-  });
-  
-  return result;
-}
-
-// 将平面数据组织为层级结构
-function organizeHierarchicalData(rawData: RawCriteriaItem[]): NewCriteriaItem[] {
-  const categories = new Map<string, CategoryItem>();
-  
-  // 用于跟踪当前上下文的变量
-  let currentCategory = '';
-  let currentCriterion = '';
-  let currentSubcriteria = '';
-  
-  // 遍历每一行数据
-  rawData.forEach((item, index) => {
-    
-    const categoryName = item.category?.trim();
-    const criterionName = item.criterion?.trim();
-    const subcriteriaName = item.subcriteria?.trim();
-    const score = item.score?.trim();
-    
-    // 更新当前上下文
-    if (categoryName) {
-      currentCategory = categoryName;
-    }
-    if (criterionName) {
-      currentCriterion = criterionName;
-    }
-    if (subcriteriaName) {
-      currentSubcriteria = subcriteriaName;
-    }
-    
-    // 如果有category信息，确保category存在
-    if (currentCategory) {
-      if (!categories.has(currentCategory)) {
-        categories.set(currentCategory, {
-          name: currentCategory,
-          criteria: []
-        });
-      }
-    }
-    
-    // 如果有criterion信息，确保criterion存在
-    if (currentCriterion && currentCategory) {
-      const category = categories.get(currentCategory)!;
-      let criterion = category.criteria.find(c => c.name === currentCriterion);
-      
-      if (!criterion) {
-        criterion = {
-          name: currentCriterion,
-          description: item.criterionDescription?.trim() || '',
-          subcriteria: []
-        };
-        category.criteria.push(criterion);
-      }
-      
-      // 更新description如果当前行有新的描述
-      if (item.criterionDescription?.trim()) {
-        criterion.description = item.criterionDescription.trim();
-      }
-    }
-    
-    // 如果有subcriteria信息，确保subcriteria存在
-    if (currentSubcriteria && currentCriterion && currentCategory) {
-      const category = categories.get(currentCategory)!;
-      const criterion = category.criteria.find(c => c.name === currentCriterion)!;
-      let subcriteria = criterion.subcriteria.find(s => s.name === currentSubcriteria);
-      
-      if (!subcriteria) {
-        subcriteria = {
-          name: currentSubcriteria,
-          description: item.subcriteriaDescription?.trim() || '',
-          scoreLevels: []
-        };
-        criterion.subcriteria.push(subcriteria);
-      }
-      
-      // 更新description如果当前行有新的描述
-      if (item.subcriteriaDescription?.trim()) {
-        subcriteria.description = item.subcriteriaDescription.trim();
-      }
-    }
-    
-    // 如果有score信息，添加到当前的subcriteria
-    if (score && currentSubcriteria && currentCriterion && currentCategory) {
-      const category = categories.get(currentCategory)!;
-      const criterion = category.criteria.find(c => c.name === currentCriterion)!;
-      const subcriteria = criterion.subcriteria.find(s => s.name === currentSubcriteria)!;
-      
-      // 检查是否已存在相同分数的ScoreLevel
-      const existingScore = subcriteria.scoreLevels.find(sl => sl.score === score);
-      if (!existingScore) {
-        subcriteria.scoreLevels.push({
-          score: score,
-          scoreMeaning: item.scoreMeaning?.trim() || '',
-          example: item.example?.trim() || ''
-        });
-      }
-    }
-  });
-  
-  // 转换为数组并排序
-  const result = Array.from(categories.values()).map(category => ({
-    ...category,
-    criteria: category.criteria.map(criterion => ({
-      ...criterion,
-      subcriteria: criterion.subcriteria.map(sub => ({
-        ...sub,
-        scoreLevels: sub.scoreLevels.sort((a, b) => parseInt(a.score) - parseInt(b.score))
-      }))
-    }))
-  }));
-  
-  return result;
-}
-
-// Convert sheet data to hierarchical criteria format
-function convertToCriteria(headers: string[], rows: string[][]): NewCriteriaItem[] {
-  const rawData = convertToRawCriteria(headers, rows);
-  const hierarchicalData = organizeHierarchicalData(rawData);
-  return hierarchicalData;
-}
-
-// Validate hierarchical criteria data
-export function validateCriteria(categories: NewCriteriaItem[]): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  if (categories.length === 0) {
-    errors.push('No categories found');
-    return { isValid: false, errors, warnings };
-  }
-
-  categories.forEach((category, categoryIndex) => {
-    const categoryNumber = categoryIndex + 1;
-    
-    // Validate category
-    if (!category.name?.trim()) {
-      warnings.push(`Category ${categoryNumber}: Empty category name`);
-    }
-    
-    if (category.criteria.length === 0) {
-      warnings.push(`Category ${categoryNumber} (${category.name}): No criteria found`);
-    }
-    
-    // Validate each criterion
-    category.criteria.forEach((criterion, criterionIndex) => {
-      const criterionNumber = criterionIndex + 1;
-      
-      if (!criterion.name?.trim()) {
-        warnings.push(`Category ${categoryNumber}, Criterion ${criterionNumber}: Empty criterion name`);
-      }
-      
-      if (criterion.subcriteria.length === 0) {
-        warnings.push(`Category ${categoryNumber}, Criterion ${criterionNumber} (${criterion.name}): No subcriteria found`);
-      }
-      
-      // Validate each subcriteria
-      criterion.subcriteria.forEach((subcriteria, subIndex) => {
-        const subNumber = subIndex + 1;
-        
-        if (!subcriteria.name?.trim()) {
-          warnings.push(`Category ${categoryNumber}, Criterion ${criterionNumber}, Subcriteria ${subNumber}: Empty subcriteria name`);
-        }
-        
-        if (subcriteria.scoreLevels.length === 0) {
-          warnings.push(`Category ${categoryNumber}, Criterion ${criterionNumber}, Subcriteria ${subNumber} (${subcriteria.name}): No score levels found`);
-        }
-        
-        // Validate score levels
-        subcriteria.scoreLevels.forEach((scoreLevel, scoreIndex) => {
-          if (!scoreLevel.score?.trim()) {
-            warnings.push(`Category ${categoryNumber}, Criterion ${criterionNumber}, Subcriteria ${subNumber}, Score ${scoreIndex + 1}: Empty score`);
-          }
-          if (!scoreLevel.scoreMeaning?.trim()) {
-            warnings.push(`Category ${categoryNumber}, Criterion ${criterionNumber}, Subcriteria ${subNumber}, Score ${scoreLevel.score}: Empty score meaning`);
-          }
-        });
-      });
+      return requirementItem;
+    })
+    .filter((requirementItem) => {
+      // Keep rows that have both requirement and points (as per requirement)
+      const hasValidRequirement = requirementItem.requirement?.trim() !== "";
+      const hasValidPoints = requirementItem.points?.trim() !== "";
+      return hasValidRequirement && hasValidPoints;
     });
-  });
 
-  // For debugging, let's accept data even with warnings
+  return result;
+}
+
+// Convert raw requirements data to structured format
+function organizeRequirementsData(
+  rawData: RawRequirementItem[],
+  criterionName: string,
+  criterionDescription: string,
+  sheetName: string
+): CriterionVersion {
+  const requirements: CriteriaRequirement[] = rawData.map((item) => ({
+    category: item.category?.trim() || undefined,
+    requirement: item.requirement?.trim() || "",
+    points: item.points?.trim() || "",
+    positiveExamples: item.positiveExamples?.trim() || "",
+    negativeExamples: item.negativeExamples?.trim() || "",
+  }));
+
   return {
-    isValid: true,
-    errors,
-    warnings
+    sheetName,
+    criterionName,
+    criterionDescription,
+    requirements,
   };
 }
 
-// Main function to load criteria
+// Convert sheet data to criteria format
+function convertToCriteria(
+  headers: string[],
+  rows: string[][],
+  criterionName: string,
+  criterionDescription: string,
+  sheetName: string
+): CriterionVersion {
+  const rawData = convertToRawRequirements(headers, rows);
+  const criterionVersion = organizeRequirementsData(
+    rawData,
+    criterionName,
+    criterionDescription,
+    sheetName
+  );
+  return criterionVersion;
+}
+
+// Validate criteria data
+export function validateCriteria(
+  criterionVersions: NewCriteriaItem[]
+): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (criterionVersions.length === 0) {
+    errors.push("No criterion versions found");
+    return { isValid: false, errors, warnings };
+  }
+
+  criterionVersions.forEach((version, versionIndex) => {
+    const versionNumber = versionIndex + 1;
+
+    // Validate version
+    if (!version.criterionName?.trim()) {
+      warnings.push(
+        `Version ${versionNumber} (${version.sheetName}): Empty criterion name`
+      );
+    }
+
+    if (!version.criterionDescription?.trim()) {
+      warnings.push(
+        `Version ${versionNumber} (${version.sheetName}): Empty criterion description`
+      );
+    }
+
+    if (version.requirements.length === 0) {
+      warnings.push(
+        `Version ${versionNumber} (${version.sheetName}): No requirements found`
+      );
+    }
+
+    // Validate each requirement
+    version.requirements.forEach((requirement, reqIndex) => {
+      const reqNumber = reqIndex + 1;
+
+      if (!requirement.requirement?.trim()) {
+        warnings.push(
+          `Version ${versionNumber}, Requirement ${reqNumber}: Empty requirement`
+        );
+      }
+
+      if (!requirement.points?.trim()) {
+        warnings.push(
+          `Version ${versionNumber}, Requirement ${reqNumber}: Empty points`
+        );
+      }
+    });
+  });
+
+  // Accept data even with warnings for debugging
+  return {
+    isValid: true,
+    errors,
+    warnings,
+  };
+}
+
+// Main function to load criteria - now loads all sheets dynamically
 export async function loadCriteria(
-  criteriaConfigs: CriteriaConfig[], 
-  criteriaId: string, 
-  accessToken: string
+  criteriaConfigs: CriteriaConfig[],
+  criteriaId: string,
+  accessToken: string,
+  additionalIgnoredSheets?: string[]
 ): Promise<NewCriteriaItem[]> {
-  const config = criteriaConfigs.find(c => c.id === criteriaId);
+  const config = criteriaConfigs.find((c) => c.id === criteriaId);
   if (!config) {
     throw new Error(`Criteria config not found: ${criteriaId}`);
   }
 
   try {
-    const { headers, rows } = await fetchSheetData(
+    // Get all sheet names from the spreadsheet
+    const allSheetNames = await getSheetNames(
       config.spreadsheetId,
-      config.sheetName,
       accessToken
     );
 
-    const criteria = convertToCriteria(headers, rows);
-    
-    if (criteria.length === 0) {
-      // No criteria found - this is a valid case for empty spreadsheets
+    // Combine default ignored sheets with additional ones
+    const ignoredSheets = [
+      ...IGNORED_SHEET_NAMES,
+      ...(additionalIgnoredSheets || []),
+    ];
+
+    // Filter out ignored sheet names (case-insensitive)
+    const sheetNames = allSheetNames.filter((sheetName) => {
+      return !shouldIgnoreSheet(sheetName, additionalIgnoredSheets);
+    });
+
+    console.log(
+      `[CriteriaReader] Found ${
+        allSheetNames.length
+      } total sheets, processing ${sheetNames.length} sheets (ignoring: ${
+        allSheetNames.length - sheetNames.length
+      })`
+    );
+
+    const allCriterionVersions: NewCriteriaItem[] = [];
+
+    // Load data from each sheet
+    for (const sheetName of sheetNames) {
+      try {
+        const sheetData = await fetchSheetData(
+          config.spreadsheetId,
+          sheetName,
+          accessToken
+        );
+
+        // Skip if sheet has insufficient data
+        if (sheetData === null) {
+          console.log(
+            `[CriteriaReader] Skipped sheet "${sheetName}" due to insufficient data`
+          );
+          continue;
+        }
+
+        const { criterionName, criterionDescription, headers, rows } =
+          sheetData;
+        const criterionVersion = convertToCriteria(
+          headers,
+          rows,
+          criterionName,
+          criterionDescription,
+          sheetName
+        );
+        allCriterionVersions.push(criterionVersion);
+      } catch (error) {
+        console.warn(
+          `[CriteriaReader] Warning: Failed to load sheet "${sheetName}":`,
+          error
+        );
+        // Continue with other sheets even if one fails
+      }
     }
-    
-    return criteria;
+
+    return allCriterionVersions;
   } catch (error) {
     console.error(`[CriteriaReader] Error loading criteria:`, error);
-    throw new Error(`Failed to load criteria: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to load criteria: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
   }
 }
 
 // Load criteria automatically (for when no specific criteria ID is provided)
 export async function loadCriteriaAuto(
-  criteriaConfigs: CriteriaConfig[], 
+  criteriaConfigs: CriteriaConfig[],
   accessToken: string
 ): Promise<NewCriteriaItem[]> {
   if (criteriaConfigs.length === 0) {
@@ -375,30 +405,85 @@ export async function loadCriteriaAuto(
 
   // Use the first available criteria config
   const config = criteriaConfigs[0];
-  
+
   return loadCriteria(criteriaConfigs, config.id, accessToken);
 }
 
 // Get criteria configuration
-export function getCriteriaConfig(criteriaConfigs: CriteriaConfig[], criteriaId: string): CriteriaConfig | undefined {
-  return criteriaConfigs.find(config => config.id === criteriaId);
+export function getCriteriaConfig(
+  criteriaConfigs: CriteriaConfig[],
+  criteriaId: string
+): CriteriaConfig | undefined {
+  return criteriaConfigs.find((config) => config.id === criteriaId);
 }
 
 // Get all criteria configs
-export function getAllCriteriaConfigs(criteriaConfigs: CriteriaConfig[]): CriteriaConfig[] {
+export function getAllCriteriaConfigs(
+  criteriaConfigs: CriteriaConfig[]
+): CriteriaConfig[] {
   return criteriaConfigs;
 }
 
 // Get raw criteria data for debugging
 export async function getRawCriteriaData(
-  criteriaConfigs: CriteriaConfig[], 
-  criteriaId: string, 
-  accessToken: string
-): Promise<{ headers: string[]; rows: string[][] }> {
-  const config = criteriaConfigs.find(c => c.id === criteriaId);
+  criteriaConfigs: CriteriaConfig[],
+  criteriaId: string,
+  accessToken: string,
+  sheetName?: string
+): Promise<{
+  criterionName: string;
+  criterionDescription: string;
+  headers: string[];
+  rows: string[][];
+}> {
+  const config = criteriaConfigs.find((c) => c.id === criteriaId);
   if (!config) {
     throw new Error(`Criteria config not found: ${criteriaId}`);
   }
 
-  return fetchSheetData(config.spreadsheetId, config.sheetName, accessToken);
+  if (sheetName) {
+    const result = await fetchSheetData(
+      config.spreadsheetId,
+      sheetName,
+      accessToken
+    );
+    if (result === null) {
+      throw new Error(`Sheet "${sheetName}" has insufficient data`);
+    }
+    return result;
+  }
+
+  // If no sheet name provided, get the first sheet
+  const sheetNames = await getSheetNames(config.spreadsheetId, accessToken);
+  if (sheetNames.length === 0) {
+    throw new Error("No sheets found in spreadsheet");
+  }
+
+  const result = await fetchSheetData(
+    config.spreadsheetId,
+    sheetNames[0],
+    accessToken
+  );
+  if (result === null) {
+    throw new Error(`First sheet "${sheetNames[0]}" has insufficient data`);
+  }
+  return result;
+}
+
+// Utility functions for managing ignored sheets
+export function getIgnoredSheetNames(): string[] {
+  return [...IGNORED_SHEET_NAMES];
+}
+
+export function shouldIgnoreSheet(
+  sheetName: string,
+  additionalIgnoredSheets?: string[]
+): boolean {
+  const ignoredSheets = [
+    ...IGNORED_SHEET_NAMES,
+    ...(additionalIgnoredSheets || []),
+  ];
+  return ignoredSheets.some((ignored) =>
+    sheetName.toLowerCase().includes(ignored.toLowerCase())
+  );
 }

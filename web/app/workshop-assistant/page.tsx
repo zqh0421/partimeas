@@ -8,6 +8,7 @@ import { useConfig } from "@/app/hooks/useConfig";
 import VerticalStepper from "@/app/components/steps/VerticalStepper";
 import SetupStep from "@/app/components/steps/SetupStep";
 import AnalysisStep from "@/app/components/steps/AnalysisStep";
+import ModelOutputsGrid from "@/app/components/ModelOutputsGrid";
 import { RefreshIcon } from "@/app/components/icons";
 import { AnalysisHeaderFull } from "@/app/components";
 import { GroupIdModal } from "@/app/components/GroupIdModal";
@@ -94,6 +95,7 @@ function OutputAnalysisFullPageContent() {
   const [localTestCasesWithModelOutputs, setLocalTestCasesWithModelOutputs] =
     useState<TestCaseWithModelOutputs[]>([]);
   const [isGeneratingOutputs, setIsGeneratingOutputs] = useState(false);
+  const [hasComparedWithAi, setHasComparedWithAi] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<
     "generating" | "evaluating" | "complete"
   >("generating");
@@ -787,10 +789,22 @@ function OutputAnalysisFullPageContent() {
     });
 
     // Check if we have current selections
-    if (!TEST_CASE_CONFIG.name || testCases.length === 0) {
-      console.log("❌ Validation failed: missing use case or test cases");
+    const isUseCaseSelected = Boolean(TEST_CASE_CONFIG.name);
+    const hasLoadedTestCases = testCases.length > 0;
+    const hasScenarioCategory = Boolean(selectedScenarioCategory);
+    const hasCriteriaVersion = Boolean(selectedCriteriaId);
+
+    if (
+      !isUseCaseSelected ||
+      !hasLoadedTestCases ||
+      !hasScenarioCategory ||
+      !hasCriteriaVersion
+    ) {
+      console.log(
+        "❌ Validation failed: missing one or more required selections"
+      );
       setValidationError(
-        "Please select a use case and ensure test cases are loaded."
+        "Please select a use case, scenario category, and criteria version, and ensure test cases are loaded."
       );
       return;
     }
@@ -815,6 +829,7 @@ function OutputAnalysisFullPageContent() {
     setOutcomesWithModelComparison([]);
     // setSelectedUseCaseId("");
     setSelectedScenarioCategory("");
+    setSelectedCriteriaId("");
     setSelectedCriteriaId("");
     setSelectedSystemPrompt("");
     setValidationError("");
@@ -926,6 +941,14 @@ function OutputAnalysisFullPageContent() {
         if (handlers.handleMultiLevelSelectionChange) {
           handlers.handleMultiLevelSelectionChange(restored.selections);
         }
+        // Restore criteria version selection if available
+        if (restored.selectedCriteriaVersionId) {
+          console.log(
+            "✅ Cached criteria version restored:",
+            restored.selectedCriteriaVersionId
+          );
+          setSelectedCriteriaId(restored.selectedCriteriaVersionId);
+        }
       }
     }
   }, [testCases.length, handlers.handleMultiLevelSelectionChange]);
@@ -933,7 +956,10 @@ function OutputAnalysisFullPageContent() {
   // Only show confirm button when there are current selections with preview
   // Cached selections alone are not sufficient - user must make current selections
   const hasValidSelections = Boolean(
-    TEST_CASE_CONFIG.name && testCases.length > 0
+    TEST_CASE_CONFIG.name &&
+      testCases.length > 0 &&
+      selectedScenarioCategory &&
+      selectedCriteriaId
   );
 
   // Create steps for the vertical stepper
@@ -956,6 +982,7 @@ function OutputAnalysisFullPageContent() {
           validationError={validationError}
           hasValidSelections={hasValidSelections}
           analysisStep={analysisStep}
+          selectedCriteriaVersionId={selectedCriteriaId}
           onMultiLevelSelectionChange={handlers.handleMultiLevelSelectionChange}
           onUseCaseSelected={handlers.handleUseCaseSelected}
           onScenarioCategorySelected={handlers.handleScenarioCategorySelected}
@@ -963,6 +990,7 @@ function OutputAnalysisFullPageContent() {
           onUseCaseError={handlers.handleUseCaseError}
           onTestCaseSelect={handlers.handleTestCaseSelect}
           onConfirmSelections={handleConfirmSelections}
+          onCriteriaVersionSelected={setSelectedCriteriaId}
         />
       ),
     },
@@ -998,6 +1026,7 @@ function OutputAnalysisFullPageContent() {
           onEvaluationProgress={handlers.handleEvaluationProgress}
           loadingModelListOverride={selectedOutputModelIds}
           sessionId={testCaseSessionIds.get(selectedTestCaseIndex) || null}
+          onCompareClick={() => setHasComparedWithAi(true)}
         />
       ),
     },

@@ -35,6 +35,7 @@ interface AnalysisStepProps {
   loadingModelListOverride?: string[];
   // Session ID to control when copy button appears
   sessionId?: string | null;
+  onCompareClick?: () => void;
 }
 
 export default function AnalysisStep({
@@ -55,6 +56,7 @@ export default function AnalysisStep({
   onModelComparisonEvaluationComplete,
   loadingModelListOverride,
   sessionId,
+  onCompareClick,
 }: AnalysisStepProps) {
   const gridConfig = useMemo(() => {
     const isLoading = currentPhase === "generating";
@@ -113,6 +115,8 @@ export default function AnalysisStep({
               currentPhase={currentPhase}
               numOutputsToShow={numOutputsToShow}
               sessionId={sessionId}
+              showFinalResultsHere={false}
+              onCompareClick={onCompareClick}
             />
           ) : (
             <div className="text-center py-8 text-gray-500">

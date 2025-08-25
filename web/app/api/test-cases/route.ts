@@ -1,61 +1,70 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { TEST_CASE_CONFIG } from '@/app/config/useCases';
-import { getGoogleAccessToken } from '@/app/utils/googleAuth';
+import { NextRequest, NextResponse } from "next/server";
+import { TEST_CASE_CONFIG } from "@/app/config/useCases";
+import { getGoogleAccessToken } from "@/app/utils/googleAuth";
 
 const FIELD_MAP = {
-  input: ['Prompt'],
-  context: ['Test Case Name/Group'],
-  category: ['Category']
+  input: ["Prompt"],
+  context: ["Test Case Name/Group"],
+  category: ["Category"],
 };
 
-function findFieldValue(headers: string[], row: string[], fieldNames: string[]): string {
-  const headerLower = headers.map(h => h.toLowerCase().trim());
-  
+function findFieldValue(
+  headers: string[],
+  row: string[],
+  fieldNames: string[]
+): string {
+  const headerLower = headers.map((h) => h.toLowerCase().trim());
+
   for (const fieldName of fieldNames) {
     const index = headerLower.indexOf(fieldName.toLowerCase().trim());
     if (index >= 0) {
-      const value = row[index] || '';
+      const value = row[index] || "";
       return value;
     }
   }
-  
-  return '';
+
+  return "";
 }
 
 async function fetchSheetData(
-  spreadsheetId: string, 
-  sheetName: string, 
+  spreadsheetId: string,
+  sheetName: string,
   accessToken: string
 ): Promise<{ headers: string[]; rows: string[][]; title: string }> {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}`
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}`;
   const headers = {
-    'Authorization': `Bearer ${accessToken}`,
-    'Content-Type': 'application/json'
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
   };
-  
+
   console.log(`[test-cases] Fetching from URL: ${url}`);
-  console.log(`[test-cases] Access token length: ${accessToken?.length || 0}`);
 
   const response = await fetch(url, { headers });
 
-  console.log(`[test-cases] Google Sheets API response received. Status: ${response.status}, OK: ${response.ok}`);
+  console.log(
+    `[test-cases] Google Sheets API response received. Status: ${response.status}, OK: ${response.ok}`
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`[test-cases] Google Sheets API error response:`, errorText);
-    throw new Error(`Google Sheets API error: ${response.status} - ${errorText}`);
+    throw new Error(
+      `Google Sheets API error: ${response.status} - ${errorText}`
+    );
   }
 
   const data = await response.json();
 
-  console.log(`[test-cases] Google Sheets API returned ${data.values.length} total rows`);
-  console.log(`[test-cases] Headers: ${data.values[0].join(', ')}`);
+  console.log(
+    `[test-cases] Google Sheets API returned ${data.values.length} total rows`
+  );
+  console.log(`[test-cases] Headers: ${data.values[0].join(", ")}`);
   console.log(`[test-cases] Data rows: ${data.values.length - 1}`);
 
   return {
-    title: 'Test Cases', // No separate title row in this format
+    title: "Test Cases", // No separate title row in this format
     headers: data.values[0], // First row (index 0) contains the column headers
-    rows: data.values.slice(1) // Second row (index 1) onwards contains the data
+    rows: data.values.slice(1), // Second row (index 1) onwards contains the data
   };
 }
 
@@ -63,23 +72,27 @@ async function fetchSheetData(
 function convertToTestCases(headers: string[], rows: string[][]): any[] {
   const testCases: any[] = [];
   let skippedCount = 0;
-  
+
   rows.forEach((row, index) => {
     const input = findFieldValue(headers, row, FIELD_MAP.input);
     if (!input || !input.trim()) {
-      console.log(`[test-cases] Row ${index + 1} - Skipping row with empty prompt. Input field value: "${input}"`);
+      console.log(
+        `[test-cases] Row ${
+          index + 1
+        } - Skipping row with empty prompt. Input field value: "${input}"`
+      );
       skippedCount++;
       return;
     }
-    
+
     const testCase: any = {
       id: `tc-${testCases.length + 1}`,
       input: input.trim(),
-      context: '',
-      category: '',
-      useCaseId: TEST_CASE_CONFIG.name.toLowerCase().replace(/\s+/g, '-'),
+      context: "",
+      category: "",
+      useCaseId: TEST_CASE_CONFIG.name.toLowerCase().replace(/\s+/g, "-"),
       useCaseTitle: TEST_CASE_CONFIG.name,
-      useCaseDescription: TEST_CASE_CONFIG.description
+      useCaseDescription: TEST_CASE_CONFIG.description,
     };
 
     const context = findFieldValue(headers, row, FIELD_MAP.context);
@@ -96,18 +109,18 @@ function convertToTestCases(headers: string[], rows: string[][]): any[] {
 
     testCases.push(testCase);
   });
-  
-  console.log(`[test-cases] Conversion completed: ${testCases.length} valid test cases, ${skippedCount} rows skipped`);
+
+  console.log(
+    `[test-cases] Conversion completed: ${testCases.length} valid test cases, ${skippedCount} rows skipped`
+  );
   return testCases;
 }
 
 export async function GET(request: NextRequest) {
   try {
     const accessToken = await getGoogleAccessToken();
-    console.log(`[test-cases] Access token obtained, length: ${accessToken?.length || 0}`);
-    
     if (!accessToken) {
-      throw new Error('Failed to obtain Google access token');
+      throw new Error("Failed to obtain Google access token");
     }
 
     const { headers, rows } = await fetchSheetData(
@@ -115,17 +128,19 @@ export async function GET(request: NextRequest) {
       TEST_CASE_CONFIG.sheetName,
       accessToken
     );
-  
+
     const testCases = convertToTestCases(headers, rows);
 
-    console.log(`[test-cases] Loaded ${testCases.length} test cases from spreadsheet`);
-    
+    console.log(
+      `[test-cases] Loaded ${testCases.length} test cases from spreadsheet`
+    );
+
     // Create the use case from TEST_CASE_CONFIG
     const useCase = {
-      id: TEST_CASE_CONFIG.name.toLowerCase().replace(/\s+/g, '-'),
+      id: TEST_CASE_CONFIG.name.toLowerCase().replace(/\s+/g, "-"),
       title: TEST_CASE_CONFIG.name,
       description: TEST_CASE_CONFIG.description,
-      index: '1'
+      index: "1",
     };
 
     const responseData = {
@@ -133,18 +148,17 @@ export async function GET(request: NextRequest) {
       useCases: [useCase], // Single use case from config
       testCases: testCases,
       totalUseCases: 1,
-      totalTestCases: testCases.length
+      totalTestCases: testCases.length,
     };
 
-    console.log('[test-cases] Request completed successfully');
+    console.log("[test-cases] Request completed successfully");
     return NextResponse.json(responseData);
-
   } catch (error) {
-    console.error('[test-cases] Error:', error);
+    console.error("[test-cases] Error:", error);
     return NextResponse.json(
-      { 
-        error: 'Failed to load test case data',
-        details: error instanceof Error ? error.message : 'Unknown error'
+      {
+        error: "Failed to load test case data",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );
