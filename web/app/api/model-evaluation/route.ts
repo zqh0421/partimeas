@@ -843,15 +843,49 @@ const evaluateModelOutputs = async (
     }
 
     // Now evaluate the ideal response if provided
+    // Note: Ideal response evaluation now uses the same evaluation system (assistant, model, and prompts) as regular model evaluations
     console.log(`🔍 Debug: idealResponse exists: ${!!idealResponse}`);
     if (idealResponse) {
-      console.log(`🔍 Debug: idealResponse.content exists: ${!!idealResponse.content}`);
+      console.log(
+        `🔍 Debug: idealResponse.content exists: ${!!idealResponse.content}`
+      );
       console.log(`🔍 Debug: idealResponse.id: ${idealResponse.id || "no-id"}`);
     }
-    
+
     if (idealResponse && idealResponse.content) {
       console.log(
         `🔍 Evaluating ideal response: ${idealResponse.id || "ideal-response"}`
+      );
+      console.log(
+        `🔍 Using the same evaluation system (assistant: ${activeEvaluationAssistant.name}, model: ${activeEvaluationAssistant.provider}/${activeEvaluationAssistant.model}) as regular model evaluations`
+      );
+
+      // Print ideal response details for evaluation
+      console.log("📋 IDEAL RESPONSE EVALUATION DETAILS:");
+      console.log(
+        "  ┌─────────────────────────────────────────────────────────────"
+      );
+      console.log(
+        `  │ Ideal Response ID: ${idealResponse.id || "ideal-response"}`
+      );
+      console.log(
+        `  │ Test Case Input: ${testCase.input?.substring(0, 100)}${
+          testCase.input && testCase.input.length > 100 ? "..." : ""
+        }`
+      );
+      console.log(
+        `  │ Ideal Response Content: ${idealResponse.content?.substring(
+          0,
+          200
+        )}${
+          idealResponse.content && idealResponse.content.length > 200
+            ? "..."
+            : ""
+        }`
+      );
+      console.log(`  │ Evaluation Criteria Count: ${criteria.length}`);
+      console.log(
+        "  └─────────────────────────────────────────────────────────────"
       );
 
       // Build user prompt for ideal response evaluation
@@ -884,7 +918,7 @@ const evaluateModelOutputs = async (
         
         Note: This is the ideal response, so scores should reflect the maximum possible points for each criterion.`;
 
-      // Create prompt template with format instructions
+      // Create prompt template with format instructions - use the same system prompt as regular evaluations
       const idealPrompt = ChatPromptTemplate.fromTemplate(`
         {system_prompt}
         {format_instructions}
@@ -894,7 +928,7 @@ const evaluateModelOutputs = async (
 
       const idealPartialedPrompt = await idealPrompt.partial({
         format_instructions: idealFormatInstructions,
-        system_prompt: activeEvaluationAssistant.systemPrompt,
+        system_prompt: activeEvaluationAssistant.systemPrompt, // Use the same system prompt as regular evaluations
       });
 
       try {
@@ -957,6 +991,36 @@ const evaluateModelOutputs = async (
               console.log(
                 `✅ Ideal response evaluation completed (Direct API)`
               );
+
+              // Print ideal response evaluation results
+              console.log("🎯 IDEAL RESPONSE EVALUATION RESULTS (Direct API):");
+              console.log(
+                "  ┌─────────────────────────────────────────────────────────────"
+              );
+              console.log(`  │ Model ID: ${evaluation.modelId}`);
+              console.log(`  │ Timestamp: ${evaluation.timestamp}`);
+              console.log(
+                `  │ Is Ideal Response: ${evaluation.isIdealResponse}`
+              );
+              if (evaluation.criteriaScores) {
+                console.log("  │ Criteria Scores:");
+                Object.entries(evaluation.criteriaScores).forEach(
+                  ([criteriaId, scoreData]: [string, any]) => {
+                    console.log(
+                      `  │   ${criteriaId}: ${
+                        scoreData.score
+                      } - ${scoreData.reasoning?.substring(0, 80)}${
+                        scoreData.reasoning && scoreData.reasoning.length > 80
+                          ? "..."
+                          : ""
+                      }`
+                    );
+                  }
+                );
+              }
+              console.log(
+                "  └─────────────────────────────────────────────────────────────"
+              );
             }
           } else {
             throw new Error(
@@ -1000,6 +1064,36 @@ const evaluateModelOutputs = async (
 
           evaluations.push(evaluationWithMetadata);
           console.log(`✅ Ideal response evaluation completed (LangChain)`);
+
+          // Print ideal response evaluation results
+          console.log("🎯 IDEAL RESPONSE EVALUATION RESULTS (LangChain):");
+          console.log(
+            "  ┌─────────────────────────────────────────────────────────────"
+          );
+          console.log(`  │ Model ID: ${evaluationWithMetadata.modelId}`);
+          console.log(`  │ Timestamp: ${evaluationWithMetadata.timestamp}`);
+          console.log(
+            `  │ Is Ideal Response: ${evaluationWithMetadata.isIdealResponse}`
+          );
+          if (evaluationWithMetadata.criteriaScores) {
+            console.log("  │ Criteria Scores:");
+            Object.entries(evaluationWithMetadata.criteriaScores).forEach(
+              ([criteriaId, scoreData]: [string, any]) => {
+                console.log(
+                  `  │   ${criteriaId}: ${
+                    scoreData.score
+                  } - ${scoreData.reasoning?.substring(0, 80)}${
+                    scoreData.reasoning && scoreData.reasoning.length > 80
+                      ? "..."
+                      : ""
+                  }`
+                );
+              }
+            );
+          }
+          console.log(
+            "  └─────────────────────────────────────────────────────────────"
+          );
         }
       } catch (error) {
         console.error(`❌ Failed to evaluate ideal response:`, error);
@@ -1021,10 +1115,63 @@ const evaluateModelOutputs = async (
           timestamp: new Date().toISOString(),
           isIdealResponse: true, // Mark as ideal response
         });
+
+        // Print fallback ideal response evaluation results
+        console.log(
+          "⚠️ IDEAL RESPONSE EVALUATION RESULTS (Fallback - Evaluation Failed):"
+        );
+        console.log(
+          "  ┌─────────────────────────────────────────────────────────────"
+        );
+        console.log(`  │ Model ID: ${idealResponse.id || "ideal-response"}`);
+        console.log(`  │ Timestamp: ${new Date().toISOString()}`);
+        console.log(`  │ Is Ideal Response: true`);
+        console.log(
+          `  │ Overall Score: 0 (fallback due to evaluation failure)`
+        );
+        console.log(
+          `  │ Error: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
+        console.log(
+          "  └─────────────────────────────────────────────────────────────"
+        );
       }
     }
 
     console.log(`✅ All evaluations completed. Total: ${evaluations.length}`);
+
+    // Print summary of ideal response evaluations
+    const idealResponseEvaluations = evaluations.filter(
+      (evaluation) => evaluation.isIdealResponse
+    );
+    if (idealResponseEvaluations.length > 0) {
+      console.log("📊 IDEAL RESPONSE EVALUATION SUMMARY:");
+      console.log(
+        "  ┌─────────────────────────────────────────────────────────────"
+      );
+      console.log(
+        `  │ Total Ideal Response Evaluations: ${idealResponseEvaluations.length}`
+      );
+      idealResponseEvaluations.forEach((evaluation, index) => {
+        console.log(`  │ ${index + 1}. ${evaluation.modelId}:`);
+        if (evaluation.criteriaScores) {
+          const totalScore = Object.values(evaluation.criteriaScores).reduce(
+            (sum: number, scoreData: any) => sum + (scoreData.score || 0),
+            0
+          );
+          const avgScore =
+            totalScore / Object.keys(evaluation.criteriaScores).length;
+          console.log(`  │   Average Score: ${avgScore.toFixed(2)}`);
+          console.log(`  │   Total Score: ${totalScore}`);
+        }
+      });
+      console.log(
+        "  └─────────────────────────────────────────────────────────────"
+      );
+    }
+
     return { evaluations, evaluationModelId };
   } catch (error) {
     console.error("❌ Error during evaluation:", error);
@@ -1041,6 +1188,13 @@ export async function POST(request: NextRequest) {
     console.log(`🚀 Model evaluation request received - Phase: ${phase}`);
     console.log("Test case:", testCase);
     console.log("Group ID:", groupId);
+    console.log("🔍 idealResponse received:", {
+      exists: !!idealResponse,
+      id: idealResponse?.id,
+      hasContent: !!idealResponse?.content,
+      contentLength: idealResponse?.content?.length || 0,
+      fullObject: idealResponse,
+    });
 
     if (phase === "generate") {
       console.log(
@@ -1518,6 +1672,11 @@ export async function POST(request: NextRequest) {
         outputsCount: outputs.length,
         criteriaCount: criteria.length,
         testCase: testCase.input?.substring(0, 100) + "...",
+        idealResponse: {
+          exists: !!idealResponse,
+          id: idealResponse?.id,
+          hasContent: !!idealResponse?.content,
+        },
       });
 
       try {

@@ -1049,6 +1049,7 @@ function OutputAnalysisFullPageContent() {
           loadingModelListOverride={selectedOutputModelIds}
           sessionId={testCaseSessionIds.get(selectedTestCaseIndex) || null}
           onCompareClick={() => setHasComparedWithAi(true)}
+          idealResponses={idealResponses}
         />
       ),
     },

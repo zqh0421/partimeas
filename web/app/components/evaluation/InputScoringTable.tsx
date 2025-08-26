@@ -807,14 +807,14 @@ export default function InputScoringTable({
 
   return (
     <div className="overflow-x-auto">
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="border border-gray-200 rounded-lg overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 text-center">
             <tr>
-              <th className="px-4 pt-4 pb-2 text-left text-sm font-bold text-gray-700  w-[10vw] border-x border-gray-200">
+              <th className="px-4 pt-4 pb-2 text-sm font-bold text-gray-700  w-[15vw] border-x border-gray-200">
                 Rubric Item
               </th>
-              <th className="px-4 pt-4 pb-2 text-left text-sm font-bold text-gray-700 border-x border-gray-200">
+              <th className="px-4 pt-4 pb-2 text-sm font-bold text-gray-700 border-x border-gray-200 w-[15vw]">
                 Scoring Instruction
               </th>
               {responses.map((resp) => (
@@ -826,8 +826,8 @@ export default function InputScoringTable({
                   {resp.label}
                 </th>
               ))}
-              <th className="px-4 pt-4 pb-2 text-left text-sm font-bold text-gray-700 border-x border-gray-200 w-28">
-                Ideal Point
+              <th className="px-4 pt-4 pb-2  text-sm font-bold text-gray-700 border-x border-gray-200 w-28">
+                Ideal Response
               </th>
             </tr>
             <tr>
@@ -838,12 +838,14 @@ export default function InputScoringTable({
                   <th className=" pb-2 pt-1 text-sm font-medium text-gray-700 text-center border-x border-gray-200 w-10">
                     Point
                   </th>
-                  <th className=" pb-2 pt-1 text-sm font-medium text-gray-700 text-center border-x border-gray-200">
+                  <th className=" pb-2 pt-1 text-sm font-medium text-gray-700 text-center border-x border-gray-200 w-[14vw]">
                     Rationale
                   </th>
                 </React.Fragment>
               ))}
-              <th className="px-4 py-2 border-x border-gray-200" />
+              <th className=" pb-2 pt-1 text-sm font-medium text-gray-700 text-center border-x border-gray-200 w-10">
+                Point
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -1017,7 +1019,7 @@ export default function InputScoringTable({
                         const v =
                           e.target.value === "" ? "" : Number(e.target.value);
                         console.log(
-                          `🎯 [InputScoringTable] Ideal Point dropdown changed:`,
+                          `🎯 [InputScoringTable] Ideal Response dropdown changed:`,
                           {
                             criteriaId: r.id,
                             newValue: v,
@@ -1152,7 +1154,7 @@ export default function InputScoringTable({
                     </th>
                   ))}
                   <th className="px-4 pt-4 pb-2 text-left text-sm font-bold text-gray-700 border-x border-gray-200 w-28">
-                    Ideal Point
+                    Ideal Response
                   </th>
                 </tr>
                 <tr>
@@ -1286,7 +1288,7 @@ export default function InputScoringTable({
                                   ? ""
                                   : Number(e.target.value);
                               console.log(
-                                `🎯 [InputScoringTable] AI table Ideal Point dropdown changed:`,
+                                `🎯 [InputScoringTable] AI table Ideal Response dropdown changed:`,
                                 {
                                   criteriaId: r.id,
                                   newValue: v,
