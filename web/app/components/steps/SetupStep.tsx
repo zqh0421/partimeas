@@ -119,7 +119,7 @@ export default function SetupStep({
       </div>
 
       {/* Test Case Selection */}
-      {showTestCaseSelector && (
+      {/* {showTestCaseSelector && (
         <div>
           <h3 className="text-lg font-medium text-gray-900 mb-3">
             Test Cases ({testCases.length})
@@ -139,8 +139,6 @@ export default function SetupStep({
               </button>
             ))}
           </div>
-
-          {/* Selected test case preview */}
           {testCases[selectedTestCaseIndex] && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <h4 className="font-medium text-gray-900 mb-2">
@@ -161,7 +159,7 @@ export default function SetupStep({
             </div>
           )}
         </div>
-      )}
+      )} */}
 
       {/* Validation Error */}
       {validationError && (

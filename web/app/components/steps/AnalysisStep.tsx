@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import RubricEvaluator from "@/app/components/RubricEvaluator";
 // import { ModelComparisonEvaluator } from "@/app/components";
 import ModelOutputsGrid from "@/app/components/ModelOutputsGrid";
-import { TestCase, TestCaseWithModelOutputs, ModelOutput } from "@/app/types";
+import { TestCase, TestCaseWithModelOutputs, ModelOutput, IdealModelResponse } from "@/app/types";
 // No longer import constants from API; UI receives dynamic selection via props
 
 interface AnalysisStepProps {
@@ -36,6 +36,7 @@ interface AnalysisStepProps {
   // Session ID to control when copy button appears
   sessionId?: string | null;
   onCompareClick?: () => void;
+  idealResponses?: IdealModelResponse[];
 }
 
 export default function AnalysisStep({
@@ -57,6 +58,7 @@ export default function AnalysisStep({
   loadingModelListOverride,
   sessionId,
   onCompareClick,
+  idealResponses = [],
 }: AnalysisStepProps) {
   const gridConfig = useMemo(() => {
     const isLoading = currentPhase === "generating";
@@ -117,6 +119,7 @@ export default function AnalysisStep({
               sessionId={sessionId}
               showFinalResultsHere={false}
               onCompareClick={onCompareClick}
+              idealResponses={idealResponses}
             />
           ) : (
             <div className="text-center py-8 text-gray-500">

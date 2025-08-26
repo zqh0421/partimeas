@@ -10,6 +10,7 @@ import {
   updateIdealResponseScore,
   getExpectedScore,
 } from "@/app/utils/idealResponseScoring";
+import { IdealModelResponse } from "@/app/types";
 
 interface InputScoringTableProps {
   responses: { id: string; label: string }[];
@@ -24,6 +25,7 @@ interface InputScoringTableProps {
   onCompareClick?: () => void;
   selectedIdealResponseId?: string; // Optional override for ideal response selection
   enableIdealScoreEditing?: boolean; // Whether to allow editing ideal scores
+  idealResponses?: IdealModelResponse[]; // Available ideal responses for evaluation
 }
 
 export default function InputScoringTable({
@@ -36,6 +38,7 @@ export default function InputScoringTable({
   onCompareClick,
   selectedIdealResponseId,
   enableIdealScoreEditing = true,
+  idealResponses = [],
 }: InputScoringTableProps) {
   const { criteria } = useCriteriaData();
 
@@ -452,6 +455,16 @@ export default function InputScoringTable({
           testCase: testCase,
           criteria: criteriaForApi,
           outputs: modelOutputs,
+          idealResponse: currentIdealResponseId
+            ? idealResponses.find((ir) => ir.name === currentIdealResponseId)
+              ? {
+                  id: currentIdealResponseId,
+                  content: idealResponses.find(
+                    (ir) => ir.name === currentIdealResponseId
+                  )!.modelResponse,
+                }
+              : undefined
+            : undefined,
         }),
       });
 
@@ -746,11 +759,51 @@ export default function InputScoringTable({
     el.style.height = `${el.scrollHeight}px`;
   };
 
+  // Check if all human scores are completed
+  const areAllHumanScoresComplete = useMemo(() => {
+    // Check if all rubric items have scores for all responses
+    for (const item of derived.items) {
+      for (const response of responses) {
+        const score = scores[item.id]?.[response.id];
+        if (score === "" || score === undefined) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }, [scores, derived.items, responses]);
+
+  // Check if AI evaluation results are available
+  const areAiResultsAvailable = useMemo(() => {
+    return Object.keys(aiScores).length > 0;
+  }, [aiScores]);
+
+  // Combined check for compare button availability
+  const canCompare = useMemo(() => {
+    return areAllHumanScoresComplete && areAiResultsAvailable;
+  }, [areAllHumanScoresComplete, areAiResultsAvailable]);
+
   // Debug log for troubleshooting
   console.log(
     `[InputScoringTable] Render - currentIdealResponseId: ${currentIdealResponseId}, enableIdealScoreEditing: ${enableIdealScoreEditing}, idealScores:`,
     idealScores
   );
+
+  console.log(`[InputScoringTable] Compare button state:`, {
+    areAllHumanScoresComplete,
+    areAiResultsAvailable,
+    canCompare,
+    totalScoresNeeded: derived.items.length * responses.length,
+    completedScores: derived.items.reduce((count, item) => {
+      return (
+        count +
+        responses.reduce((respCount, response) => {
+          const score = scores[item.id]?.[response.id];
+          return respCount + (score !== "" && score !== undefined ? 1 : 0);
+        }, 0)
+      );
+    }, 0),
+  });
 
   return (
     <div className="overflow-x-auto">
@@ -850,13 +903,19 @@ export default function InputScoringTable({
                     <td className="px-4 py-3 align-top border-x border-gray-200">
                       <div className="relative w-16">
                         <select
-                          className={`w-16 h-10 px-3 py-2 pr-8 border rounded-lg shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-center cursor-pointer transition-all duration-200 appearance-none ${
-                            isComparingMode && aiScores[r.id]?.[resp.id] !== undefined &&
-                            scores[r.id]?.[resp.id] !== aiScores[r.id][resp.id].score
-                              ? 'border-red-300 bg-red-50 text-red-700'
-                              : 'border-gray-300 text-gray-700'
+                          className={`w-16 h-10 px-3 py-2 pr-8 border rounded-lg text-sm font-medium text-center transition-all duration-200 appearance-none ${
+                            isComparingMode
+                              ? `cursor-not-allowed ${
+                                  aiScores[r.id]?.[resp.id] !== undefined &&
+                                  scores[r.id]?.[resp.id] !==
+                                    aiScores[r.id][resp.id].score
+                                    ? "border-red-300 bg-red-100 text-red-700"
+                                    : "border-gray-200 bg-white text-gray-700"
+                                }`
+                              : "shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer border-gray-300 text-gray-700"
                           }`}
                           value={(scores[r.id] && scores[r.id][resp.id]) ?? ""}
+                          disabled={isComparingMode}
                           onChange={(e) => {
                             const v =
                               e.target.value === ""
@@ -885,28 +944,35 @@ export default function InputScoringTable({
                             </option>
                           ))}
                         </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                          <svg
-                            className="w-4 h-4 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </div>
+                        {!isComparingMode && (
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <svg
+                              className="w-4 h-4 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 align-top border-x border-gray-200">
                       <textarea
-                        className="w-[15vw] px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-700"
+                        className={`w-[15vw] px-3 py-2 border rounded-md text-sm transition-all duration-200 ${
+                          isComparingMode
+                            ? "border-gray-200 bg-white text-gray-700"
+                            : "border-gray-300 shadow-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+                        }`}
                         placeholder="Your rationale"
                         rows={1}
+                        disabled={isComparingMode}
                         value={
                           (rationales[r.id] && rationales[r.id][resp.id]) ?? ""
                         }
@@ -924,11 +990,20 @@ export default function InputScoringTable({
                 <td className="px-4 py-3 align-top border-x border-gray-200">
                   <div className="relative w-16">
                     <select
-                      className={`w-16 h-10 px-3 py-2 pr-8 border rounded-lg shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-center cursor-pointer transition-all duration-200 appearance-none ${
-                        isComparingMode && currentIdealResponseId && aiScores[r.id]?.[currentIdealResponseId] !== undefined &&
-                        (idealScores[r.id] !== undefined ? idealScores[r.id] : idealPoints[rowIdx]) !== aiScores[r.id][currentIdealResponseId].score
-                          ? 'border-red-300 bg-red-50 text-red-700'
-                          : 'border-gray-300 text-gray-700'
+                      className={`w-16 h-10 px-3 py-2 pr-8 border rounded-lg text-sm font-medium text-center transition-all duration-200 appearance-none ${
+                        isComparingMode
+                          ? `${
+                              currentIdealResponseId &&
+                              aiScores[r.id]?.[currentIdealResponseId] !==
+                                undefined &&
+                              (idealScores[r.id] !== undefined
+                                ? idealScores[r.id]
+                                : idealPoints[rowIdx]) !==
+                                aiScores[r.id][currentIdealResponseId].score
+                                ? "border-red-300 bg-red-100 text-red-700"
+                                : "border-gray-200 bg-white text-gray-700"
+                            }`
+                          : "shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer border-gray-300 text-gray-700"
                       }`}
                       value={
                         idealScores[r.id] !== undefined
@@ -937,6 +1012,7 @@ export default function InputScoringTable({
                           ? idealPoints[rowIdx]
                           : ""
                       }
+                      disabled={isComparingMode}
                       onChange={(e) => {
                         const v =
                           e.target.value === "" ? "" : Number(e.target.value);
@@ -971,21 +1047,23 @@ export default function InputScoringTable({
                         </option>
                       ))}
                     </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <svg
-                        className="w-4 h-4 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </div>
+                    {!isComparingMode && (
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <svg
+                          className="w-4 h-4 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -1178,7 +1256,22 @@ export default function InputScoringTable({
                       {enableIdealScoreEditing ? (
                         <div className="relative w-16">
                           <select
-                            className="w-16 h-10 px-3 py-2 pr-8 border border-gray-300 rounded-lg shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-700 text-center cursor-pointer transition-all duration-200 appearance-none"
+                            className={`w-16 h-10 px-3 py-2 pr-8 border rounded-lg text-sm font-medium text-center transition-all duration-200 appearance-none ${
+                              isComparingMode
+                                ? `cursor-not-allowed bg-white ${
+                                    currentIdealResponseId &&
+                                    aiScores[r.id]?.[currentIdealResponseId] !==
+                                      undefined &&
+                                    (idealScores[r.id] !== undefined
+                                      ? idealScores[r.id]
+                                      : idealPoints[rowIdx]) !==
+                                      aiScores[r.id][currentIdealResponseId]
+                                        .score
+                                      ? "border-red-300 text-red-700"
+                                      : "border-gray-200 text-gray-600"
+                                  }`
+                                : "shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer border-gray-300 text-gray-700"
+                            }`}
                             value={
                               idealScores[r.id] !== undefined
                                 ? idealScores[r.id]
@@ -1186,6 +1279,7 @@ export default function InputScoringTable({
                                 ? idealPoints[rowIdx]
                                 : ""
                             }
+                            disabled={isComparingMode}
                             onChange={(e) => {
                               const v =
                                 e.target.value === ""
@@ -1227,21 +1321,23 @@ export default function InputScoringTable({
                               </option>
                             ))}
                           </select>
-                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                            <svg
-                              className="w-4 h-4 text-gray-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 9l-7 7-7-7"
-                              />
-                            </svg>
-                          </div>
+                          {!isComparingMode && (
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                              <svg
+                                className="w-4 h-4 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="text-gray-900 font-medium">
@@ -1260,21 +1356,30 @@ export default function InputScoringTable({
       <div className="mt-4 flex justify-end">
         <button
           className={`px-4 py-2 rounded-md mb-2 transition-all duration-200 ${
-            Object.keys(aiScores).length === 0
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            !canCompare
+              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
               : isComparingMode
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
+              ? "bg-red-600 text-white hover:bg-red-700"
+              : "bg-blue-600 text-white hover:bg-blue-700"
           }`}
-          disabled={Object.keys(aiScores).length === 0}
+          disabled={!canCompare}
           onClick={() => {
-            if (Object.keys(aiScores).length > 0) {
+            if (canCompare) {
               setIsComparingMode(!isComparingMode);
               onCompareClick && onCompareClick();
             }
           }}
+          title={
+            !canCompare
+              ? `Complete all scoring first. Human scoring: ${
+                  areAllHumanScoresComplete ? "✓" : "✗"
+                }, AI results: ${areAiResultsAvailable ? "✓" : "✗"}`
+              : isComparingMode
+              ? "Stop comparing with AI results"
+              : "Compare human scores with AI results"
+          }
         >
-          {isComparingMode ? 'Stop Comparing' : 'Compare with the AI Grader'}
+          {isComparingMode ? "Stop Comparing" : "Compare with the AI Grader"}
         </button>
       </div>
     </div>

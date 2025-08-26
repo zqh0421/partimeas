@@ -144,6 +144,16 @@ type ModelInstance =
   | any // LangChain models return RunnableBinding types
   | { type: "direct_anthropic"; modelName: string; anthropicApiKey: string };
 
+// Define the expected evaluation structure
+interface EvaluationResult {
+  modelId?: string; // Model ID for the evaluated response
+  overallScore: number;
+  criteriaScores: Record<string, { score: number; reasoning: string }>;
+  feedback: string;
+  timestamp: string;
+  isIdealResponse?: boolean; // Optional flag for ideal response evaluations
+}
+
 // Initialize model instances with dynamic imports using DB provider+model
 const getModelInstance = async (
   provider: string,
@@ -546,10 +556,14 @@ const validateAndFixStructure = (
 const evaluateModelOutputs = async (
   outputs: any[],
   testCase: any,
-  criteria: any[]
+  criteria: any[],
+  idealResponse?: any // Add ideal response parameter
 ) => {
   try {
     console.log("🔍 Starting evaluation of model outputs...");
+    if (idealResponse) {
+      console.log("🔍 Ideal response will also be evaluated for comparison");
+    }
 
     // Use the active evaluation assistant with system prompt
     const activeEvaluationAssistant = await getActiveEvaluationAssistant();
@@ -557,7 +571,7 @@ const evaluateModelOutputs = async (
       console.warn(
         "⚠️ No active evaluation assistant. Returning mock evaluation results."
       );
-      const mockEvaluations = outputs.map((output) => {
+      const mockEvaluations: EvaluationResult[] = outputs.map((output) => {
         const criteriaScores = criteria.reduce((acc: any, c: any) => {
           const score = Math.floor(Math.random() * 3); // 0-2
           acc[c.id] = { score, reasoning: "Mock score (no evaluator active)" };
@@ -577,8 +591,39 @@ const evaluateModelOutputs = async (
           criteriaScores,
           feedback: "Mock evaluation (no evaluator assistant is active).",
           timestamp: new Date().toISOString(),
-        };
+        } as EvaluationResult;
       });
+
+      // Add mock evaluation for ideal response if provided
+      if (idealResponse) {
+        const idealCriteriaScores = criteria.reduce((acc: any, c: any) => {
+          const score = Math.floor(Math.random() * 3); // 0-2
+          acc[c.id] = {
+            score,
+            reasoning: "Mock ideal response score (no evaluator active)",
+          };
+          return acc;
+        }, {} as any);
+        const idealScoreValues = Object.values(idealCriteriaScores).map(
+          (s: any) => s.score as number
+        );
+        const idealOverallScore =
+          idealScoreValues.length > 0
+            ? idealScoreValues.reduce((a: number, b: number) => a + b, 0) /
+              idealScoreValues.length
+            : 0;
+
+        mockEvaluations.push({
+          modelId: idealResponse.id || "ideal-response",
+          overallScore: idealOverallScore,
+          criteriaScores: idealCriteriaScores,
+          feedback:
+            "Mock ideal response evaluation (no evaluator assistant is active).",
+          timestamp: new Date().toISOString(),
+          isIdealResponse: true, // Mark as ideal response
+        });
+      }
+
       return { evaluations: mockEvaluations, evaluationModelId: "mock" };
     }
 
@@ -599,19 +644,12 @@ const evaluateModelOutputs = async (
       }`
     );
 
-    const evaluations = [];
-
-    // Define the expected evaluation structure
-    interface EvaluationResult {
-      overallScore: number;
-      criteriaScores: Record<string, { score: number; reasoning: string }>;
-      feedback: string;
-      timestamp: string;
-    }
+    const evaluations: EvaluationResult[] = [];
 
     // Set up the JSON output parser
     const parser = new JsonOutputParser<EvaluationResult>();
 
+    // First, evaluate all model outputs
     for (const output of outputs) {
       console.log(`🔍 Evaluating output from model: ${output.modelId}`);
 
@@ -804,6 +842,188 @@ const evaluateModelOutputs = async (
       }
     }
 
+    // Now evaluate the ideal response if provided
+    console.log(`🔍 Debug: idealResponse exists: ${!!idealResponse}`);
+    if (idealResponse) {
+      console.log(`🔍 Debug: idealResponse.content exists: ${!!idealResponse.content}`);
+      console.log(`🔍 Debug: idealResponse.id: ${idealResponse.id || "no-id"}`);
+    }
+    
+    if (idealResponse && idealResponse.content) {
+      console.log(
+        `🔍 Evaluating ideal response: ${idealResponse.id || "ideal-response"}`
+      );
+
+      // Build user prompt for ideal response evaluation
+      const idealUserQuery = `
+        **Test Case User Input:**
+        ${testCase.input}
+
+        **Ideal Response to Evaluate (This is the expected perfect answer):**
+        ${idealResponse.content}
+
+        **Evaluation Rubric:**
+        ${criteria
+          .map(
+            (c, index) =>
+              `${index + 1}. **${c.name}**: ${c.description}
+              Score Range: ${c.scoreRange} (Use whole numbers only)
+              Positive Examples: ${c.positive}
+              Negative Examples: ${c.negative}`
+          )
+          .join("\n")}
+
+        **Important:** This is the IDEAL response that should receive the highest possible scores. Evaluate it as if it were a perfect answer that meets all criteria fully.`;
+
+      // Create format instructions for the JSON structure
+      const idealFormatInstructions = `
+        Respond with a valid JSON object containing:
+        - "criteriaScores": object with keys "${criteria
+          .map((c) => c.id)
+          .join('", "')}" each having {"score": number, "reasoning": string}
+        
+        Note: This is the ideal response, so scores should reflect the maximum possible points for each criterion.`;
+
+      // Create prompt template with format instructions
+      const idealPrompt = ChatPromptTemplate.fromTemplate(`
+        {system_prompt}
+        {format_instructions}
+
+        {query}
+      `);
+
+      const idealPartialedPrompt = await idealPrompt.partial({
+        format_instructions: idealFormatInstructions,
+        system_prompt: activeEvaluationAssistant.systemPrompt,
+      });
+
+      try {
+        // For direct Anthropic API calls
+        if (
+          evaluationModel &&
+          typeof evaluationModel === "object" &&
+          "type" in evaluationModel &&
+          evaluationModel.type === "direct_anthropic"
+        ) {
+          const anthropic = new Anthropic({
+            apiKey: evaluationModel.anthropicApiKey,
+          });
+
+          const formattedQuery = await idealPartialedPrompt.format({
+            query: idealUserQuery,
+          });
+
+          const response = await anthropic.messages.create({
+            model: evaluationModel.modelName,
+            max_tokens: 4096,
+            messages: [
+              {
+                role: "user",
+                content: formattedQuery,
+              },
+            ],
+          });
+
+          if (response.content && response.content.length > 0) {
+            const content = response.content[0];
+            if (content.type === "text") {
+              let responseContent = content.text.trim();
+
+              const jsonMatch = responseContent.match(
+                /```(?:json)?\s*([\s\S]*?)\s*```/
+              );
+              if (jsonMatch) {
+                responseContent = jsonMatch[1].trim();
+              }
+
+              const startIndex = responseContent.indexOf("{");
+              const lastIndex = responseContent.lastIndexOf("}");
+              if (
+                startIndex !== -1 &&
+                lastIndex !== -1 &&
+                startIndex <= lastIndex
+              ) {
+                responseContent = responseContent.substring(
+                  startIndex,
+                  lastIndex + 1
+                );
+              }
+
+              const evaluation = JSON.parse(responseContent);
+              evaluation.modelId = idealResponse.id || "ideal-response";
+              evaluation.timestamp = new Date().toISOString();
+              evaluation.isIdealResponse = true; // Mark as ideal response
+              evaluations.push(evaluation);
+              console.log(
+                `✅ Ideal response evaluation completed (Direct API)`
+              );
+            }
+          } else {
+            throw new Error(
+              "No valid text content received from Anthropic API for ideal response"
+            );
+          }
+        } else {
+          // Use LangChain JsonOutputParser for other models
+          const chain = idealPartialedPrompt.pipe(evaluationModel).pipe(parser);
+
+          const tracedChain = traceable(
+            async (query: string) => {
+              return await chain.invoke({ query });
+            },
+            {
+              name: `ideal-evaluation-${activeEvaluationAssistant.provider}-${activeEvaluationAssistant.model}`,
+              tags: ["evaluation", "ideal-response"],
+              metadata: {
+                source: "PartiMeas",
+                run_type: "evaluation",
+                ls_provider: activeEvaluationAssistant.provider,
+                ls_model_name: activeEvaluationAssistant.model,
+                assistant_id: activeEvaluationAssistant.assistantId,
+                assistant_name: activeEvaluationAssistant.name,
+                test_case_id: testCase.id || "unknown",
+                model_being_evaluated: "ideal-response",
+                system_prompt: activeEvaluationAssistant.systemPrompt,
+              },
+            }
+          );
+
+          const evaluation = await tracedChain(idealUserQuery);
+
+          // Add metadata to the ideal response evaluation
+          const evaluationWithMetadata = {
+            ...evaluation,
+            modelId: idealResponse.id || "ideal-response",
+            timestamp: new Date().toISOString(),
+            isIdealResponse: true, // Mark as ideal response
+          };
+
+          evaluations.push(evaluationWithMetadata);
+          console.log(`✅ Ideal response evaluation completed (LangChain)`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to evaluate ideal response:`, error);
+
+        // Create a fallback evaluation for ideal response
+        evaluations.push({
+          modelId: idealResponse.id || "ideal-response",
+          overallScore: 0,
+          criteriaScores: criteria.reduce((acc, c) => {
+            acc[c.id] = {
+              score: 0,
+              reasoning:
+                "Ideal response evaluation failed - " +
+                (error instanceof Error ? error.message : "Unknown error"),
+            };
+            return acc;
+          }, {} as any),
+          feedback: "Ideal response evaluation failed",
+          timestamp: new Date().toISOString(),
+          isIdealResponse: true, // Mark as ideal response
+        });
+      }
+    }
+
     console.log(`✅ All evaluations completed. Total: ${evaluations.length}`);
     return { evaluations, evaluationModelId };
   } catch (error) {
@@ -815,7 +1035,7 @@ const evaluateModelOutputs = async (
 // Main API route handler
 export async function POST(request: NextRequest) {
   try {
-    const { phase, testCase, criteria, outputs, groupId } =
+    const { phase, testCase, criteria, outputs, groupId, idealResponse } =
       await request.json();
 
     console.log(`🚀 Model evaluation request received - Phase: ${phase}`);
@@ -1305,7 +1525,8 @@ export async function POST(request: NextRequest) {
         const { evaluations, evaluationModelId } = await evaluateModelOutputs(
           outputs,
           testCase,
-          criteria
+          criteria,
+          idealResponse
         );
 
         console.log("✅ Evaluation completed:", {

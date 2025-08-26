@@ -9,11 +9,10 @@ import {
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { TestCase } from "@/app/types";
 import {
-  saveSelections,
-  restoreSelections,
-  clearSelectionCache,
+  saveIndependentMultiLevelSelections,
+  restoreIndependentMultiLevelSelections,
+  clearIndependentCache,
   Selection,
-  selectionCache,
 } from "@/app/utils/selectionCache";
 
 interface UseCaseInfo {
@@ -104,8 +103,8 @@ export default function MultiLevelSelector({
     setSelections([]);
     onSelectionChange([]);
     onDataLoaded([]);
-    clearSelectionCache();
-    console.log("[MultiLevelSelector] Cleared selections and cache");
+    clearIndependentCache('multiLevel');
+    console.log("[MultiLevelSelector] Cleared selections and independent cache");
   };
 
   const organizeUseCaseData = (
@@ -293,8 +292,8 @@ export default function MultiLevelSelector({
     setExpandedUseCases(new Set());
     setUseCaseData({});
     onDataLoaded([]);
-    clearSelectionCache();
-    console.log("[MultiLevelSelector] Refreshed and cleared cache");
+    clearIndependentCache('multiLevel');
+    console.log("[MultiLevelSelector] Refreshed and cleared independent cache");
     loadAllUseCaseData(true);
   };
 
@@ -341,8 +340,8 @@ export default function MultiLevelSelector({
       setSelections(newSelections);
       onSelectionChange(newSelections);
 
-      // Automatically save selection state to cache
-      saveSelections(newSelections, expandedUseCases);
+      // Automatically save selection state to independent cache
+      saveIndependentMultiLevelSelections(newSelections, expandedUseCases);
 
       // Create a Set to avoid duplicate test cases by ID
       const uniqueTestCasesMap = new Map<string, TestCase>();
@@ -365,14 +364,14 @@ export default function MultiLevelSelector({
     }
   };
 
-  // Restore cached selection state
+  // Restore cached selection state from independent cache
   useEffect(() => {
-    const restored = restoreSelections();
+    const restored = restoreIndependentMultiLevelSelections();
     if (restored) {
       setSelections(restored.selections);
       setExpandedUseCases(restored.expandedUseCases);
       console.log(
-        "[MultiLevelSelector] Restored cached selections and expanded states"
+        "[MultiLevelSelector] Restored cached selections and expanded states from independent cache"
       );
 
       // When cache is restored, need to reload corresponding test case data
@@ -407,10 +406,10 @@ export default function MultiLevelSelector({
     }
   }, [useCaseData, onDataLoaded]);
 
-  // Listen for expansion state changes and save to cache
+  // Listen for expansion state changes and save to independent cache
   useEffect(() => {
     if (selections.length > 0 || expandedUseCases.size > 0) {
-      saveSelections(selections, expandedUseCases);
+      saveIndependentMultiLevelSelections(selections, expandedUseCases);
     }
   }, [expandedUseCases, selections]);
 

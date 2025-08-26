@@ -11,9 +11,9 @@ import {
 } from "@/app/utils/criteriaReader";
 import { useCriteriaData } from "@/app/hooks/useCriteriaData";
 import {
-  saveSelections,
-  restoreSelections,
-  clearSelectionCache,
+  saveIndependentCriteriaSelection,
+  restoreIndependentCriteriaSelection,
+  clearIndependentCache,
 } from "@/app/utils/selectionCache";
 import {
   criteriaToDynamicTree,
@@ -69,42 +69,60 @@ export default function CriteriaMultiLevelSelector({
   // Restore cached selection state
   useEffect(() => {
     if (criteria.length > 0 && !restoredRef.current) {
-      console.log("[CriteriaMultiLevelSelector] Attempting to restore cached selection...");
-      const restored = restoreSelections();
-      const cachedCriteriaVersionId = restored?.selectedCriteriaVersionId;
-      console.log("[CriteriaMultiLevelSelector] Cached ID:", cachedCriteriaVersionId);
-      
+      console.log(
+        "[CriteriaMultiLevelSelector] Attempting to restore cached selection..."
+      );
+      const cachedCriteriaVersionId = restoreIndependentCriteriaSelection();
+      console.log(
+        "[CriteriaMultiLevelSelector] Cached criteria name:",
+        cachedCriteriaVersionId
+      );
+
       if (cachedCriteriaVersionId) {
         // Find the cached selection in the tree data
         const treeStructure = criteriaToDynamicTree(criteria);
-        console.log("[CriteriaMultiLevelSelector] Tree structure:", treeStructure);
-        
-        const findNodeById = (nodes: any[], id: string): any => {
+        console.log(
+          "[CriteriaMultiLevelSelector] Tree structure:",
+          treeStructure
+        );
+
+        const findNodeByName = (nodes: any[], name: string): any => {
           for (const node of nodes) {
-            if (node.id === id) return node;
+            if (node.name === name) return node;
             if (node.children) {
-              const found = findNodeById(node.children, id);
+              const found = findNodeByName(node.children, name);
               if (found) return found;
             }
           }
           return null;
         };
-        
-        const cachedNode = findNodeById(treeStructure, cachedCriteriaVersionId);
-        console.log("[CriteriaMultiLevelSelector] Found cached node:", cachedNode);
-        
+
+        const cachedNode = findNodeByName(treeStructure, cachedCriteriaVersionId);
+        console.log(
+          "[CriteriaMultiLevelSelector] Found cached node by name:",
+          {
+            searchingForName: cachedCriteriaVersionId,
+            foundNode: cachedNode,
+            foundNodeName: cachedNode?.name,
+            foundNodeId: cachedNode?.id
+          }
+        );
+
         if (cachedNode) {
           const restoredPath: SelectionPath = {
             node: cachedNode,
             path: [cachedNode.id],
           };
-          console.log("[CriteriaMultiLevelSelector] Setting selectedPaths to:", [restoredPath]);
+          console.log(
+            "[CriteriaMultiLevelSelector] Setting selectedPaths to:",
+            [restoredPath]
+          );
           setSelectedPaths([restoredPath]);
-          
+
           // Use setTimeout to ensure the state update has been processed
           setTimeout(() => {
             onSelectionChange([restoredPath]);
-            
+
             // Also trigger the data loaded callback with the restored selection
             const selectedItems = extractSelectedItems<CriteriaItem | null>(
               [restoredPath],
@@ -126,15 +144,21 @@ export default function CriteriaMultiLevelSelector({
 
             onDataLoaded(selectedItems);
           }, 0);
-          
-          console.log("[CriteriaMultiLevelSelector] Restored cached selection:", cachedCriteriaVersionId);
+
+          console.log(
+            "[CriteriaMultiLevelSelector] Restored cached selection:",
+            cachedCriteriaVersionId
+          );
         } else {
-          console.log("[CriteriaMultiLevelSelector] Cached node not found, clearing cache");
+          console.log(
+            "[CriteriaMultiLevelSelector] Cached node not found, clearing cache"
+          );
+          clearIndependentCache('criteria');
         }
       } else {
         console.log("[CriteriaMultiLevelSelector] No cached selection found");
       }
-      
+
       restoredRef.current = true;
     }
   }, [criteria.length, onSelectionChange, onDataLoaded]);
@@ -148,23 +172,31 @@ export default function CriteriaMultiLevelSelector({
       // Save the selected criteria version to cache
       if (newSelections.length > 0) {
         const selectedNode = newSelections[0].node;
-        console.log("[CriteriaMultiLevelSelector] Saving selection to cache:", selectedNode.id, selectedNode);
-        
-        // Get existing cache to preserve other selections
-        const existing = restoreSelections();
-        saveSelections(
-          existing?.selections || [],
-          existing?.expandedUseCases || [],
-          selectedNode.id // selectedCriteriaVersionId
+        console.log(
+          "[CriteriaMultiLevelSelector] Saving selection to independent cache:",
+          {
+            id: selectedNode.id,
+            name: selectedNode.name,
+            savingName: selectedNode.name
+          }
         );
-        
+
+        // Save to independent cache
+        saveIndependentCriteriaSelection(selectedNode.name);
+
         // Verify it was saved
-        const verified = restoreSelections();
-        console.log("[CriteriaMultiLevelSelector] Verification - cached ID:", verified?.selectedCriteriaVersionId);
+        const verified = restoreIndependentCriteriaSelection();
+        console.log(
+          "[CriteriaMultiLevelSelector] Verification - saved to independent cache:",
+          {
+            savedCriteriaVersionId: verified,
+            success: verified === selectedNode.name
+          }
+        );
       } else {
         // Clear cache if no selection
-        console.log("[CriteriaMultiLevelSelector] Clearing cache");
-        clearSelectionCache();
+        console.log("[CriteriaMultiLevelSelector] Clearing independent cache");
+        clearIndependentCache('criteria');
       }
 
       // Extract criteria items from selections (sheet-level only, no requirements data)
@@ -227,7 +259,7 @@ export default function CriteriaMultiLevelSelector({
         selectionSummary: (selections) =>
           selections.length === 0
             ? "Select criterion to proceed..."
-            : `Selected criterion to refine: ${selections[0].node.name}`,
+            : `Selected criterion to refine: <${selections[0].node.name}>`,
         ...config,
       }}
       title="Criterion Selection"

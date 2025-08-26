@@ -473,11 +473,33 @@ function TreeNodeItem({
   return (
     <div className="mb-1">
       {/* Node Header */}
-      <div className="flex items-center p-2 hover:bg-gray-50 rounded">
+      <div 
+        className={`flex items-center p-2 hover:bg-gray-50 rounded ${
+          isSelectable && !isExplicitlyNonSelectable ? 'cursor-pointer' : ''
+        }`}
+        onClick={(e) => {
+          // Only trigger selection if clicking on the main row area (not expansion toggle)
+          if (isSelectable && !isExplicitlyNonSelectable && e.target !== e.currentTarget) {
+            // Check if we clicked on the expansion toggle or its children
+            const target = e.target as HTMLElement;
+            const isExpansionClick = target.closest('button[data-expansion-toggle]');
+            if (!isExpansionClick) {
+              onToggleSelection();
+            }
+          } else if (isSelectable && !isExplicitlyNonSelectable) {
+            // Direct click on the container
+            onToggleSelection();
+          }
+        }}
+      >
         {/* Expansion toggle for nodes with children */}
         {hasChildren && (
           <button
-            onClick={onToggleExpansion}
+            data-expansion-toggle="true"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpansion();
+            }}
             className="mr-2 p-0.5 hover:bg-gray-200 rounded"
           >
             {isExpanded ? (
@@ -490,7 +512,7 @@ function TreeNodeItem({
 
         {/* Selection indicator for selectable nodes */}
         {isSelectable && !isExplicitlyNonSelectable && (
-          <div className="mr-3" onClick={onToggleSelection}>
+          <div className="mr-3 pointer-events-none">
             {singleSelect ? (
               <div
                 className={`w-4 h-4 border rounded-full flex items-center justify-center ${
@@ -503,7 +525,7 @@ function TreeNodeItem({
               </div>
             ) : (
               <div
-                className={`w-4 h-4 border border-gray-300 rounded flex items-center justify-center cursor-pointer ${
+                className={`w-4 h-4 border border-gray-300 rounded flex items-center justify-center ${
                   isSelected ? "bg-blue-600 border-blue-600" : "bg-white"
                 } ${
                   hasSelectedDescendants && !isSelected
@@ -520,7 +542,7 @@ function TreeNodeItem({
         )}
 
         {/* Node content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pointer-events-none">
           <div className="flex items-center">
             <span
               className={`text-gray-900 ${

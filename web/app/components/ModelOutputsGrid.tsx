@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ModelOutput, TestCase } from "@/app/types";
+import { ModelOutput, TestCase, IdealModelResponse } from "@/app/types";
 import SimpleMarkdownRenderer from "@/app/components/SimpleMarkdownRenderer";
 import { useStepLoading } from "@/app/components/steps/VerticalStepper";
 import TestCaseNavigation from "@/app/components/TestCaseNavigation";
@@ -41,6 +41,7 @@ export default function ModelOutputsGrid({
   sessionId,
   showFinalResultsHere = true,
   onCompareClick,
+  idealResponses = [],
 }: {
   modelOutputs?: ModelOutput[];
   isLoading?: boolean;
@@ -57,6 +58,7 @@ export default function ModelOutputsGrid({
   sessionId?: string | null;
   showFinalResultsHere?: boolean;
   onCompareClick?: () => void;
+  idealResponses?: IdealModelResponse[];
 }) {
   const [viewMode, setViewMode] = useState<"enhanced" | "simple">("enhanced");
   const [evaluationViewMode, setEvaluationViewMode] = useState<
@@ -218,6 +220,7 @@ export default function ModelOutputsGrid({
                     : undefined
                 }
                 onCompareClick={onCompareClick}
+                idealResponses={idealResponses}
               />
             )}
 
@@ -269,7 +272,7 @@ export default function ModelOutputsGrid({
             )}
           </div>
           {/* Only show copy button when sessionId is available (database has returned session_id) */}
-          {sessionId && testCases && selectedTestCaseIndex !== undefined && (
+          {/* {sessionId && testCases && selectedTestCaseIndex !== undefined && (
             <button
               onClick={handleCopySessionLink}
               className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -315,7 +318,7 @@ export default function ModelOutputsGrid({
                 </>
               )}
             </button>
-          )}
+          )} */}
         </div>
         <div className={`grid ${getGridCols(displayModels.length)} gap-4`}>
           {displayModels.map((item, index) => {

@@ -1,9 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronDownIcon, CheckIcon } from "@/app/components/icons";
-import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { IdealModelResponse } from "@/app/types";
+import GenericMultiLevelSelector, {
+  TreeNode,
+  SelectionPath,
+} from "./GenericMultiLevelSelector";
+import {
+  saveIndependentIdealResponseSelection,
+  restoreIndependentIdealResponseSelection,
+  clearIndependentCache,
+} from "@/app/utils/selectionCache";
 
 export interface IdealResponseSelectorProps {
   selectedIdealResponseId?: string;
@@ -26,22 +33,13 @@ export default function IdealResponseSelector({
   isRefreshing = false,
   lastUpdateTime,
 }: IdealResponseSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [idealResponses, setIdealResponses] = useState<IdealModelResponse[]>([]);
+  const [idealResponses, setIdealResponses] = useState<IdealModelResponse[]>(
+    []
+  );
   const [internalLoading, setInternalLoading] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const [internalLastUpdateTime, setInternalLastUpdateTime] = useState<Date | null>(null);
+  const [cachedSelectionId, setCachedSelectionId] = useState<string | null>(null);
+  const restoredRef = useRef(false);
 
   // Fetch ideal responses from API
   const fetchIdealResponses = useCallback(async () => {
@@ -50,9 +48,11 @@ export default function IdealResponseSelector({
       console.log("[IdealResponseSelector] Fetching ideal responses...");
 
       const response = await fetch("/api/ideal-responses");
-      
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Unknown error" }));
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
@@ -65,12 +65,19 @@ export default function IdealResponseSelector({
 
       const responses = data.idealResponses || [];
       setIdealResponses(responses);
+      setInternalLastUpdateTime(new Date());
       onDataLoaded(responses);
-      
-      console.log(`[IdealResponseSelector] Loaded ${responses.length} ideal responses`);
+
+      console.log(
+        `[IdealResponseSelector] Loaded ${responses.length} ideal responses`
+      );
     } catch (error) {
-      console.error("[IdealResponseSelector] Error fetching ideal responses:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      console.error(
+        "[IdealResponseSelector] Error fetching ideal responses:",
+        error
+      );
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
       onError(`Failed to load ideal responses: ${errorMessage}`);
     } finally {
       setInternalLoading(false);
@@ -82,16 +89,42 @@ export default function IdealResponseSelector({
     fetchIdealResponses();
   }, [fetchIdealResponses]);
 
-  // Handle selection
-  const handleSelect = (idealResponseId: string) => {
-    console.log("[IdealResponseSelector] Selected:", idealResponseId);
-    onSelectionChange(idealResponseId);
-    setIsOpen(false);
-  };
+  // Restore cached selection when ideal responses are loaded
+  useEffect(() => {
+    if (idealResponses.length > 0 && !restoredRef.current) {
+      console.log("[IdealResponseSelector] Attempting to restore cached selection...");
+      
+      const cachedId = restoreIndependentIdealResponseSelection();
+      console.log("[IdealResponseSelector] Cached ideal response ID:", cachedId);
+      
+      if (cachedId) {
+        // Check if the cached selection exists in the loaded data
+        const existingResponse = idealResponses.find(response => response.name === cachedId);
+        if (existingResponse) {
+          console.log("[IdealResponseSelector] Found cached selection in loaded data:", existingResponse.name);
+          setCachedSelectionId(cachedId);
+          
+          // Use setTimeout to ensure the state update has been processed
+          setTimeout(() => {
+            onSelectionChange(cachedId);
+          }, 0);
+        } else {
+          console.log("[IdealResponseSelector] Cached selection not found in data, clearing cache");
+          clearIndependentCache('idealResponse');
+        }
+      } else {
+        console.log("[IdealResponseSelector] No cached selection found");
+      }
+      
+      restoredRef.current = true;
+    }
+  }, [idealResponses, onSelectionChange]);
 
   // Handle refresh
   const handleRefresh = () => {
     console.log("[IdealResponseSelector] Refresh requested");
+    setCachedSelectionId(null);
+    restoredRef.current = false;
     if (onRefresh) {
       onRefresh();
     } else {
@@ -99,110 +132,105 @@ export default function IdealResponseSelector({
     }
   };
 
-  // Find selected ideal response
-  const selectedIdealResponse = idealResponses.find(response => response.id === selectedIdealResponseId);
-
   const isLoadingState = isLoading || internalLoading || isRefreshing;
 
-  // Display text for the selector
-  const displayText = selectedIdealResponse
-    ? selectedIdealResponse.name
-    : "Select an ideal response...";
+  // Convert IdealModelResponse[] to TreeNode[]
+  const treeData: TreeNode[] = idealResponses.map((response) => ({
+    id: response.id,
+    name: response.name,
+    description: response.modelResponse,
+    displayInfo: response.testCaseInput
+      ? `Input: ${response.testCaseInput.slice(0, 50)}${
+          response.testCaseInput.length > 50 ? "..." : ""
+        }`
+      : undefined,
+    isSelectable: true,
+    metadata: response,
+  }));
 
-  const displaySubText = selectedIdealResponse
-    ? `${selectedIdealResponse.modelResponse.slice(0, 100)}${selectedIdealResponse.modelResponse.length > 100 ? "..." : ""}`
-    : `${idealResponses.length} ideal responses available`;
+  // Convert selectedIdealResponseId to SelectionPath[], prioritizing cached selection
+  const effectiveSelectedId = cachedSelectionId || selectedIdealResponseId;
+  const selectedPaths: SelectionPath[] = effectiveSelectedId
+    ? idealResponses
+        .filter((response) => response.name === effectiveSelectedId)
+        .map((response) => ({
+          path: [response.id],
+          node: {
+            id: response.id,
+            name: response.name,
+            description: response.modelResponse,
+            displayInfo: response.testCaseInput
+              ? `Input: ${response.testCaseInput.slice(0, 50)}${
+                  response.testCaseInput.length > 50 ? "..." : ""
+                }`
+              : undefined,
+            isSelectable: true,
+            metadata: response,
+          },
+        }))
+    : [];
+
+  // Handle selection changes from GenericMultiLevelSelector
+  const handleSelectionChange = (selections: SelectionPath[]) => {
+    if (selections.length > 0) {
+      const selectedResponse = selections[0].node
+        .metadata as IdealModelResponse;
+      console.log("[IdealResponseSelector] Selected:", selectedResponse.name);
+      
+      // Save to independent cache
+      saveIndependentIdealResponseSelection(selectedResponse.name);
+      setCachedSelectionId(selectedResponse.name);
+      
+      // Verify it was saved
+      const verified = restoreIndependentIdealResponseSelection();
+      console.log(
+        "[IdealResponseSelector] Verification - saved to independent cache:",
+        {
+          savedId: verified,
+          requestedId: selectedResponse.name,
+          success: verified === selectedResponse.name
+        }
+      );
+      
+      onSelectionChange(selectedResponse.name);
+    } else {
+      console.log("[IdealResponseSelector] Clearing selection");
+      clearIndependentCache('idealResponse');
+      setCachedSelectionId(null);
+      onSelectionChange("");
+    }
+  };
+
+  // Handle data loaded from GenericMultiLevelSelector
+  const handleDataLoaded = (_items: TreeNode[]) => {
+    // Don't call onDataLoaded here as it's already called in fetchIdealResponses
+    // The _items parameter represents the TreeNode[] but we already have the raw data
+  };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h3 className="text-lg font-medium text-gray-900">Ideal Model Response</h3>
-          <p className="text-sm text-gray-500">Choose an ideal response for comparison</p>
-        </div>
-        <button
-          onClick={handleRefresh}
-          disabled={isLoadingState}
-          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50"
-        >
-          <ArrowPathIcon className={`w-4 h-4 ${isLoadingState ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
-      </div>
-
-      <div className="relative" ref={dropdownRef}>
-        <button
-          onClick={() => !isLoadingState && setIsOpen(!isOpen)}
-          disabled={isLoadingState}
-          className={`w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-left hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-            isLoadingState ? "opacity-50 cursor-not-allowed" : ""
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="font-medium text-gray-900">
-                {isLoadingState ? "Loading..." : displayText}
-              </div>
-              <div className="text-sm text-gray-500 mt-1">
-                {isLoadingState ? "Please wait..." : displaySubText}
-              </div>
-            </div>
-            <ChevronDownIcon
-              className={`w-5 h-5 text-gray-400 transition-transform ${
-                isOpen ? "transform rotate-180" : ""
-              }`}
-            />
-          </div>
-        </button>
-
-        {isOpen && !isLoadingState && (
-          <div className="absolute z-10 w-full mt-2 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto">
-            {idealResponses.length === 0 ? (
-              <div className="px-4 py-6 text-center text-gray-500">
-                No ideal responses found.
-              </div>
-            ) : (
-              <div className="py-2">
-                {idealResponses.map((response) => (
-                  <button
-                    key={response.id}
-                    onClick={() => handleSelect(response.id)}
-                    className={`w-full px-4 py-3 text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
-                      selectedIdealResponseId === response.id ? "bg-blue-50" : ""
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 flex items-center">
-                          {response.name}
-                          {selectedIdealResponseId === response.id && (
-                            <CheckIcon className="w-4 h-4 text-blue-600 ml-2 flex-shrink-0" />
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1 line-clamp-2">
-                          {response.modelResponse}
-                        </div>
-                        {response.testCaseInput && (
-                          <div className="text-xs text-gray-400 mt-1">
-                            <strong>Test Input:</strong> {response.testCaseInput.slice(0, 60)}
-                            {response.testCaseInput.length > 60 ? "..." : ""}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {lastUpdateTime && (
-        <div className="text-xs text-gray-400 mt-2">
-          Last updated: {lastUpdateTime.toLocaleString()}
-        </div>
-      )}
-    </div>
+    <GenericMultiLevelSelector<IdealModelResponse>
+      data={treeData}
+      selectedPaths={selectedPaths}
+      onSelectionChange={handleSelectionChange}
+      onDataLoaded={handleDataLoaded}
+      onError={onError}
+      onRefresh={handleRefresh}
+      isLoading={isLoadingState}
+      isRefreshing={isRefreshing}
+      lastUpdateTime={lastUpdateTime || internalLastUpdateTime}
+      title="Ideal Model Response Selection"
+      emptyMessage="No ideal responses found."
+      loadingMessage="Loading ideal responses..."
+      config={{
+        singleSelect: true,
+        allowNonLeafSelection: true,
+        showCounts: false,
+        selectionSummary: (selections) => {
+          if (selections.length === 0) return "Select an ideal response...";
+          const selected = selections[0].node.metadata as IdealModelResponse;
+          return `Selected ideal model response to compare: <${selected.name}>`;
+        },
+      }}
+    />
   );
 }
