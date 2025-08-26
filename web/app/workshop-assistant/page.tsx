@@ -51,6 +51,8 @@ function OutputAnalysisFullPageContent() {
     setOutcomes,
     outcomesWithModelComparison,
     setOutcomesWithModelComparison,
+    idealResponses,
+    setIdealResponses,
 
     // Selection states
     selectedTestCaseIndex,
@@ -61,6 +63,8 @@ function OutputAnalysisFullPageContent() {
     setSelectedScenarioCategory,
     selectedCriteriaId,
     setSelectedCriteriaId,
+    selectedIdealResponseId,
+    setSelectedIdealResponseId,
     selectedSystemPrompt,
     setSelectedSystemPrompt,
     // currentUseCaseType,
@@ -165,11 +169,13 @@ function OutputAnalysisFullPageContent() {
       setCriteria,
       setOutcomes,
       setOutcomesWithModelComparison,
+      setIdealResponses,
       setIsLoading,
       setCurrentStep,
       // setSelectedUseCaseId,
       setSelectedScenarioCategory,
       setSelectedCriteriaId,
+      setSelectedIdealResponseId,
       setValidationError,
       setShouldStartEvaluation,
       setSelectedTestCaseIndex,
@@ -178,6 +184,8 @@ function OutputAnalysisFullPageContent() {
     data: {
       testCases,
       testCasesWithModelOutputs,
+      criteria,
+      rubricStructure: undefined, // TODO: Pass rubricStructure when available
       updateSystemPromptForUseCase,
     },
   });
@@ -642,10 +650,15 @@ function OutputAnalysisFullPageContent() {
 
             console.log("📤 Evaluation payload:", evaluationPayload);
 
-            const response = await fetch("/api/evaluation-results", {
+            const response = await fetch("/api/model-evaluation", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(evaluationPayload),
+              body: JSON.stringify({
+                phase: "evaluate",
+                testCase: evaluationPayload.testCase,
+                criteria: evaluationPayload.criteria,
+                outputs: evaluationPayload.modelOutputs,
+              }),
             });
 
             console.log(
@@ -786,6 +799,7 @@ function OutputAnalysisFullPageContent() {
       selectedTestCaseIndex,
       selectedScenarioCategory,
       selectedCriteriaId,
+      selectedIdealResponseId,
     });
 
     // Check if we have current selections
@@ -793,18 +807,20 @@ function OutputAnalysisFullPageContent() {
     const hasLoadedTestCases = testCases.length > 0;
     const hasScenarioCategory = Boolean(selectedScenarioCategory);
     const hasCriteriaVersion = Boolean(selectedCriteriaId);
+    const hasIdealResponse = Boolean(selectedIdealResponseId);
 
     if (
       !isUseCaseSelected ||
       !hasLoadedTestCases ||
       !hasScenarioCategory ||
-      !hasCriteriaVersion
+      !hasCriteriaVersion ||
+      !hasIdealResponse
     ) {
       console.log(
         "❌ Validation failed: missing one or more required selections"
       );
       setValidationError(
-        "Please select a use case, scenario category, and criteria version, and ensure test cases are loaded."
+        "Please select a use case, scenario category, criteria version, and ideal response, and ensure test cases are loaded."
       );
       return;
     }
@@ -827,10 +843,11 @@ function OutputAnalysisFullPageContent() {
     setCriteria([]);
     setOutcomes([]);
     setOutcomesWithModelComparison([]);
+    setIdealResponses([]);
     // setSelectedUseCaseId("");
     setSelectedScenarioCategory("");
     setSelectedCriteriaId("");
-    setSelectedCriteriaId("");
+    setSelectedIdealResponseId("");
     setSelectedSystemPrompt("");
     setValidationError("");
     setShouldStartEvaluation(false);
@@ -959,7 +976,8 @@ function OutputAnalysisFullPageContent() {
     TEST_CASE_CONFIG.name &&
       testCases.length > 0 &&
       selectedScenarioCategory &&
-      selectedCriteriaId
+      selectedCriteriaId &&
+      selectedIdealResponseId
   );
 
   // Create steps for the vertical stepper
@@ -983,6 +1001,7 @@ function OutputAnalysisFullPageContent() {
           hasValidSelections={hasValidSelections}
           analysisStep={analysisStep}
           selectedCriteriaVersionId={selectedCriteriaId}
+          selectedIdealResponseId={selectedIdealResponseId}
           onMultiLevelSelectionChange={handlers.handleMultiLevelSelectionChange}
           onUseCaseSelected={handlers.handleUseCaseSelected}
           onScenarioCategorySelected={handlers.handleScenarioCategorySelected}
@@ -991,6 +1010,9 @@ function OutputAnalysisFullPageContent() {
           onTestCaseSelect={handlers.handleTestCaseSelect}
           onConfirmSelections={handleConfirmSelections}
           onCriteriaVersionSelected={setSelectedCriteriaId}
+          onIdealResponseSelected={handlers.handleIdealResponseSelected}
+          onIdealResponseDataLoaded={handlers.handleIdealResponseDataLoaded}
+          onIdealResponseError={handlers.handleIdealResponseError}
         />
       ),
     },

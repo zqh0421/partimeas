@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { TestCase, RubricOutcome, CriteriaData, AnalysisStep, TestCaseWithModelOutputs, RubricOutcomeWithModelComparison } from '@/app/types';
+import { TestCase, RubricOutcome, CriteriaData, AnalysisStep, TestCaseWithModelOutputs, RubricOutcomeWithModelComparison, IdealModelResponse } from '@/app/types';
 
 // Types for better organization
 interface UIState {
@@ -15,6 +15,7 @@ interface DataState {
   criteria: CriteriaData[];
   outcomes: RubricOutcome[];
   outcomesWithModelComparison: RubricOutcomeWithModelComparison[];
+  idealResponses: IdealModelResponse[];
 }
 
 interface EvaluationState {
@@ -28,6 +29,7 @@ interface SelectionState {
   selectedScenarioCategory: string;
   selectedCriteriaId: string;
   selectedCriteriaVersionId: string;
+  selectedIdealResponseId: string;
   selectedSystemPrompt: string;
 }
 
@@ -47,6 +49,7 @@ export interface UseAnalysisStateReturn {
     setCriteria: (criteria: CriteriaData[]) => void;
     setOutcomes: (outcomes: RubricOutcome[]) => void;
     setOutcomesWithModelComparison: (outcomesWithModelComparison: RubricOutcomeWithModelComparison[]) => void;
+    setIdealResponses: (idealResponses: IdealModelResponse[]) => void;
   };
   evaluation: EvaluationState & {
     update: (updates: Partial<EvaluationState>) => void;
@@ -60,6 +63,7 @@ export interface UseAnalysisStateReturn {
     setSelectedScenarioCategory: (category: string) => void;
     setSelectedCriteriaId: (id: string) => void;
     setSelectedCriteriaVersionId: (id: string) => void;
+    setSelectedIdealResponseId: (id: string) => void;
     setSelectedSystemPrompt: (prompt: string) => void;
   };
   useCase: {
@@ -84,6 +88,8 @@ export interface UseAnalysisStateReturn {
   setOutcomes: (outcomes: RubricOutcome[]) => void;
   outcomesWithModelComparison: RubricOutcomeWithModelComparison[];
   setOutcomesWithModelComparison: (outcomesWithModelComparison: RubricOutcomeWithModelComparison[]) => void;
+  idealResponses: IdealModelResponse[];
+  setIdealResponses: (idealResponses: IdealModelResponse[]) => void;
   
   // Selection state legacy support
   selectedTestCaseIndex: number;
@@ -94,6 +100,8 @@ export interface UseAnalysisStateReturn {
   setSelectedCriteriaId: (id: string) => void;
   selectedCriteriaVersionId: string;
   setSelectedCriteriaVersionId: (id: string) => void;
+  selectedIdealResponseId: string;
+  setSelectedIdealResponseId: (id: string) => void;
   selectedSystemPrompt: string;
   setSelectedSystemPrompt: (prompt: string) => void;
   
@@ -122,6 +130,7 @@ export function useAnalysisState(): UseAnalysisStateReturn {
     criteria: [],
     outcomes: [],
     outcomesWithModelComparison: [],
+    idealResponses: [],
   });
 
   const [evaluationState, setEvaluationState] = useState<EvaluationState>({
@@ -135,6 +144,7 @@ export function useAnalysisState(): UseAnalysisStateReturn {
     selectedScenarioCategory: '',
     selectedCriteriaId: '',
     selectedCriteriaVersionId: '',
+    selectedIdealResponseId: '',
     selectedSystemPrompt: ''
   });
 
@@ -168,6 +178,7 @@ export function useAnalysisState(): UseAnalysisStateReturn {
   const setDataCriteria = useCallback((criteria: CriteriaData[]) => updateDataState({ criteria }), [updateDataState]);
   const setDataOutcomes = useCallback((outcomes: RubricOutcome[]) => updateDataState({ outcomes }), [updateDataState]);
   const setDataOutcomesWithModelComparison = useCallback((v: RubricOutcomeWithModelComparison[]) => updateDataState({ outcomesWithModelComparison: v }), [updateDataState]);
+  const setDataIdealResponses = useCallback((idealResponses: IdealModelResponse[]) => updateDataState({ idealResponses }), [updateDataState]);
 
   // Evaluation setters
   const setEvalShouldStart = useCallback((shouldStart: boolean) => updateEvaluationState({ shouldStartEvaluation: shouldStart }), [updateEvaluationState]);
@@ -179,6 +190,7 @@ export function useAnalysisState(): UseAnalysisStateReturn {
   const setSelSelectedScenarioCategory = useCallback((category: string) => updateSelectionState({ selectedScenarioCategory: category }), [updateSelectionState]);
   const setSelSelectedCriteriaId = useCallback((id: string) => updateSelectionState({ selectedCriteriaId: id }), [updateSelectionState]);
   const setSelSelectedCriteriaVersionId = useCallback((id: string) => updateSelectionState({ selectedCriteriaVersionId: id }), [updateSelectionState]);
+  const setSelSelectedIdealResponseId = useCallback((id: string) => updateSelectionState({ selectedIdealResponseId: id }), [updateSelectionState]);
   const setSelSelectedSystemPrompt = useCallback((prompt: string) => updateSelectionState({ selectedSystemPrompt: prompt }), [updateSelectionState]);
   
   const updateSystemPromptForUseCase = useCallback((testCases: TestCase[]) => {
@@ -204,7 +216,8 @@ export function useAnalysisState(): UseAnalysisStateReturn {
     setCriteria: setDataCriteria,
     setOutcomes: setDataOutcomes,
     setOutcomesWithModelComparison: setDataOutcomesWithModelComparison,
-  }), [dataState, updateDataState, setDataTestCases, setDataTestCasesWithModelOutputs, setDataCriteria, setDataOutcomes, setDataOutcomesWithModelComparison]);
+    setIdealResponses: setDataIdealResponses,
+  }), [dataState, updateDataState, setDataTestCases, setDataTestCasesWithModelOutputs, setDataCriteria, setDataOutcomes, setDataOutcomesWithModelComparison, setDataIdealResponses]);
   
   const evaluationApi = useMemo(() => ({
     ...evaluationState,
@@ -221,8 +234,9 @@ export function useAnalysisState(): UseAnalysisStateReturn {
     setSelectedScenarioCategory: setSelSelectedScenarioCategory,
     setSelectedCriteriaId: setSelSelectedCriteriaId,
     setSelectedCriteriaVersionId: setSelSelectedCriteriaVersionId,
+    setSelectedIdealResponseId: setSelSelectedIdealResponseId,
     setSelectedSystemPrompt: setSelSelectedSystemPrompt,
-  }), [selectionState, updateSelectionState, setSelSelectedTestCaseIndex, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedCriteriaVersionId, setSelSelectedSystemPrompt]);
+  }), [selectionState, updateSelectionState, setSelSelectedTestCaseIndex, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedCriteriaVersionId, setSelSelectedIdealResponseId, setSelSelectedSystemPrompt]);
 
   
   const api = useMemo(() => ({
@@ -249,6 +263,8 @@ export function useAnalysisState(): UseAnalysisStateReturn {
     setOutcomes: setDataOutcomes,
     outcomesWithModelComparison: dataState.outcomesWithModelComparison,
     setOutcomesWithModelComparison: setDataOutcomesWithModelComparison,
+    idealResponses: dataState.idealResponses,
+    setIdealResponses: setDataIdealResponses,
 
     // ===== Legacy: Selection =====
     selectedTestCaseIndex: selectionState.selectedTestCaseIndex,
@@ -259,6 +275,8 @@ export function useAnalysisState(): UseAnalysisStateReturn {
     setSelectedCriteriaId: setSelSelectedCriteriaId,
     selectedCriteriaVersionId: selectionState.selectedCriteriaVersionId,
     setSelectedCriteriaVersionId: setSelSelectedCriteriaVersionId,
+    selectedIdealResponseId: selectionState.selectedIdealResponseId,
+    setSelectedIdealResponseId: setSelSelectedIdealResponseId,
     selectedSystemPrompt: selectionState.selectedSystemPrompt,
     setSelectedSystemPrompt: setSelSelectedSystemPrompt,
 
@@ -272,6 +290,6 @@ export function useAnalysisState(): UseAnalysisStateReturn {
 
     // ===== Legacy: Use case =====
     updateSystemPromptForUseCase,
-  }), [uiApi, dataApi, evaluationApi, selectionApi, updateSystemPromptForUseCase, uiState, setUICurrentStep, setUIIsLoading, setUIValidationError, setDataTestCases, setDataTestCasesWithModelOutputs, setDataCriteria, setDataOutcomes, setDataOutcomesWithModelComparison, setSelSelectedTestCaseIndex, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedCriteriaVersionId, setSelSelectedSystemPrompt, setEvalShouldStart, setEvalProgress, setEvalCurrentIndex]);
+  }), [uiApi, dataApi, evaluationApi, selectionApi, updateSystemPromptForUseCase, uiState, setUICurrentStep, setUIIsLoading, setUIValidationError, setDataTestCases, setDataTestCasesWithModelOutputs, setDataCriteria, setDataOutcomes, setDataOutcomesWithModelComparison, setDataIdealResponses, setSelSelectedTestCaseIndex, setSelSelectedScenarioCategory, setSelSelectedCriteriaId, setSelSelectedCriteriaVersionId, setSelSelectedIdealResponseId, setSelSelectedSystemPrompt, setEvalShouldStart, setEvalProgress, setEvalCurrentIndex]);
   return api;
 } 

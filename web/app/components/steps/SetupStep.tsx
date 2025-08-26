@@ -4,7 +4,8 @@ import MultiLevelSelector from "@/app/components/MultiLevelSelector";
 import CriteriaMultiLevelSelector, {
   CriteriaItem,
 } from "@/app/components/CriteriaMultiLevelSelector";
-import { TestCase } from "@/app/types";
+import IdealResponseSelector from "@/app/components/IdealResponseSelector";
+import { TestCase, IdealModelResponse } from "@/app/types";
 import { SelectionPath } from "@/app/components/GenericMultiLevelSelector";
 
 interface SetupStepProps {
@@ -14,6 +15,7 @@ interface SetupStepProps {
   hasValidSelections: boolean;
   analysisStep: "setup" | "running" | "complete";
   selectedCriteriaVersionId?: string;
+  selectedIdealResponseId?: string;
   onMultiLevelSelectionChange?: (
     selections: Array<{
       useCaseId: string;
@@ -30,6 +32,9 @@ interface SetupStepProps {
   onCriteriaSelectionChange?: (selections: SelectionPath[]) => void;
   onCriteriaDataLoaded?: (requirements: CriteriaItem[]) => void;
   onCriteriaError?: (error: string) => void;
+  onIdealResponseSelected?: (idealResponseId: string) => void;
+  onIdealResponseDataLoaded?: (idealResponses: IdealModelResponse[]) => void;
+  onIdealResponseError?: (error: string) => void;
 }
 
 export default function SetupStep({
@@ -39,6 +44,7 @@ export default function SetupStep({
   hasValidSelections,
   analysisStep,
   selectedCriteriaVersionId,
+  selectedIdealResponseId,
   onMultiLevelSelectionChange,
   onUseCaseSelected,
   onScenarioCategorySelected,
@@ -50,6 +56,9 @@ export default function SetupStep({
   onCriteriaSelectionChange,
   onCriteriaDataLoaded,
   onCriteriaError,
+  onIdealResponseSelected,
+  onIdealResponseDataLoaded,
+  onIdealResponseError,
 }: SetupStepProps) {
   const showTestCaseSelector = testCases.length > 0;
 
@@ -94,6 +103,18 @@ export default function SetupStep({
           }}
           onDataLoaded={onCriteriaDataLoaded || (() => {})}
           onError={onCriteriaError || (() => {})}
+        />
+      </div>
+
+      {/* Ideal Response Selection */}
+      <div>
+        <IdealResponseSelector
+          selectedIdealResponseId={selectedIdealResponseId}
+          onSelectionChange={(idealResponseId) => {
+            onIdealResponseSelected?.(idealResponseId);
+          }}
+          onDataLoaded={onIdealResponseDataLoaded || (() => {})}
+          onError={onIdealResponseError || (() => {})}
         />
       </div>
 

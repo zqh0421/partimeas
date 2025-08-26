@@ -2,7 +2,14 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import { useCriteriaData } from "@/app/hooks/useCriteriaData";
-import { restoreCriteriaVersionSelection } from "@/app/utils/selectionCache";
+import {
+  restoreCriteriaVersionSelection,
+  restoreIdealResponseSelection,
+} from "@/app/utils/selectionCache";
+import {
+  updateIdealResponseScore,
+  getExpectedScore,
+} from "@/app/utils/idealResponseScoring";
 
 interface InputScoringTableProps {
   responses: { id: string; label: string }[];
@@ -15,16 +22,20 @@ interface InputScoringTableProps {
   modelOutputs?: any[]; // Model outputs for AI evaluation
   testCase?: any; // Test case for AI evaluation
   onCompareClick?: () => void;
+  selectedIdealResponseId?: string; // Optional override for ideal response selection
+  enableIdealScoreEditing?: boolean; // Whether to allow editing ideal scores
 }
 
 export default function InputScoringTable({
   responses,
   rubricItems = [],
   aiScores: initialAiScores = {},
-  showAiResults = true,
+  showAiResults = false,
   modelOutputs = [],
   testCase,
   onCompareClick,
+  selectedIdealResponseId,
+  enableIdealScoreEditing = true,
 }: InputScoringTableProps) {
   const { criteria } = useCriteriaData();
 
@@ -108,7 +119,10 @@ export default function InputScoringTable({
       if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
       return changed ? next : prev;
     });
-  }, [derived.items, responses]);
+  }, [
+    derived.items.map((item) => item.id).join(","),
+    responses.map((resp) => resp.id).join(","),
+  ]); // Use stable string representations
 
   const [scores, setScores] = useState<
     Record<string, Record<string, number | "">>
@@ -136,12 +150,126 @@ export default function InputScoringTable({
     return initial;
   });
 
-  const idealPoints = useMemo(() => derived.points, [derived.points]);
+  // Get the ideal response ID (from prop or cache)
+  const currentIdealResponseId = useMemo(() => {
+    const id = selectedIdealResponseId || restoreIdealResponseSelection();
+    console.log(`🔍 [InputScoringTable] IDEAL RESPONSE DEBUG:`, {
+      currentIdealResponseId: id,
+      selectedIdealResponseIdProp: selectedIdealResponseId,
+      restoredFromCache: restoreIdealResponseSelection(),
+      enableIdealScoreEditing: enableIdealScoreEditing,
+      hasValue: !!id,
+    });
+    return id;
+  }, [selectedIdealResponseId]);
+
+  // State for ideal response expected scores
+  const [idealScores, setIdealScores] = useState<Record<string, number>>({});
+
+  // Load ideal scores when ideal response changes
+  useEffect(() => {
+    console.log(`[InputScoringTable] useEffect triggered:`, {
+      currentIdealResponseId,
+      derivedItemsLength: derived.items.length,
+      willExecute: !!(currentIdealResponseId && derived.items.length > 0),
+    });
+
+    if (currentIdealResponseId && derived.items.length > 0) {
+      console.log(
+        `[InputScoringTable] Loading ideal scores for: ${currentIdealResponseId}`
+      );
+
+      try {
+        const scores: Record<string, number> = {};
+
+        // For each rubric item, initialize or get from cache
+        derived.items.forEach((item, index) => {
+          const defaultScore = derived.points[index] || 2;
+
+          // Try to get cached score first
+          const cachedScore = getExpectedScore(
+            currentIdealResponseId,
+            item.id,
+            `${item.id}-sub`, // Use consistent subcriteria ID pattern
+            undefined // No rubric structure available
+          );
+
+          if (cachedScore !== null) {
+            // Use cached score
+            scores[item.id] = cachedScore;
+            console.log(
+              `[InputScoringTable] Using cached score for ${item.id}: ${cachedScore}`
+            );
+          } else {
+            // Initialize with default and save to cache
+            scores[item.id] = defaultScore;
+            updateIdealResponseScore(
+              currentIdealResponseId,
+              item.id,
+              `${item.id}-sub`,
+              defaultScore,
+              undefined
+            );
+            console.log(
+              `[InputScoringTable] Initialized default score for ${item.id}: ${defaultScore}`
+            );
+          }
+        });
+
+        setIdealScores(scores);
+        console.log(
+          `[InputScoringTable] Loaded ideal scores for ${derived.items.length} items:`,
+          scores
+        );
+      } catch (error) {
+        console.error("[InputScoringTable] Error loading ideal scores:", error);
+        // Fallback to default points on error
+        const fallbackScores: Record<string, number> = {};
+        derived.items.forEach((item, index) => {
+          const defaultScore = derived.points[index] || 2;
+          fallbackScores[item.id] = defaultScore;
+          // Also try to cache the fallback values
+          try {
+            updateIdealResponseScore(
+              currentIdealResponseId,
+              item.id,
+              `${item.id}-sub`,
+              defaultScore,
+              undefined
+            );
+          } catch (cacheError) {
+            console.warn(
+              `[InputScoringTable] Failed to cache fallback score for ${item.id}:`,
+              cacheError
+            );
+          }
+        });
+        setIdealScores(fallbackScores);
+      }
+    } else {
+      setIdealScores({});
+    }
+  }, [currentIdealResponseId, derived.items.map((item) => item.id).join(",")]); // Use stable string representation
+
+  const idealPoints = useMemo(() => {
+    if (currentIdealResponseId && Object.keys(idealScores).length > 0) {
+      // Use customizable ideal scores when ideal response is selected
+      return derived.items.map(
+        (item) =>
+          idealScores[item.id] ||
+          derived.points[derived.items.indexOf(item)] ||
+          2
+      );
+    }
+    // Default behavior - use derived points
+    return derived.points;
+  }, [currentIdealResponseId, idealScores, derived.points, derived.items]);
 
   // State for AI evaluation
   const [aiScores, setAiScores] = useState(initialAiScores);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationError, setEvaluationError] = useState<string | null>(null);
+  const [isComparingMode, setIsComparingMode] = useState(false);
 
   // Debug aiScores changes
   useEffect(() => {
@@ -157,23 +285,26 @@ export default function InputScoringTable({
 
   // Auto-trigger AI evaluation when model outputs are ready
   useEffect(() => {
-    console.log("[InputScoringTable] Checking evaluation trigger conditions:", {
-      hasModelOutputs: !!(modelOutputs && modelOutputs.length > 0),
-      modelOutputsLength: modelOutputs?.length || 0,
-      hasTestCase: !!testCase,
-      derivedItemsLength: derived.items.length,
-      hasExistingScores: Object.keys(aiScores).length > 0,
-      isCurrentlyEvaluating: isEvaluating,
-      modelOutputsWithContent:
-        modelOutputs?.filter((mo) => mo.output && mo.output.trim().length > 0)
-          .length || 0,
-      modelOutputs: modelOutputs?.map((mo) => ({
-        modelId: mo.modelId,
-        hasOutput: !!(mo.output && mo.output.trim().length > 0),
-        outputLength: mo.output?.length || 0,
-      })),
-      testCase: testCase,
-    });
+    console.log(
+      "[InputScoringTable] 🔍 Checking evaluation trigger conditions:",
+      {
+        hasModelOutputs: !!(modelOutputs && modelOutputs.length > 0),
+        modelOutputsLength: modelOutputs?.length || 0,
+        hasTestCase: !!testCase,
+        derivedItemsLength: derived.items.length,
+        hasExistingScores: Object.keys(aiScores).length > 0,
+        isCurrentlyEvaluating: isEvaluating,
+        modelOutputsWithContent:
+          modelOutputs?.filter((mo) => mo.output && mo.output.trim().length > 0)
+            .length || 0,
+        modelOutputs: modelOutputs?.map((mo) => ({
+          modelId: mo.modelId,
+          hasOutput: !!(mo.output && mo.output.trim().length > 0),
+          outputLength: mo.output?.length || 0,
+        })),
+        testCase: testCase,
+      }
+    );
 
     // Check if model outputs actually have content
     const hasValidModelOutputs =
@@ -188,19 +319,46 @@ export default function InputScoringTable({
       Object.keys(aiScores).length === 0 && // Don't re-evaluate if we already have scores
       !isEvaluating;
 
+    console.log("[InputScoringTable] 🔍 Auto-trigger decision:", {
+      shouldTriggerEvaluation,
+      conditions: {
+        hasValidModelOutputs,
+        hasTestCase: !!testCase,
+        hasDerivedItems: derived.items.length > 0,
+        hasExistingScores: Object.keys(aiScores).length > 0,
+        isEvaluating,
+      },
+      reason: !shouldTriggerEvaluation
+        ? hasValidModelOutputs
+          ? testCase
+            ? derived.items.length > 0
+              ? Object.keys(aiScores).length > 0
+                ? "Already have AI scores"
+                : isEvaluating
+                ? "Currently evaluating"
+                : "Unknown reason"
+              : "No rubric items"
+            : "No test case"
+          : "No valid model outputs"
+        : "All conditions met",
+    });
+
     if (shouldTriggerEvaluation) {
       console.log(
-        "[InputScoringTable] Auto-triggering AI evaluation in 1 second..."
+        "[InputScoringTable] 🚀 Auto-triggering AI evaluation in 1 second..."
       );
       // Add a small delay to ensure everything is fully loaded
       const timer = setTimeout(() => {
+        console.log(
+          "[InputScoringTable] ⏰ Timer fired, calling triggerAiEvaluation"
+        );
         triggerAiEvaluation();
       }, 1000);
 
       return () => clearTimeout(timer);
     } else {
       console.log(
-        "[InputScoringTable] Conditions not met for auto-evaluation:",
+        "[InputScoringTable] ❌ Conditions not met for auto-evaluation:",
         {
           hasValidModelOutputs,
           hasTestCase: !!testCase,
@@ -210,36 +368,63 @@ export default function InputScoringTable({
         }
       );
     }
-  }, [modelOutputs, testCase, derived.items, aiScores, isEvaluating]);
+  }, [modelOutputs, testCase, aiScores, isEvaluating, derived.items.length]);
 
   const triggerAiEvaluation = async () => {
+    console.log("[InputScoringTable] 🔍 triggerAiEvaluation called with:");
+    console.log("  - modelOutputs:", modelOutputs);
+    console.log("  - testCase:", testCase);
+    console.log("  - derived.items:", derived.items);
+    console.log("  - derived.items.length:", derived.items.length);
+
     // Validate model outputs have actual content
     const hasValidModelOutputs =
       modelOutputs &&
       modelOutputs.length > 0 &&
       modelOutputs.some((mo) => mo.output && mo.output.trim().length > 0);
 
+    console.log("[InputScoringTable] 🔍 Validation results:");
+    console.log("  - hasValidModelOutputs:", hasValidModelOutputs);
+    console.log("  - modelOutputs exists:", !!modelOutputs);
+    console.log("  - modelOutputs length:", modelOutputs?.length || 0);
+    console.log(
+      "  - modelOutputs with content:",
+      modelOutputs?.filter((mo) => mo.output && mo.output.trim().length > 0)
+        .length || 0
+    );
+
     if (!hasValidModelOutputs) {
       console.warn(
-        "[InputScoringTable] No valid model outputs with content available"
+        "[InputScoringTable] ❌ No valid model outputs with content available"
       );
       setEvaluationError("No valid model outputs available for evaluation");
       return;
     }
 
+    console.log("[InputScoringTable] ✅ Model outputs validation passed");
+
     if (!testCase) {
-      console.warn("[InputScoringTable] No test case available for evaluation");
+      console.warn(
+        "[InputScoringTable] ❌ No test case available for evaluation"
+      );
       setEvaluationError("No test case available for evaluation");
       return;
     }
 
+    console.log("[InputScoringTable] ✅ Test case validation passed");
+
     if (derived.items.length === 0) {
       console.warn(
-        "[InputScoringTable] No rubric items available for evaluation"
+        "[InputScoringTable] ❌ No rubric items available for evaluation"
       );
       setEvaluationError("No rubric criteria available for evaluation");
       return;
     }
+
+    console.log("[InputScoringTable] ✅ Rubric items validation passed");
+    console.log(
+      "[InputScoringTable] 🎯 All validations passed, setting isEvaluating to true"
+    );
 
     setIsEvaluating(true);
     setEvaluationError(null);
@@ -487,6 +672,66 @@ export default function InputScoringTable({
     }));
   };
 
+  const handleIdealScoreChange = (
+    criteriaId: string,
+    newScore: number | ""
+  ) => {
+    console.log(
+      `[InputScoringTable] handleIdealScoreChange called with criteriaId: ${criteriaId}, newScore: ${newScore}`
+    );
+    console.log(
+      `[InputScoringTable] currentIdealResponseId: ${currentIdealResponseId}`
+    );
+    console.log(
+      `[InputScoringTable] selectedIdealResponseId prop: ${selectedIdealResponseId}`
+    );
+    console.log(
+      `[InputScoringTable] restoreIdealResponseSelection(): ${restoreIdealResponseSelection()}`
+    );
+
+    if (!currentIdealResponseId) {
+      console.warn(
+        "[InputScoringTable] No ideal response selected, cannot update score"
+      );
+      return;
+    }
+
+    // Don't update if empty string
+    if (newScore === "") {
+      return;
+    }
+
+    try {
+      console.log(
+        `[InputScoringTable] Updating ideal score for ${criteriaId}: ${idealScores[criteriaId]} -> ${newScore}`
+      );
+
+      // Update the score in cache using the scoring utility
+      const updatedScores = updateIdealResponseScore(
+        currentIdealResponseId,
+        criteriaId,
+        `${criteriaId}-sub`, // Use criteriaId-sub as subcriteria ID (matches our pattern)
+        newScore,
+        undefined // No rubric structure available, will use fallback logic
+      );
+
+      // Update local state for immediate UI feedback
+      setIdealScores((prev) => ({
+        ...prev,
+        [criteriaId]: newScore,
+      }));
+
+      console.log(
+        `[InputScoringTable] Successfully updated ideal score for ${criteriaId}: ${newScore} (${updatedScores.length} scores in cache)`
+      );
+    } catch (error) {
+      console.error(
+        `[InputScoringTable] Error updating ideal score for ${criteriaId}:`,
+        error
+      );
+    }
+  };
+
   const toTitleCase = (input: string): string => {
     if (!input) return "";
     return input.replace(
@@ -501,13 +746,19 @@ export default function InputScoringTable({
     el.style.height = `${el.scrollHeight}px`;
   };
 
+  // Debug log for troubleshooting
+  console.log(
+    `[InputScoringTable] Render - currentIdealResponseId: ${currentIdealResponseId}, enableIdealScoreEditing: ${enableIdealScoreEditing}, idealScores:`,
+    idealScores
+  );
+
   return (
     <div className="overflow-x-auto">
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 pt-4 pb-2 text-left text-sm font-bold text-gray-700 w-40 border-x border-gray-200">
+              <th className="px-4 pt-4 pb-2 text-left text-sm font-bold text-gray-700  w-[10vw] border-x border-gray-200">
                 Rubric Item
               </th>
               <th className="px-4 pt-4 pb-2 text-left text-sm font-bold text-gray-700 border-x border-gray-200">
@@ -597,9 +848,14 @@ export default function InputScoringTable({
                 {responses.map((resp) => (
                   <React.Fragment key={resp.id}>
                     <td className="px-4 py-3 align-top border-x border-gray-200">
-                      <div className="relative">
+                      <div className="relative w-16">
                         <select
-                          className="w-16 h-10 px-3 py-2 pr-8 border border-gray-300 rounded-lg shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-700 text-center cursor-pointer transition-all duration-200 appearance-none"
+                          className={`w-16 h-10 px-3 py-2 pr-8 border rounded-lg shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-center cursor-pointer transition-all duration-200 appearance-none ${
+                            isComparingMode && aiScores[r.id]?.[resp.id] !== undefined &&
+                            scores[r.id]?.[resp.id] !== aiScores[r.id][resp.id].score
+                              ? 'border-red-300 bg-red-50 text-red-700'
+                              : 'border-gray-300 text-gray-700'
+                          }`}
                           value={(scores[r.id] && scores[r.id][resp.id]) ?? ""}
                           onChange={(e) => {
                             const v =
@@ -629,7 +885,7 @@ export default function InputScoringTable({
                             </option>
                           ))}
                         </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                           <svg
                             className="w-4 h-4 text-gray-400"
                             fill="none"
@@ -648,7 +904,7 @@ export default function InputScoringTable({
                     </td>
                     <td className="px-4 py-3 align-top border-x border-gray-200">
                       <textarea
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-700"
+                        className="w-[15vw] px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-700"
                         placeholder="Your rationale"
                         rows={1}
                         value={
@@ -665,8 +921,72 @@ export default function InputScoringTable({
                     </td>
                   </React.Fragment>
                 ))}
-                <td className="px-4 py-3 text-sm text-gray-900 border-x border-gray-200">
-                  {idealPoints[rowIdx]}
+                <td className="px-4 py-3 align-top border-x border-gray-200">
+                  <div className="relative w-16">
+                    <select
+                      className={`w-16 h-10 px-3 py-2 pr-8 border rounded-lg shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-center cursor-pointer transition-all duration-200 appearance-none ${
+                        isComparingMode && currentIdealResponseId && aiScores[r.id]?.[currentIdealResponseId] !== undefined &&
+                        (idealScores[r.id] !== undefined ? idealScores[r.id] : idealPoints[rowIdx]) !== aiScores[r.id][currentIdealResponseId].score
+                          ? 'border-red-300 bg-red-50 text-red-700'
+                          : 'border-gray-300 text-gray-700'
+                      }`}
+                      value={
+                        idealScores[r.id] !== undefined
+                          ? idealScores[r.id]
+                          : idealPoints[rowIdx] !== undefined
+                          ? idealPoints[rowIdx]
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const v =
+                          e.target.value === "" ? "" : Number(e.target.value);
+                        console.log(
+                          `🎯 [InputScoringTable] Ideal Point dropdown changed:`,
+                          {
+                            criteriaId: r.id,
+                            newValue: v,
+                            oldValue: idealScores[r.id],
+                            currentIdealResponseId: currentIdealResponseId,
+                          }
+                        );
+                        handleIdealScoreChange(r.id, v);
+                      }}
+                    >
+                      <option value="" disabled className="text-gray-400">
+                        —
+                      </option>
+                      {Array.from(
+                        {
+                          length:
+                            Math.max(0, Number(idealPoints[rowIdx] ?? 0)) + 1,
+                        },
+                        (_, i) => i
+                      ).map((val) => (
+                        <option
+                          key={val}
+                          value={val}
+                          className="text-gray-700 font-medium"
+                        >
+                          {val}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <svg
+                        className="w-4 h-4 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -680,6 +1000,30 @@ export default function InputScoringTable({
             <h3 className="text-lg font-semibold text-gray-900">
               AI Grader Results (for debugging)
             </h3>
+            {/* Debug button to manually trigger evaluation */}
+            <div className="mt-2 mb-4">
+              <button
+                onClick={() => {
+                  console.log(
+                    "[InputScoringTable] 🚀 Manual evaluation trigger clicked"
+                  );
+                  triggerAiEvaluation();
+                }}
+                disabled={isEvaluating}
+                className={`px-4 py-2 rounded-md text-sm font-medium ${
+                  isEvaluating
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+              >
+                {isEvaluating
+                  ? "Evaluating..."
+                  : "🔍 Manual Trigger Evaluation"}
+              </button>
+              <span className="ml-3 text-xs text-gray-500">
+                Use this button to manually trigger evaluation for debugging
+              </span>
+            </div>
             {(() => {
               console.log(
                 "[InputScoringTable] AI Results Table rendering with:",
@@ -714,7 +1058,7 @@ export default function InputScoringTable({
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-blue-50">
                 <tr>
-                  <th className="px-4 pt-4 pb-2 text-left text-sm font-bold text-gray-700 w-40 border-x border-gray-200">
+                  <th className="px-4 pt-4 pb-2 text-left text-sm font-bold text-gray-700 border-x border-gray-200 w-[10vw]">
                     Rubric Item
                   </th>
                   <th className="px-4 pt-4 pb-2 text-left text-sm font-bold text-gray-700 border-x border-gray-200">
@@ -831,7 +1175,79 @@ export default function InputScoringTable({
                       );
                     })}
                     <td className="px-4 py-3 text-sm text-gray-900 border-x border-gray-200">
-                      {idealPoints[rowIdx]}
+                      {enableIdealScoreEditing ? (
+                        <div className="relative w-16">
+                          <select
+                            className="w-16 h-10 px-3 py-2 pr-8 border border-gray-300 rounded-lg shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-700 text-center cursor-pointer transition-all duration-200 appearance-none"
+                            value={
+                              idealScores[r.id] !== undefined
+                                ? idealScores[r.id]
+                                : idealPoints[rowIdx] !== undefined
+                                ? idealPoints[rowIdx]
+                                : ""
+                            }
+                            onChange={(e) => {
+                              const v =
+                                e.target.value === ""
+                                  ? ""
+                                  : Number(e.target.value);
+                              console.log(
+                                `🎯 [InputScoringTable] AI table Ideal Point dropdown changed:`,
+                                {
+                                  criteriaId: r.id,
+                                  newValue: v,
+                                  oldValue: idealScores[r.id],
+                                  currentIdealResponseId:
+                                    currentIdealResponseId,
+                                }
+                              );
+                              handleIdealScoreChange(r.id, v);
+                            }}
+                            title="Expected score for selected ideal response"
+                          >
+                            <option value="" disabled className="text-gray-400">
+                              —
+                            </option>
+                            {Array.from(
+                              {
+                                length:
+                                  Math.max(
+                                    0,
+                                    Number(idealPoints[rowIdx] ?? 0)
+                                  ) + 1,
+                              },
+                              (_, i) => i
+                            ).map((val) => (
+                              <option
+                                key={val}
+                                value={val}
+                                className="text-gray-700 font-medium"
+                              >
+                                {val}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <svg
+                              className="w-4 h-4 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-900 font-medium">
+                          {idealPoints[rowIdx]}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -843,10 +1259,22 @@ export default function InputScoringTable({
 
       <div className="mt-4 flex justify-end">
         <button
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 mb-2"
-          onClick={() => onCompareClick && onCompareClick()}
+          className={`px-4 py-2 rounded-md mb-2 transition-all duration-200 ${
+            Object.keys(aiScores).length === 0
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : isComparingMode
+              ? 'bg-red-600 text-white hover:bg-red-700'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
+          disabled={Object.keys(aiScores).length === 0}
+          onClick={() => {
+            if (Object.keys(aiScores).length > 0) {
+              setIsComparingMode(!isComparingMode);
+              onCompareClick && onCompareClick();
+            }
+          }}
         >
-          Compare with the AI Grader
+          {isComparingMode ? 'Stop Comparing' : 'Compare with the AI Grader'}
         </button>
       </div>
     </div>

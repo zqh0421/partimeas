@@ -1270,6 +1270,7 @@ export async function POST(request: NextRequest) {
     // Phase 2: Evaluate the outputs
     if (phase === "evaluate") {
       console.log("Phase 2: Evaluating outputs...");
+      console.log(criteria);
 
       if (!criteria || !Array.isArray(criteria) || criteria.length === 0) {
         return NextResponse.json(
@@ -1281,6 +1282,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      console.log(outputs);
+
       if (!outputs || !Array.isArray(outputs) || outputs.length === 0) {
         return NextResponse.json(
           {
@@ -1291,21 +1294,54 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Evaluate all outputs using the evaluation model
-      const { evaluations, evaluationModelId } = await evaluateModelOutputs(
-        outputs,
-        testCase,
-        criteria
-      );
-
-      return NextResponse.json({
-        success: true,
-        phase: "evaluate",
-        evaluations,
-        evaluationModel: evaluationModelId,
-        timestamp: new Date().toISOString(),
-        message: "Evaluation completed.",
+      console.log("🔍 Starting evaluation with:", {
+        outputsCount: outputs.length,
+        criteriaCount: criteria.length,
+        testCase: testCase.input?.substring(0, 100) + "...",
       });
+
+      try {
+        // Evaluate all outputs using the evaluation model
+        const { evaluations, evaluationModelId } = await evaluateModelOutputs(
+          outputs,
+          testCase,
+          criteria
+        );
+
+        console.log("✅ Evaluation completed:", {
+          evaluationsCount: evaluations.length,
+          evaluationModelId,
+        });
+
+        return NextResponse.json({
+          success: true,
+          phase: "evaluate",
+          evaluations,
+          evaluationModel: evaluationModelId,
+          timestamp: new Date().toISOString(),
+          message: "Evaluation completed.",
+        });
+      } catch (evaluationError) {
+        console.error("❌ Evaluation error details:", evaluationError);
+        console.error(
+          "❌ Error stack:",
+          evaluationError instanceof Error
+            ? evaluationError.stack
+            : "No stack trace"
+        );
+
+        return NextResponse.json(
+          {
+            error: "Evaluation failed",
+            details:
+              evaluationError instanceof Error
+                ? evaluationError.message
+                : "Unknown evaluation error",
+            phase: "evaluate",
+          },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json(

@@ -260,7 +260,9 @@ export interface AnalysisState {
   selectedUseCaseId: string;
   selectedScenarioCategory: string;
   selectedCriteriaId: string;
+  selectedIdealResponseId: string;
   selectedSystemPrompt: string;
+  idealResponses: IdealModelResponse[];
   shouldStartEvaluation: boolean;
   evaluationProgress: any;
   currentTestCaseIndex: number;
@@ -276,6 +278,9 @@ export interface AnalysisHandlers {
   }>) => void;
   handleUseCaseDataLoaded: (testCases: TestCase[]) => void;
   handleUseCaseError: (error: string) => void;
+  handleIdealResponseSelected: (idealResponseId: string) => void;
+  handleIdealResponseDataLoaded: (idealResponses: IdealModelResponse[]) => void;
+  handleIdealResponseError: (error: string) => void;
   handleEvaluationComplete: (results: RubricOutcome[]) => void;
   handleModelComparisonEvaluationComplete: (results: RubricOutcomeWithModelComparison[]) => void;
   handleEvaluationError: (error: string) => void;
@@ -413,3 +418,25 @@ export const EXAMPLE_RUBRIC_STRUCTURE: RubricStructure = {
   createdAt: new Date(),
   updatedAt: new Date()
 };
+
+// Ideal Model Response interfaces
+export interface IdealModelResponse {
+  id: string;
+  name: string; // Primary key from column A1
+  modelResponse: string; // From column B1
+  testCaseInput?: string; // From column C1 (optional)
+}
+
+export interface IdealResponseScore {
+  idealResponseId: string;
+  criteriaId: string;
+  subcriteriaId: string;
+  expectedScore: number; // Default starts as idealPoint, can be customized by user
+  isCustomized: boolean; // Whether user has modified the default score
+}
+
+export interface IdealResponseCache {
+  selectedIdealResponseId: string;
+  scores: IdealResponseScore[]; // User-customized expected scores
+  lastUpdated: string;
+}

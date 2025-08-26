@@ -1,3 +1,5 @@
+import { IdealResponseScore, IdealResponseCache } from '@/app/types';
+
 export interface Selection {
   useCaseId: string;
   scenarioCategoryIds: string[];
@@ -7,12 +9,14 @@ export interface SelectionCache {
   selections: Selection[];
   expandedUseCases: string[];
   selectedCriteriaVersionId?: string;
+  selectedIdealResponseId?: string;
   lastUpdated: string;
   version: string;
 }
 
 const CACHE_KEY = 'partimeas_multi_level_selections';
-const CACHE_VERSION = '1.0.0';
+const IDEAL_SCORES_CACHE_KEY = 'partimeas_ideal_response_scores';
+const CACHE_VERSION = '1.1.0'; // Updated to support ideal responses
 const CACHE_EXPIRY_HOURS = 0.5; // 缓存30分钟
 
 // 检查localStorage是否可用
@@ -110,6 +114,7 @@ class SelectionCacheManager {
     selections: Selection[], 
     expandedUseCases: Set<string> | string[],
     selectedCriteriaVersionId?: string,
+    selectedIdealResponseId?: string,
     cacheKey: string = 'default'
   ) {
     const expandedArray = Array.isArray(expandedUseCases) 
@@ -120,6 +125,7 @@ class SelectionCacheManager {
       selections: [...selections],
       expandedUseCases: expandedArray,
       selectedCriteriaVersionId,
+      selectedIdealResponseId,
       lastUpdated: new Date().toISOString(),
       version: CACHE_VERSION
     };
@@ -133,7 +139,8 @@ class SelectionCacheManager {
     console.log(`[SelectionCache] Saved selections for key: ${cacheKey}`, {
       selectionsCount: selections.length,
       expandedCount: expandedArray.length,
-      criteriaVersionId: selectedCriteriaVersionId
+      criteriaVersionId: selectedCriteriaVersionId,
+      idealResponseId: selectedIdealResponseId
     });
   }
 
@@ -142,6 +149,7 @@ class SelectionCacheManager {
     selections: Selection[];
     expandedUseCases: Set<string>;
     selectedCriteriaVersionId?: string;
+    selectedIdealResponseId?: string;
   } | null {
     const cache = this.memoryCache.get(cacheKey);
     
@@ -159,13 +167,15 @@ class SelectionCacheManager {
     console.log(`[SelectionCache] Restored selections for key: ${cacheKey}`, {
       selectionsCount: cache.selections.length,
       expandedCount: cache.expandedUseCases.length,
-      criteriaVersionId: cache.selectedCriteriaVersionId
+      criteriaVersionId: cache.selectedCriteriaVersionId,
+      idealResponseId: cache.selectedIdealResponseId
     });
 
     return {
       selections: [...cache.selections],
       expandedUseCases: new Set(cache.expandedUseCases),
-      selectedCriteriaVersionId: cache.selectedCriteriaVersionId
+      selectedCriteriaVersionId: cache.selectedCriteriaVersionId,
+      selectedIdealResponseId: cache.selectedIdealResponseId
     };
   }
 
@@ -211,8 +221,9 @@ export const saveSelections = (
   selections: Selection[], 
   expandedUseCases: Set<string> | string[],
   selectedCriteriaVersionId?: string,
+  selectedIdealResponseId?: string,
   cacheKey?: string
-) => selectionCache.saveSelections(selections, expandedUseCases, selectedCriteriaVersionId, cacheKey);
+) => selectionCache.saveSelections(selections, expandedUseCases, selectedCriteriaVersionId, selectedIdealResponseId, cacheKey);
 
 export const restoreSelections = (cacheKey?: string) => 
   selectionCache.restoreSelections(cacheKey);
@@ -231,7 +242,8 @@ export const saveCriteriaVersionSelection = (selectedCriteriaVersionId: string) 
     selectionCache.saveSelections(
       existing.selections,
       existing.expandedUseCases,
-      selectedCriteriaVersionId
+      selectedCriteriaVersionId,
+      existing.selectedIdealResponseId
     );
   } else {
     // 如果没有现有缓存，创建新的
@@ -242,4 +254,91 @@ export const saveCriteriaVersionSelection = (selectedCriteriaVersionId: string) 
 export const restoreCriteriaVersionSelection = (): string | null => {
   const restored = selectionCache.restoreSelections();
   return restored?.selectedCriteriaVersionId || null;
+};
+
+// 专门用于保存和恢复ideal response选择的便捷函数
+export const saveIdealResponseSelection = (selectedIdealResponseId: string) => {
+  // 获取现有缓存，保持其他选择不变
+  const existing = selectionCache.restoreSelections();
+  if (existing) {
+    selectionCache.saveSelections(
+      existing.selections,
+      existing.expandedUseCases,
+      existing.selectedCriteriaVersionId,
+      selectedIdealResponseId
+    );
+  } else {
+    // 如果没有现有缓存，创建新的
+    selectionCache.saveSelections([], [], undefined, selectedIdealResponseId);
+  }
+};
+
+export const restoreIdealResponseSelection = (): string | null => {
+  const restored = selectionCache.restoreSelections();
+  return restored?.selectedIdealResponseId || null;
+};
+
+// 理想回复分数缓存管理
+const IDEAL_SCORES_CACHE = new Map<string, IdealResponseCache>();
+
+export const saveIdealResponseScores = (
+  idealResponseId: string,
+  scores: IdealResponseScore[]
+) => {
+  const cache: IdealResponseCache = {
+    selectedIdealResponseId: idealResponseId,
+    scores: [...scores],
+    lastUpdated: new Date().toISOString(),
+  };
+
+  IDEAL_SCORES_CACHE.set(idealResponseId, cache);
+  
+  // 也保存到localStorage
+  safeLocalStorage.setItem(
+    `${IDEAL_SCORES_CACHE_KEY}_${idealResponseId}`,
+    JSON.stringify(cache)
+  );
+
+  console.log(`[SelectionCache] Saved ideal response scores for: ${idealResponseId}`, {
+    scoresCount: scores.length,
+    scores: scores,
+    localStorage_key: `${IDEAL_SCORES_CACHE_KEY}_${idealResponseId}`,
+  });
+};
+
+export const restoreIdealResponseScores = (
+  idealResponseId: string
+): IdealResponseScore[] => {
+  // 首先从内存缓存中获取
+  let cache = IDEAL_SCORES_CACHE.get(idealResponseId);
+  
+  // 如果内存中没有，尝试从localStorage恢复
+  if (!cache) {
+    const stored = safeLocalStorage.getItem(`${IDEAL_SCORES_CACHE_KEY}_${idealResponseId}`);
+    if (stored) {
+      try {
+        cache = JSON.parse(stored);
+        if (cache) {
+          IDEAL_SCORES_CACHE.set(idealResponseId, cache);
+        }
+      } catch (error) {
+        console.warn(`[SelectionCache] Failed to parse ideal response scores for ${idealResponseId}:`, error);
+      }
+    }
+  }
+
+  const result = cache?.scores || [];
+  console.log(`[SelectionCache] Restored ideal response scores for: ${idealResponseId}`, {
+    found: !!cache,
+    scoresCount: result.length,
+    localStorage_key: `${IDEAL_SCORES_CACHE_KEY}_${idealResponseId}`,
+    scores: result,
+  });
+  return result;
+};
+
+export const clearIdealResponseScores = (idealResponseId: string) => {
+  IDEAL_SCORES_CACHE.delete(idealResponseId);
+  safeLocalStorage.removeItem(`${IDEAL_SCORES_CACHE_KEY}_${idealResponseId}`);
+  console.log(`[SelectionCache] Cleared ideal response scores for: ${idealResponseId}`);
 }; 

@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { EvaluationResult } from '@/app/components/RubricEvaluator';
-import { TestCase, RubricOutcome, CriteriaData, TestCaseWithModelOutputs, RubricOutcomeWithModelComparison, ModelOutput } from '@/app/types';
+import { TestCase, RubricOutcome, CriteriaData, TestCaseWithModelOutputs, RubricOutcomeWithModelComparison, ModelOutput, IdealModelResponse, RubricStructure } from '@/app/types';
+import { getOrInitializeIdealResponseScores, initializeIdealResponseScoresFromCriteria } from '@/app/utils/idealResponseScoring';
+import { saveIdealResponseSelection } from '@/app/utils/selectionCache';
 import { TEST_CASE_CONFIG } from '@/app/config/useCases';
 
 // Types for better organization and type safety
@@ -10,11 +12,13 @@ interface StateSetters {
   setCriteria: (criteria: CriteriaData[]) => void;
   setOutcomes: (outcomes: RubricOutcome[]) => void;
   setOutcomesWithModelComparison: (outcomes: RubricOutcomeWithModelComparison[]) => void;
+  setIdealResponses: (idealResponses: IdealModelResponse[]) => void;
   setIsLoading: (loading: boolean) => void;
   setCurrentStep: (step: 'sync' | 'run' | 'outcomes') => void;
   // setSelectedUseCaseId: (id: string) => void;
   setSelectedScenarioCategory: (category: string) => void;
   setSelectedCriteriaId: (id: string) => void;
+  setSelectedIdealResponseId: (id: string) => void;
   setValidationError: (error: string) => void;
   setShouldStartEvaluation: (start: boolean) => void;
   setSelectedTestCaseIndex: (index: number) => void;
@@ -25,6 +29,8 @@ interface StateSetters {
 interface AnalysisData {
   testCases: TestCase[];
   testCasesWithModelOutputs: TestCaseWithModelOutputs[];
+  criteria: CriteriaData[];
+  rubricStructure?: RubricStructure;
   updateSystemPromptForUseCase?: (testCases: TestCase[]) => void;
 }
 
@@ -37,18 +43,20 @@ export function useAnalysisHandlers({
   stateSetters,
   data
 }: UseAnalysisHandlersParams) {
-  const { testCases, testCasesWithModelOutputs, updateSystemPromptForUseCase } = data;
+  const { testCases, testCasesWithModelOutputs, criteria, rubricStructure, updateSystemPromptForUseCase } = data;
   const {
     setTestCases,
     setTestCasesWithModelOutputs,
     setCriteria,
     setOutcomes,
     setOutcomesWithModelComparison,
+    setIdealResponses,
     setIsLoading,
     setCurrentStep,
     // setSelectedUseCaseId,
     setSelectedScenarioCategory,
     setSelectedCriteriaId,
+    setSelectedIdealResponseId,
     setValidationError,
     setShouldStartEvaluation,
     setSelectedTestCaseIndex,
@@ -197,6 +205,32 @@ export function useAnalysisHandlers({
       console.log('Criteria selected:', criteriaId);
     }, [setSelectedCriteriaId, clearValidationError]),
 
+    handleIdealResponseSelected: useCallback((idealResponseId: string) => {
+      setSelectedIdealResponseId(idealResponseId);
+      clearValidationError();
+      console.log('Ideal response selected:', idealResponseId);
+      
+      // Save to cache so it can be restored later
+      saveIdealResponseSelection(idealResponseId);
+      
+      // Initialize default scores for this ideal response
+      if (idealResponseId) {
+        let scores = [];
+        
+        if (rubricStructure) {
+          // Use full rubric structure if available
+          scores = getOrInitializeIdealResponseScores(idealResponseId, rubricStructure);
+          console.log(`Initialized/restored ${scores.length} scores from rubric structure for ideal response: ${idealResponseId}`);
+        } else if (criteria && criteria.length > 0) {
+          // Fallback to criteria data
+          scores = initializeIdealResponseScoresFromCriteria(idealResponseId, criteria);
+          console.log(`Initialized ${scores.length} scores from criteria data for ideal response: ${idealResponseId}`);
+        } else {
+          console.log('No rubric structure or criteria data available for score initialization');
+        }
+      }
+    }, [setSelectedIdealResponseId, clearValidationError, rubricStructure, criteria]),
+
     handleTestCaseSelect: useCallback((index: number) => {
       setSelectedTestCaseIndex(index);
     }, [setSelectedTestCaseIndex])
@@ -261,7 +295,12 @@ export function useAnalysisHandlers({
     handleCriteriaLoaded: useCallback((loadedCriteria: CriteriaData[]) => {
       setCriteria(loadedCriteria);
       console.log('Criteria loaded:', loadedCriteria.length);
-    }, [setCriteria])
+    }, [setCriteria]),
+
+    handleIdealResponseDataLoaded: useCallback((idealResponses: IdealModelResponse[]) => {
+      setIdealResponses(idealResponses);
+      console.log('Ideal responses loaded:', idealResponses.length);
+    }, [setIdealResponses])
   };
 
   // Error handlers group
@@ -274,6 +313,11 @@ export function useAnalysisHandlers({
     handleCriteriaError: useCallback((error: string) => {
       setValidationError(error);
       console.error('Criteria error:', error);
+    }, [setValidationError]),
+
+    handleIdealResponseError: useCallback((error: string) => {
+      setValidationError(error);
+      console.error('Ideal response error:', error);
     }, [setValidationError])
   };
 

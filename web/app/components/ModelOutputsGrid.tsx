@@ -186,29 +186,40 @@ export default function ModelOutputsGrid({
 
             {/* During evaluation complete in step 2, show input scoring table instead of final results */}
             {(() => {
-              const shouldShow = !isLoading && currentPhase === "complete" && isRealEvaluation && !showFinalResultsHere;
-              console.log("[ModelOutputsGrid] InputScoringTable render conditions:", {
-                isLoading,
-                currentPhase,
-                isRealEvaluation,
-                showFinalResultsHere,
-                shouldShow,
-                modelOutputsCount: modelOutputs?.length || 0,
-                selectedTestCaseIndex,
-                testCasesCount: testCases?.length || 0
-              });
+              const shouldShow =
+                !isLoading &&
+                currentPhase === "complete" &&
+                isRealEvaluation &&
+                !showFinalResultsHere;
+              console.log(
+                "[ModelOutputsGrid] InputScoringTable render conditions:",
+                {
+                  isLoading,
+                  currentPhase,
+                  isRealEvaluation,
+                  showFinalResultsHere,
+                  shouldShow,
+                  modelOutputsCount: modelOutputs?.length || 0,
+                  selectedTestCaseIndex,
+                  testCasesCount: testCases?.length || 0,
+                }
+              );
               return shouldShow;
             })() && (
-                <InputScoringTable
-                  responses={(modelOutputs || []).map((mo, i) => ({
-                    id: mo.modelId || `resp-${i + 1}`,
-                    label: `Response ${i + 1}`,
-                  }))}
-                  modelOutputs={modelOutputs}
-                  testCase={testCases && selectedTestCaseIndex !== undefined ? testCases[selectedTestCaseIndex] : undefined}
-                  onCompareClick={onCompareClick}
-                />
-              )}
+              <InputScoringTable
+                responses={(modelOutputs || []).map((mo, i) => ({
+                  id: mo.modelId || `resp-${i + 1}`,
+                  label: `Response ${i + 1}`,
+                }))}
+                modelOutputs={modelOutputs}
+                testCase={
+                  testCases && selectedTestCaseIndex !== undefined
+                    ? testCases[selectedTestCaseIndex]
+                    : undefined
+                }
+                onCompareClick={onCompareClick}
+              />
+            )}
 
             {/* Optionally render final results table here (used by session view) */}
             {!isLoading &&
