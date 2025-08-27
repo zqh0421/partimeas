@@ -3,13 +3,15 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useCriteriaData } from "@/app/hooks/useCriteriaData";
 import {
-  restoreCriteriaVersionSelection,
+  // restoreCriteriaVersionSelection, // Replaced by independent cache version
   restoreIdealResponseSelection,
+  restoreIndependentCriteriaSelection,
 } from "@/app/utils/selectionCache";
 import {
   updateIdealResponseScore,
   getExpectedScore,
 } from "@/app/utils/idealResponseScoring";
+import { collectAndUploadEvaluationData } from "@/app/utils/evaluationDataCollector";
 import { IdealModelResponse } from "@/app/types";
 
 interface InputScoringTableProps {
@@ -22,10 +24,11 @@ interface InputScoringTableProps {
   showAiResults?: boolean;
   modelOutputs?: any[]; // Model outputs for AI evaluation
   testCase?: any; // Test case for AI evaluation
-  onCompareClick?: () => void;
+  onCompareClick?: (isComparing: boolean) => void;
   selectedIdealResponseId?: string; // Optional override for ideal response selection
   enableIdealScoreEditing?: boolean; // Whether to allow editing ideal scores
   idealResponses?: IdealModelResponse[]; // Available ideal responses for evaluation
+  sessionId?: string | null; // Session ID for evaluation records
 }
 
 export default function InputScoringTable({
@@ -39,8 +42,9 @@ export default function InputScoringTable({
   selectedIdealResponseId,
   enableIdealScoreEditing = true,
   idealResponses = [],
+  sessionId,
 }: InputScoringTableProps) {
-  const { criteria } = useCriteriaData();
+  const { criteria, refetch: refetchCriteria } = useCriteriaData();
 
   // Derive rubric rows from selected criteria version in cache if no rubricItems provided
   const derived = useMemo(() => {
@@ -52,7 +56,7 @@ export default function InputScoringTable({
       };
     }
 
-    const selectedVersionId = restoreCriteriaVersionSelection();
+    const selectedVersionId = restoreIndependentCriteriaSelection();
     let selectedVersion = criteria.find(
       (v) => v.sheetName === selectedVersionId
     );
@@ -64,7 +68,10 @@ export default function InputScoringTable({
     const items = selectedVersion.requirements.map((req, idx) => ({
       id: `${selectedVersion.sheetName}-req-${idx + 1}`,
       name:
-        (req.category && req.category.trim() !== ""
+        (req.category &&
+        req.category.trim() !== "" &&
+        req.category.trim().toLowerCase() !== "num" &&
+        !/^\d+(\.\d+)?$/.test(req.category.trim())
           ? `${req.category.trim()}: `
           : "") + (req.requirement || `Requirement ${idx + 1}`),
     }));
@@ -81,6 +88,55 @@ export default function InputScoringTable({
 
     return { items, instructions, points };
   }, [criteria, rubricItems]);
+
+  // Previous version derived data for inline diff highlighting
+  const prevDerived = useMemo(() => {
+    if (rubricItems && rubricItems.length > 0) {
+      return {
+        items: [] as { id: string; name: string }[],
+        instructions: [] as { positive: string; negative: string }[],
+        points: [] as number[],
+      };
+    }
+    const selectedVersionId = restoreIndependentCriteriaSelection();
+    const selectedIndex = criteria.findIndex(
+      (v) => v.sheetName === selectedVersionId
+    );
+    const prevVersion =
+      selectedIndex > 0 ? criteria[selectedIndex - 1] : undefined;
+    if (!prevVersion) return { items: [], instructions: [], points: [] };
+
+    const items = prevVersion.requirements.map((req, idx) => ({
+      id: `${prevVersion.sheetName}-req-${idx + 1}`,
+      name:
+        (req.category &&
+        req.category.trim() !== "" &&
+        req.category.trim().toLowerCase() !== "num" &&
+        !/^\d+(\.\d+)?$/.test(req.category.trim())
+          ? `${req.category.trim()}: `
+          : "") + (req.requirement || `Requirement ${idx + 1}`),
+    }));
+
+    const instructions = prevVersion.requirements.map((req) => ({
+      positive: req.positiveExamples || "",
+      negative: req.negativeExamples || "",
+    }));
+
+    const points = prevVersion.requirements.map((req) => {
+      const n = parseInt((req.points || "1").trim(), 10);
+      return Number.isNaN(n) ? 1 : n;
+    });
+
+    return { items, instructions, points };
+  }, [criteria, rubricItems]);
+
+  // Helper to extract requirement text without category prefix for matching
+  const getRequirementText = (name: string): string => {
+    const parts = (name || "").split(":");
+    return (parts.length > 1 ? parts.slice(1).join(":") : parts[0])
+      .trim()
+      .toLowerCase();
+  };
 
   // Initialize/merge state when items or responses change
   React.useEffect(() => {
@@ -273,6 +329,9 @@ export default function InputScoringTable({
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationError, setEvaluationError] = useState<string | null>(null);
   const [isComparingMode, setIsComparingMode] = useState(false);
+  const [isRefreshingRubric, setIsRefreshingRubric] = useState(false);
+  const [isUploadingData, setIsUploadingData] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
   // Debug aiScores changes
   useEffect(() => {
@@ -663,6 +722,106 @@ export default function InputScoringTable({
     }
   };
 
+  const refreshAiGrader = async () => {
+    console.log("[InputScoringTable] 🔄 refreshAiGrader called");
+
+    setIsRefreshingRubric(true);
+    setEvaluationError(null);
+
+    try {
+      // Step 1: Exit compare mode to show human scoring panel
+      console.log(
+        "[InputScoringTable] 🔄 Exiting compare mode to show updated rubric"
+      );
+      setIsComparingMode(false);
+
+      // Step 2: Re-fetch the latest rubric data from the spreadsheet
+      console.log(
+        "[InputScoringTable] 🔄 Re-fetching criteria data from spreadsheet"
+      );
+      await refetchCriteria();
+
+      // Step 3: Clear existing AI scores to force re-evaluation with fresh rubric
+      console.log("[InputScoringTable] 🔄 Clearing existing AI scores");
+      setAiScores({});
+
+      // Step 4: Wait a moment for the criteria to update, then trigger new AI evaluation
+      console.log(
+        "[InputScoringTable] 🔄 Triggering new AI evaluation with fresh rubric"
+      );
+      setTimeout(() => {
+        triggerAiEvaluation();
+      }, 500);
+    } catch (error) {
+      console.error(
+        "[InputScoringTable] ❌ Error refreshing AI grader:",
+        error
+      );
+      setEvaluationError(
+        error instanceof Error ? error.message : "Failed to refresh AI grader"
+      );
+    } finally {
+      setIsRefreshingRubric(false);
+    }
+  };
+
+  const uploadEvaluationData = async () => {
+    console.log("[InputScoringTable] 📤 Starting evaluation data upload...");
+
+    setIsUploadingData(true);
+    setUploadStatus(null);
+
+    try {
+      // Prepare the data for upload
+      const result = await collectAndUploadEvaluationData({
+        testCase: testCase,
+        modelOutputs: modelOutputs,
+        rubricItems: derived.items,
+        rubricInstructions: derived.instructions,
+        rubricPoints: derived.points,
+        humanScores: scores,
+        humanRationales: rationales,
+        aiScores: aiScores,
+        evaluatorModel: "gpt-4-turbo", // This should be determined from AI evaluation
+        evaluatorSystemPrompt: "Evaluation system prompt", // This should come from the actual evaluation
+        idealResponses: idealResponses,
+        sessionId: sessionId ?? undefined,
+        groupId: testCase?.groupId || `group-${Date.now()}`,
+        idealExpectedScores: idealScores,
+      });
+
+      if (result.success) {
+        console.log(
+          "[InputScoringTable] ✅ Evaluation data uploaded successfully:",
+          result.id
+        );
+        setUploadStatus(
+          `Successfully saved evaluation data (ID: ${result.id})`
+        );
+      } else {
+        console.error("[InputScoringTable] ❌ Upload failed:", result.error);
+        setUploadStatus(`Upload failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error(
+        "[InputScoringTable] ❌ Error uploading evaluation data:",
+        error
+      );
+      setUploadStatus(
+        error instanceof Error
+          ? `Upload error: ${error.message}`
+          : "Upload failed"
+      );
+    } finally {
+      setIsUploadingData(false);
+
+      // Clear status after 5 seconds
+      setTimeout(() => {
+        setUploadStatus(null);
+      }, 5000);
+    }
+  };
+
   const handleScoreChange = (
     rubricId: string,
     responseId: string,
@@ -876,23 +1035,69 @@ export default function InputScoringTable({
                 </td>
                 <td className="px-4 py-3 text-sm border-x border-gray-200">
                   {derived.instructions[rowIdx] && (
-                    <div className="">
-                      {derived.instructions[rowIdx].positive && (
-                        <p className="text-sm whitespace-pre-wrap">
-                          <span className="font-medium">
-                            Positive Examples:{" "}
-                          </span>
-                          {derived.instructions[rowIdx].positive}
-                        </p>
-                      )}
-                      {derived.instructions[rowIdx].negative && (
-                        <p className="text-sm whitespace-pre-wrap">
-                          <span className="font-medium">
-                            Negative Examples:{" "}
-                          </span>
-                          {derived.instructions[rowIdx].negative}
-                        </p>
-                      )}
+                    <div className="space-y-1">
+                      {(() => {
+                        const current = derived.instructions[rowIdx].positive;
+                        const prevIdx = prevDerived.items.findIndex(
+                          (it) =>
+                            getRequirementText(it.name) ===
+                            getRequirementText(r.name)
+                        );
+                        const prev =
+                          prevIdx >= 0
+                            ? prevDerived.instructions[prevIdx]?.positive
+                            : undefined;
+                        const changed =
+                          prev !== undefined &&
+                          (prev || "").trim() !== (current || "").trim();
+                        return (
+                          current && (
+                            <p
+                              className={`text-sm whitespace-pre-wrap ${
+                                changed
+                                  ? "bg-yellow-50 border border-yellow-200 rounded px-2 py-1"
+                                  : ""
+                              }`}
+                            >
+                              <span className="font-medium">
+                                Positive Examples:{" "}
+                              </span>
+                              {current}
+                            </p>
+                          )
+                        );
+                      })()}
+                      {(() => {
+                        const current = derived.instructions[rowIdx].negative;
+                        const prevIdx = prevDerived.items.findIndex(
+                          (it) =>
+                            getRequirementText(it.name) ===
+                            getRequirementText(r.name)
+                        );
+                        const prev =
+                          prevIdx >= 0
+                            ? prevDerived.instructions[prevIdx]?.negative
+                            : undefined;
+                        const changed =
+                          prev !== undefined &&
+                          (prev || "").trim() !== (current || "").trim();
+                        return (
+                          current && (
+                            <p
+                              className={`text-sm whitespace-pre-wrap ${
+                                changed
+                                  ? "bg-yellow-50 border border-yellow-200 rounded px-2 py-1"
+                                  : ""
+                              }`}
+                            >
+                              <span className="font-medium">
+                                Negative Examples:{" "}
+                              </span>
+                              {current}
+                            </p>
+                          )
+                        );
+                      })()}
                       {!derived.instructions[rowIdx].positive &&
                         !derived.instructions[rowIdx].negative && (
                           <div className="text-sm text-gray-500">N/A</div>
@@ -1478,24 +1683,77 @@ export default function InputScoringTable({
               </span>
             </div>
           )}
-          <button
-            className={`px-4 py-2 rounded-md mb-2 transition-all duration-200 ${
-              !canCompare
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+          <div className="flex gap-3">
+            {isComparingMode && (
+              <button
+                onClick={refreshAiGrader}
+                disabled={isRefreshingRubric || isEvaluating}
+                className={`px-4 py-2 rounded-md mb-2 transition-all duration-200 inline-flex items-center gap-2 ${
+                  isRefreshingRubric || isEvaluating
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                }`}
+              >
+                {isRefreshingRubric ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></span>
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                      <path d="M21 3v5h-5" />
+                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                      <path d="M3 21v-5h5" />
+                    </svg>
+                    Refresh the AI Grader
+                  </>
+                )}
+              </button>
+            )}
+            <button
+              className={`px-4 py-2 rounded-md mb-2 transition-all duration-200 ${
+                !canCompare || isUploadingData
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : isComparingMode
+                  ? "hidden bg-red-600 text-white hover:bg-red-700"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+              disabled={!canCompare || isUploadingData}
+              onClick={async () => {
+                if (canCompare && !isUploadingData) {
+                  setIsComparingMode(!isComparingMode);
+
+                  // Upload evaluation data when starting comparison
+                  if (!isComparingMode) {
+                    console.log(
+                      "[InputScoringTable] Starting comparison mode - uploading evaluation data..."
+                    );
+                    await uploadEvaluationData();
+                  }
+
+                  if (onCompareClick) {
+                    onCompareClick(!isComparingMode);
+                  }
+                }
+              }}
+            >
+              {isUploadingData
+                ? "Uploading data..."
                 : isComparingMode
-                ? "bg-red-600 text-white hover:bg-red-700"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-            disabled={!canCompare}
-            onClick={() => {
-              if (canCompare) {
-                setIsComparingMode(!isComparingMode);
-                onCompareClick && onCompareClick();
-              }
-            }}
-          >
-            {isComparingMode ? "Stop Comparing" : "Compare with the AI Grader"}
-          </button>
+                ? "Stop Comparing"
+                : "Compare with the AI Grader"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

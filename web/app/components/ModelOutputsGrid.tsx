@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ModelOutput, TestCase, IdealModelResponse } from "@/app/types";
 import SimpleMarkdownRenderer from "@/app/components/SimpleMarkdownRenderer";
 import { useStepLoading } from "@/app/components/steps/VerticalStepper";
@@ -8,6 +8,7 @@ import TestCaseNavigation from "@/app/components/TestCaseNavigation";
 import RealCriteriaTable from "@/app/components/evaluation/RealCriteriaTable";
 import InputScoringTable from "@/app/components/evaluation/InputScoringTable";
 import MockCriteriaTable from "@/app/components/evaluation/MockCriteriaTable";
+import { EvaluationRecord } from "@/app/types/database";
 
 // Helper function to determine grid columns based on model count
 const getGridCols = (count: number) => {
@@ -66,6 +67,82 @@ export default function ModelOutputsGrid({
   >("cards");
   const [useRealCriteria, setUseRealCriteria] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [isComparing, setIsComparing] = useState(false);
+
+  // Versioning state (saved evaluation records for this session/group)
+  const [versions, setVersions] = useState<EvaluationRecord[]>([]);
+  const [currentVersionIndex, setCurrentVersionIndex] = useState<number | null>(
+    null
+  );
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+
+  // Fetch saved evaluation versions for this session and filter to same group
+  useEffect(() => {
+    const fetchVersions = async () => {
+      if (!sessionId || !isRealEvaluation || !isComparing) {
+        setVersions([]);
+        setCurrentVersionIndex(null);
+        return;
+      }
+      try {
+        setIsLoadingVersions(true);
+        setVersionsError(null);
+        const res = await fetch(
+          `/api/evaluation-records?action=bySession&session_id=${encodeURIComponent(
+            sessionId
+          )}`
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(
+            json.error || json.details || "Failed to load versions"
+          );
+        }
+        const records: EvaluationRecord[] = (json.data || []).map((r: any) => ({
+          ...r,
+          created_at: r.created_at ? new Date(r.created_at) : new Date(),
+        }));
+        if (records.length === 0) {
+          setVersions([]);
+          setCurrentVersionIndex(null);
+          return;
+        }
+        // Filter to single group if multiple; prefer the latest record's group
+        const latest = records
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime()
+          )[records.length - 1];
+        const groupId = latest.group_id;
+        const filtered = records.filter((r) => r.group_id === groupId);
+        // Sort by created_at ascending
+        const sorted = filtered
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime()
+          );
+        setVersions(sorted);
+        setCurrentVersionIndex(sorted.length - 1);
+      } catch (e) {
+        setVersionsError(
+          e instanceof Error ? e.message : "Failed to load versions"
+        );
+      } finally {
+        setIsLoadingVersions(false);
+      }
+    };
+    fetchVersions();
+  }, [sessionId, isRealEvaluation, isComparing]);
+
+  const currentVersion: EvaluationRecord | null = useMemo(() => {
+    if (currentVersionIndex === null) return null;
+    return versions[currentVersionIndex] || null;
+  }, [versions, currentVersionIndex]);
 
   // Register loading state if stepId is provided
   useStepLoading(stepId || "", isLoading);
@@ -141,7 +218,77 @@ export default function ModelOutputsGrid({
             <h3 className="text-lg font-medium text-gray-900">
               {isRealEvaluation ? "Response Scoring" : ""}
             </h3>
+            {isRealEvaluation && isComparing && (
+              <div className="flex items-center gap-2">
+                {currentVersion && (
+                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                    Version {(currentVersionIndex || 0) + 1} of{" "}
+                    {versions.length}
+                  </span>
+                )}
+                <button
+                  className={`px-2 py-1 rounded border text-sm ${
+                    currentVersionIndex !== null && currentVersionIndex > 0
+                      ? "bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
+                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                  }`}
+                  disabled={
+                    !(currentVersionIndex !== null && currentVersionIndex > 0)
+                  }
+                  title="Previous version"
+                  onClick={() => {
+                    if (
+                      currentVersionIndex !== null &&
+                      currentVersionIndex > 0
+                    ) {
+                      setCurrentVersionIndex(currentVersionIndex - 1);
+                    }
+                  }}
+                >
+                  <span>{"<"}</span>
+                </button>
+                <button
+                  className={`px-2 py-1 rounded border text-sm ${
+                    currentVersionIndex !== null &&
+                    versions.length > 0 &&
+                    currentVersionIndex < versions.length - 1
+                      ? "bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
+                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                  }`}
+                  disabled={
+                    !(
+                      currentVersionIndex !== null &&
+                      versions.length > 0 &&
+                      currentVersionIndex < versions.length - 1
+                    )
+                  }
+                  title="Next version"
+                  onClick={() => {
+                    if (
+                      currentVersionIndex !== null &&
+                      versions.length > 0 &&
+                      currentVersionIndex < versions.length - 1
+                    ) {
+                      setCurrentVersionIndex(currentVersionIndex + 1);
+                    }
+                  }}
+                >
+                  <span>{">"}</span>
+                </button>
+              </div>
+            )}
           </div>
+
+          {isRealEvaluation && isComparing && (
+            <div className="mt-2">
+              {isLoadingVersions && (
+                <div className="text-xs text-slate-500">Loading versions…</div>
+              )}
+              {versionsError && (
+                <div className="text-xs text-red-600">{versionsError}</div>
+              )}
+            </div>
+          )}
 
           <>
             {/* Loading State - Waiting for responses */}
@@ -219,8 +366,12 @@ export default function ModelOutputsGrid({
                     ? testCases[selectedTestCaseIndex]
                     : undefined
                 }
-                onCompareClick={onCompareClick}
+                onCompareClick={(enabled) => {
+                  setIsComparing(enabled);
+                  if (onCompareClick) onCompareClick();
+                }}
                 idealResponses={idealResponses}
+                sessionId={sessionId}
               />
             )}
 

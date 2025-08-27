@@ -74,7 +74,7 @@ export default function CriteriaMultiLevelSelector({
       );
       const cachedCriteriaVersionId = restoreIndependentCriteriaSelection();
       console.log(
-        "[CriteriaMultiLevelSelector] Cached criteria name:",
+        "[CriteriaMultiLevelSelector] Cached criteria sheetName:",
         cachedCriteriaVersionId
       );
 
@@ -86,25 +86,29 @@ export default function CriteriaMultiLevelSelector({
           treeStructure
         );
 
-        const findNodeByName = (nodes: any[], name: string): any => {
+        const findNodeBySheetName = (nodes: any[], sheetName: string): any => {
           for (const node of nodes) {
-            if (node.name === name) return node;
+            const nodeSheetName = node?.metadata?.version?.sheetName;
+            if (nodeSheetName === sheetName) return node;
             if (node.children) {
-              const found = findNodeByName(node.children, name);
+              const found = findNodeBySheetName(node.children, sheetName);
               if (found) return found;
             }
           }
           return null;
         };
 
-        const cachedNode = findNodeByName(treeStructure, cachedCriteriaVersionId);
+        const cachedNode = findNodeBySheetName(
+          treeStructure,
+          cachedCriteriaVersionId
+        );
         console.log(
-          "[CriteriaMultiLevelSelector] Found cached node by name:",
+          "[CriteriaMultiLevelSelector] Found cached node by sheetName:",
           {
-            searchingForName: cachedCriteriaVersionId,
+            searchingForSheetName: cachedCriteriaVersionId,
             foundNode: cachedNode,
             foundNodeName: cachedNode?.name,
-            foundNodeId: cachedNode?.id
+            foundNodeId: cachedNode?.id,
           }
         );
 
@@ -153,7 +157,7 @@ export default function CriteriaMultiLevelSelector({
           console.log(
             "[CriteriaMultiLevelSelector] Cached node not found, clearing cache"
           );
-          clearIndependentCache('criteria');
+          clearIndependentCache("criteria");
         }
       } else {
         console.log("[CriteriaMultiLevelSelector] No cached selection found");
@@ -172,17 +176,21 @@ export default function CriteriaMultiLevelSelector({
       // Save the selected criteria version to cache
       if (newSelections.length > 0) {
         const selectedNode = newSelections[0].node;
+        const version =
+          (selectedNode?.metadata?.version as CriterionVersion) || undefined;
         console.log(
           "[CriteriaMultiLevelSelector] Saving selection to independent cache:",
           {
             id: selectedNode.id,
             name: selectedNode.name,
-            savingName: selectedNode.name
+            sheetName: version?.sheetName,
           }
         );
 
-        // Save to independent cache
-        saveIndependentCriteriaSelection(selectedNode.name);
+        // Save to independent cache using version.sheetName (stable id used elsewhere)
+        if (version?.sheetName) {
+          saveIndependentCriteriaSelection(version.sheetName);
+        }
 
         // Verify it was saved
         const verified = restoreIndependentCriteriaSelection();
@@ -190,13 +198,14 @@ export default function CriteriaMultiLevelSelector({
           "[CriteriaMultiLevelSelector] Verification - saved to independent cache:",
           {
             savedCriteriaVersionId: verified,
-            success: verified === selectedNode.name
+            expected: version?.sheetName,
+            success: verified === version?.sheetName,
           }
         );
       } else {
         // Clear cache if no selection
         console.log("[CriteriaMultiLevelSelector] Clearing independent cache");
-        clearIndependentCache('criteria');
+        clearIndependentCache("criteria");
       }
 
       // Extract criteria items from selections (sheet-level only, no requirements data)

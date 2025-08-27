@@ -15,7 +15,10 @@ import {
   EvaluatorPromptFilters,
   EvaluatorModelFilters,
   PaginatedResponse,
-  DatabaseOperations
+  DatabaseOperations,
+  EvaluationRecord,
+  NewEvaluationRecord,
+  EvaluationRecordFilters
 } from '../types/database';
 
 // SQL-based Database Operations Implementation
@@ -621,6 +624,139 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     return result.length > 0;
   }
 
+  // ==================== EVALUATION RECORD OPERATIONS ====================
+
+  async createEvaluationRecord(data: NewEvaluationRecord): Promise<EvaluationRecord> {
+    const query = `
+      INSERT INTO partimeas_evaluation_records (
+        group_id, session_id, test_case_prompt, evaluator_model, 
+        evaluator_system_prompt, ideal_response, ideal_test_case, rubric_with_scoring
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `;
+    const params = [
+      data.group_id,
+      data.session_id,
+      data.test_case_prompt,
+      data.evaluator_model,
+      data.evaluator_system_prompt,
+      data.ideal_response,
+      data.ideal_test_case,
+      JSON.stringify(data.rubric_with_scoring)
+    ];
+    
+    const result = await executeQuery(query, params);
+    return this.mapEvaluationRecordFromDB(result[0]);
+  }
+
+  async getEvaluationRecord(id: string): Promise<EvaluationRecord | null> {
+    const query = 'SELECT * FROM partimeas_evaluation_records WHERE id = $1';
+    const result = await executeQuery(query, [id]);
+    return result.length > 0 ? this.mapEvaluationRecordFromDB(result[0]) : null;
+  }
+
+  async getEvaluationRecords(filters?: EvaluationRecordFilters, page: number = 1, limit: number = 10): Promise<PaginatedResponse<EvaluationRecord>> {
+    let whereClause = 'WHERE 1=1';
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (filters?.group_id) {
+      whereClause += ` AND group_id = $${paramIndex++}`;
+      params.push(filters.group_id);
+    }
+    if (filters?.session_id) {
+      whereClause += ` AND session_id = $${paramIndex++}`;
+      params.push(filters.session_id);
+    }
+
+    const countQuery = `SELECT COUNT(*) FROM partimeas_evaluation_records ${whereClause}`;
+    const countResult = await executeQuery(countQuery, params);
+    const total = parseInt(countResult[0].count);
+
+    const offset = (page - 1) * limit;
+    const query = `
+      SELECT * FROM partimeas_evaluation_records 
+      ${whereClause}
+      ORDER BY created_at DESC 
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+    params.push(limit, offset);
+
+    const result = await executeQuery(query, params);
+    const data = result.map(this.mapEvaluationRecordFromDB);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async updateEvaluationRecord(id: string, data: Partial<NewEvaluationRecord>): Promise<EvaluationRecord> {
+    const updates: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (data.group_id !== undefined) {
+      updates.push(`group_id = $${paramIndex++}`);
+      params.push(data.group_id);
+    }
+    if (data.session_id !== undefined) {
+      updates.push(`session_id = $${paramIndex++}`);
+      params.push(data.session_id);
+    }
+    if (data.test_case_prompt !== undefined) {
+      updates.push(`test_case_prompt = $${paramIndex++}`);
+      params.push(data.test_case_prompt);
+    }
+    if (data.evaluator_model !== undefined) {
+      updates.push(`evaluator_model = $${paramIndex++}`);
+      params.push(data.evaluator_model);
+    }
+    if (data.evaluator_system_prompt !== undefined) {
+      updates.push(`evaluator_system_prompt = $${paramIndex++}`);
+      params.push(data.evaluator_system_prompt);
+    }
+    if (data.ideal_response !== undefined) {
+      updates.push(`ideal_response = $${paramIndex++}`);
+      params.push(data.ideal_response);
+    }
+    if (data.ideal_test_case !== undefined) {
+      updates.push(`ideal_test_case = $${paramIndex++}`);
+      params.push(data.ideal_test_case);
+    }
+    if (data.rubric_with_scoring !== undefined) {
+      updates.push(`rubric_with_scoring = $${paramIndex++}`);
+      params.push(JSON.stringify(data.rubric_with_scoring));
+    }
+
+    if (updates.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    params.push(id);
+    const query = `
+      UPDATE partimeas_evaluation_records 
+      SET ${updates.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await executeQuery(query, params);
+    return this.mapEvaluationRecordFromDB(result[0]);
+  }
+
+  async deleteEvaluationRecord(id: string): Promise<boolean> {
+    const query = 'DELETE FROM partimeas_evaluation_records WHERE id = $1 RETURNING id';
+    const result = await executeQuery(query, [id]);
+    return result.length > 0;
+  }
+
   // ==================== HELPER METHODS ====================
   
   private mapSystemPromptFromDB(row: any): SystemPrompt {
@@ -702,6 +838,21 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       updatedAt: new Date(row.updated_at)
     };
   }
+
+  private mapEvaluationRecordFromDB(row: any): EvaluationRecord {
+    return {
+      id: row.id,
+      group_id: row.group_id,
+      session_id: row.session_id,
+      created_at: new Date(row.created_at),
+      test_case_prompt: row.test_case_prompt,
+      evaluator_model: row.evaluator_model,
+      evaluator_system_prompt: row.evaluator_system_prompt,
+      ideal_response: row.ideal_response,
+      ideal_test_case: row.ideal_test_case,
+      rubric_with_scoring: row.rubric_with_scoring
+    };
+  }
 }
 
 // Export a default instance
@@ -723,4 +874,14 @@ export const systemSettingUtils = {
   create: (data: NewSystemSetting) => db.createSystemSetting(data),
   update: (key: string, data: Partial<NewSystemSetting>) => db.updateSystemSetting(key, data),
   delete: (key: string) => db.deleteSystemSetting(key)
+};
+
+export const evaluationRecordUtils = {
+  getAll: (filters?: EvaluationRecordFilters) => db.getEvaluationRecords(filters),
+  getByGroupId: (groupId: string) => db.getEvaluationRecords({ group_id: groupId }),
+  getBySessionId: (sessionId: string) => db.getEvaluationRecords({ session_id: sessionId }),
+  get: (id: string) => db.getEvaluationRecord(id),
+  create: (data: NewEvaluationRecord) => db.createEvaluationRecord(data),
+  update: (id: string, data: Partial<NewEvaluationRecord>) => db.updateEvaluationRecord(id, data),
+  delete: (id: string) => db.deleteEvaluationRecord(id)
 }; 

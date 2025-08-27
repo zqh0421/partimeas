@@ -202,7 +202,7 @@ export interface EvaluatorModelFilters {
 }
 
 export interface AssistantFilters {
-  type?: 'output_generation' | 'evaluation';
+  type?: "output_generation" | "evaluation";
   required_to_show?: boolean;
 }
 
@@ -221,31 +221,81 @@ export interface DatabaseOperations {
   createEvaluatorModel(data: NewEvaluatorModel): Promise<EvaluatorModel>;
   createAssistant(data: NewAssistant): Promise<Assistant>;
   createAssistantModel(data: NewAssistantModel): Promise<AssistantModel>;
+  createEvaluationRecord(data: NewEvaluationRecord): Promise<EvaluationRecord>;
 
   // Read operations
   getSystemPrompt(id: string): Promise<SystemPrompt | null>;
-  getSystemPrompts(filters?: SystemPromptFilters, page?: number, limit?: number): Promise<PaginatedResponse<SystemPrompt>>;
+  getSystemPrompts(
+    filters?: SystemPromptFilters,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedResponse<SystemPrompt>>;
   getSystemSetting(key: string): Promise<SystemSetting | null>;
   getSystemSettings(category?: string): Promise<SystemSetting[]>;
   getModel(id: string): Promise<Model | null>;
-  getModels(filters?: ModelFilters, page?: number, limit?: number): Promise<PaginatedResponse<Model>>;
+  getModels(
+    filters?: ModelFilters,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedResponse<Model>>;
   getEvaluatorPrompt(id: string): Promise<EvaluatorPrompt | null>;
-  getEvaluatorPrompts(filters?: EvaluatorPromptFilters, page?: number, limit?: number): Promise<PaginatedResponse<EvaluatorPrompt>>;
+  getEvaluatorPrompts(
+    filters?: EvaluatorPromptFilters,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedResponse<EvaluatorPrompt>>;
   getEvaluatorModel(id: string): Promise<EvaluatorModel | null>;
-  getEvaluatorModels(filters?: EvaluatorModelFilters, page?: number, limit?: number): Promise<PaginatedResponse<EvaluatorModel>>;
+  getEvaluatorModels(
+    filters?: EvaluatorModelFilters,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedResponse<EvaluatorModel>>;
   getAssistant(id: number): Promise<Assistant | null>;
-  getAssistants(filters?: AssistantFilters, page?: number, limit?: number): Promise<PaginatedResponse<Assistant>>;
+  getAssistants(
+    filters?: AssistantFilters,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedResponse<Assistant>>;
   getAssistantModel(id: number): Promise<AssistantModel | null>;
-  getAssistantModels(filters?: AssistantModelFilters, page?: number, limit?: number): Promise<PaginatedResponse<AssistantModel>>;
+  getAssistantModels(
+    filters?: AssistantModelFilters,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedResponse<AssistantModel>>;
+  getEvaluationRecord(id: string): Promise<EvaluationRecord | null>;
+  getEvaluationRecords(
+    filters?: EvaluationRecordFilters,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedResponse<EvaluationRecord>>;
 
   // Update operations
-  updateSystemPrompt(id: string, data: Partial<NewSystemPrompt>): Promise<SystemPrompt>;
-  updateSystemSetting(key: string, data: Partial<NewSystemSetting>): Promise<SystemSetting>;
+  updateSystemPrompt(
+    id: string,
+    data: Partial<NewSystemPrompt>
+  ): Promise<SystemPrompt>;
+  updateSystemSetting(
+    key: string,
+    data: Partial<NewSystemSetting>
+  ): Promise<SystemSetting>;
   updateModel(id: string, data: Partial<NewModel>): Promise<Model>;
-  updateEvaluatorPrompt(id: string, data: Partial<NewEvaluatorPrompt>): Promise<EvaluatorPrompt>;
-  updateEvaluatorModel(id: string, data: Partial<NewEvaluatorModel>): Promise<EvaluatorModel>;
+  updateEvaluatorPrompt(
+    id: string,
+    data: Partial<NewEvaluatorPrompt>
+  ): Promise<EvaluatorPrompt>;
+  updateEvaluatorModel(
+    id: string,
+    data: Partial<NewEvaluatorModel>
+  ): Promise<EvaluatorModel>;
   updateAssistant(id: number, data: Partial<NewAssistant>): Promise<Assistant>;
-  updateAssistantModel(id: number, data: Partial<NewAssistantModel>): Promise<AssistantModel>;
+  updateAssistantModel(
+    id: number,
+    data: Partial<NewAssistantModel>
+  ): Promise<AssistantModel>;
+  updateEvaluationRecord(
+    id: string,
+    data: Partial<NewEvaluationRecord>
+  ): Promise<EvaluationRecord>;
 
   // Delete operations
   deleteSystemPrompt(id: string): Promise<boolean>;
@@ -255,6 +305,7 @@ export interface DatabaseOperations {
   deleteEvaluatorModel(id: string): Promise<boolean>;
   deleteAssistant(id: number): Promise<boolean>;
   deleteAssistantModel(id: number): Promise<boolean>;
+  deleteEvaluationRecord(id: string): Promise<boolean>;
 }
 
 // Assistant types
@@ -263,7 +314,7 @@ export interface Assistant {
   name: string;
   system_prompt_id: string;
   required_to_show: boolean;
-  type: 'output_generation' | 'evaluation';
+  type: "output_generation" | "evaluation";
   metadata?: any;
   createdAt: Date;
   updatedAt: Date;
@@ -273,7 +324,7 @@ export interface NewAssistant {
   name: string;
   system_prompt_id: string;
   required_to_show?: boolean;
-  type: 'output_generation' | 'evaluation';
+  type: "output_generation" | "evaluation";
   metadata?: any;
 }
 
@@ -290,4 +341,62 @@ export interface NewAssistantModel {
   assistant_id: number;
   model_id: string;
   metadata?: any;
-} 
+}
+
+// Evaluation Records types
+export interface EvaluationScore {
+  score: number;
+  rationale: string;
+}
+
+export interface EvaluationCriterion {
+  name: string;
+  description: string;
+  requirement: string;
+  positive_example: string;
+  negative_example: string;
+  points: number;
+  // Map of response label/id to scores for that response
+  scores: Record<
+    string,
+    {
+      human_score?: EvaluationScore;
+      ai_score?: EvaluationScore;
+    }
+  >;
+  // Ideal response text for this specific criterion
+  ideal_response: string;
+}
+
+export interface RubricWithScoring {
+  criteria: EvaluationCriterion[];
+}
+
+export interface EvaluationRecord {
+  id: string;
+  group_id: string;
+  session_id: string;
+  created_at: Date;
+  test_case_prompt: string;
+  evaluator_model: string;
+  evaluator_system_prompt: string;
+  ideal_response: string;
+  ideal_test_case: string;
+  rubric_with_scoring: RubricWithScoring;
+}
+
+export interface NewEvaluationRecord {
+  group_id: string;
+  session_id: string;
+  test_case_prompt: string;
+  evaluator_model: string;
+  evaluator_system_prompt: string;
+  ideal_response: string;
+  ideal_test_case: string;
+  rubric_with_scoring: RubricWithScoring;
+}
+
+export interface EvaluationRecordFilters {
+  group_id?: string;
+  session_id?: string;
+}
