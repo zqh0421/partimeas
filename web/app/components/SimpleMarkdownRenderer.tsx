@@ -197,7 +197,7 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
     ),
   };
 
-  // 配置插件
+  // Configure plugins
   const plugins = [];
   if (enableGfm) {
     plugins.push(remarkGfm);
@@ -304,7 +304,7 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
             margin-bottom: 0;
           }
           
-          /* 链接自动截断和样式优化 */
+          /* Link auto-truncation and style optimization */
           .prose a {
             word-break: break-all;
             word-wrap: break-word;
@@ -317,7 +317,7 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
             word-break: break-word;
           }
           
-          /* 长链接的容器样式 */
+          /* Container styles for long links */
           .prose p:has(a),
           .prose li:has(a) {
             overflow-wrap: break-word;

@@ -20,30 +20,30 @@ export default function RealCriteriaTable({
 
     const result: Criteria[] = [];
 
-    // 遍历每个 category
+    // Iterate through each category
     hierarchicalData.forEach((category, categoryIndex) => {
-      // 遍历每个 criterion
+      // Iterate through each criterion
       (category?.criteria ?? []).forEach(
         (criterion: any, criterionIndex: number) => {
           const criteriaId = `${category.name}-${criterion.name}`
             .replace(/\s+/g, "-")
             .toLowerCase();
 
-          // 转换 subcriteria
+          // Convert subcriteria
           const subcriteria: Subcriteria[] = (criterion?.subcriteria ?? []).map(
             (sub: any, subIndex: number) => {
               const subcriteriaId = `${criteriaId}-${sub.name}`
                 .replace(/\s+/g, "-")
                 .toLowerCase();
 
-              // 构建 scoreLevels 对象
+              // Build scoreLevels object
               const scoreLevels: { 0: string; 1: string; 2: string } = {
                 0: "Score 0 not available",
                 1: "Score 1 not available",
                 2: "Score 2 not available",
               };
 
-              // 填充实际的分数描述
+              // Fill in actual score descriptions
               (sub?.scoreLevels ?? []).forEach((scoreLevel: any) => {
                 const score = parseInt(scoreLevel?.score);
                 if (score >= 0 && score <= 2) {
@@ -89,7 +89,7 @@ export default function RealCriteriaTable({
     const result = modelScores.map((modelScore) => {
       const convertedScores: { [key: string]: number } = {};
 
-      // 遍历层级数据结构，为每个 subcriteria 生成分数
+      // Traverse hierarchical data structure to generate scores for each subcriteria
       hierarchicalData.forEach((category) => {
         (category?.criteria ?? []).forEach((criterion: any) => {
           const criteriaId = `${category.name}-${criterion.name}`
@@ -101,21 +101,21 @@ export default function RealCriteriaTable({
               .replace(/\s+/g, "-")
               .toLowerCase();
 
-            // 尝试从现有分数映射
+            // Try to map from existing scores
             let score = 0;
 
-            // 检查是否有直接匹配的ID
+            // Check if there's a direct matching ID
             if (
               modelScore?.scores &&
               modelScore.scores[subcriteriaId] != null
             ) {
               score = modelScore.scores[subcriteriaId];
             } else {
-              // 根据名称进行智能映射
+              // Perform intelligent mapping based on names
               const criterionName = criterion.name.toLowerCase();
               const subcriteriaName = sub.name.toLowerCase();
 
-              // 映射常见的评估标准
+              // Map common evaluation criteria
               if (
                 criterionName.includes("relevance") ||
                 subcriteriaName.includes("relevance")
@@ -140,7 +140,7 @@ export default function RealCriteriaTable({
                 criterionName.includes("strength") ||
                 subcriteriaName.includes("strength")
               ) {
-                score = modelScore?.scores?.["strengths"] ?? 1; // 默认中等分数
+                score = modelScore?.scores?.["strengths"] ?? 1; // Default medium score
               } else if (
                 criterionName.includes("explanation") ||
                 subcriteriaName.includes("explanation")
@@ -152,7 +152,7 @@ export default function RealCriteriaTable({
               ) {
                 score = modelScore?.scores?.["questions"] ?? 1;
               } else {
-                // 为演示目的，生成随机分数 (0-2)
+                // Generate random scores (0-2) for demonstration purposes
                 score = Math.floor(Math.random() * 3);
               }
             }

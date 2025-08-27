@@ -2,7 +2,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-// 移除可能有问题的 CSS 导入，改用内联样式或 Tailwind 类
+// Remove potentially problematic CSS imports, use inline styles or Tailwind classes
 
 interface CustomStyles {
   headings?: {
@@ -35,7 +35,7 @@ export const EnhancedMarkdownRenderer: React.FC<EnhancedMarkdownRendererProps> =
   enableCodeHighlighting = true,
   enableGfm = true,
 }) => {
-  // 默认样式配置
+  // Default style configuration
   const defaultStyles: Required<CustomStyles> = {
     headings: {
       h1: 'text-2xl font-bold text-gray-900 mb-4 mt-6',
@@ -52,7 +52,7 @@ export const EnhancedMarkdownRenderer: React.FC<EnhancedMarkdownRendererProps> =
     table: 'w-full border-collapse border border-gray-300 mb-4',
   };
 
-  // 合并自定义样式
+  // Merge custom styles
   const styles: Required<CustomStyles> = {
     headings: { ...defaultStyles.headings, ...customStyles.headings },
     paragraphs: customStyles.paragraphs || defaultStyles.paragraphs,
@@ -62,7 +62,7 @@ export const EnhancedMarkdownRenderer: React.FC<EnhancedMarkdownRendererProps> =
     table: customStyles.table || defaultStyles.table,
   };
 
-  // 自定义组件渲染器
+  // Custom component renderers
   const components = {
     h1: ({ children, ...props }: any) => (
       <h1 className={styles.headings.h1} {...props}>
@@ -166,7 +166,7 @@ export const EnhancedMarkdownRenderer: React.FC<EnhancedMarkdownRendererProps> =
         {children}
       </tr>
     ),
-    // 任务列表支持
+    // Task list support
     input: ({ checked, ...props }: any) => (
       <input
         type="checkbox"
@@ -176,7 +176,7 @@ export const EnhancedMarkdownRenderer: React.FC<EnhancedMarkdownRendererProps> =
         {...props}
       />
     ),
-    // 链接样式
+    // Link styles
     a: ({ children, href, ...props }: any) => (
       <a
         href={href}
@@ -188,7 +188,7 @@ export const EnhancedMarkdownRenderer: React.FC<EnhancedMarkdownRendererProps> =
         {children}
       </a>
     ),
-    // 强调文本
+    // Emphasized text
     strong: ({ children, ...props }: any) => (
       <strong className="font-bold text-gray-800" {...props}>
         {children}
@@ -199,19 +199,19 @@ export const EnhancedMarkdownRenderer: React.FC<EnhancedMarkdownRendererProps> =
         {children}
       </em>
     ),
-    // 删除线
+    // Strikethrough
     del: ({ children, ...props }: any) => (
       <del className="line-through text-gray-500" {...props}>
         {children}
       </del>
     ),
-    // 水平分割线
+    // Horizontal divider
     hr: ({ ...props }: any) => (
       <hr className="my-6 border-gray-300" {...props} />
     ),
   };
 
-  // 配置插件 - 使用更兼容的配置
+  // Configure plugins - use more compatible configuration
   const plugins = [];
   if (enableGfm) {
     plugins.push(remarkGfm);
@@ -219,7 +219,7 @@ export const EnhancedMarkdownRenderer: React.FC<EnhancedMarkdownRendererProps> =
 
   const rehypePlugins = [];
   if (enableCodeHighlighting) {
-    // 使用更安全的配置
+    // Use safer configuration
     try {
       rehypePlugins.push(rehypeHighlight);
     } catch (error) {

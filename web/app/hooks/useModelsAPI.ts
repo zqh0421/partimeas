@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-// 后端API返回的模型数据结构
+// Backend API model data structure
 interface APIModel {
   id: string;
   provider: string;
@@ -9,7 +9,7 @@ interface APIModel {
   created_at: string;
 }
 
-// 前端使用的模型数据结构
+// Frontend model data structure
 interface Model {
   id: string;
   provider: string;
@@ -23,7 +23,7 @@ export function useModelsAPI() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 加载所有模型
+  // Load all models
   const loadModels = async () => {
     try {
       setIsLoading(true);
@@ -36,7 +36,7 @@ export function useModelsAPI() {
       
       const data = await response.json();
       if (data.success) {
-        // 转换API数据结构为前端使用的结构
+        // Convert API data structure for frontend use
         const convertedModels: Model[] = data.models.map((apiModel: APIModel) => ({
           id: apiModel.id,
           provider: apiModel.provider,
@@ -57,7 +57,7 @@ export function useModelsAPI() {
     }
   };
 
-  // 创建新模型
+  // Create new model
   const createModel = async (modelData: {
     provider: string;
     modelId: string;
@@ -79,7 +79,7 @@ export function useModelsAPI() {
       
       const data = await response.json();
       if (data.success) {
-        // 如果模型已存在，不需要重新加载
+        // If model already exists, no need to reload
         if (!data.skipped) {
           await loadModels();
         }
@@ -95,7 +95,7 @@ export function useModelsAPI() {
     }
   };
 
-  // 删除模型
+  // Delete model
   const deleteModel = async (id: string) => {
     try {
       setError(null);
@@ -111,7 +111,7 @@ export function useModelsAPI() {
       
       const data = await response.json();
       if (data.success) {
-        // 重新加载模型列表
+        // Reload model list
         await loadModels();
         return { success: true };
       } else {
@@ -125,12 +125,12 @@ export function useModelsAPI() {
     }
   };
 
-  // 按提供商过滤模型
+  // Filter models by provider
   const getModelsByProvider = (provider: string) => {
     return models.filter(model => model.provider === provider);
   };
 
-  // 初始化时加载模型
+  // Load models on initialization
   useEffect(() => {
     loadModels();
   }, []);

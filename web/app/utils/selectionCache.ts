@@ -5,7 +5,7 @@ export interface Selection {
   scenarioCategoryIds: string[];
 }
 
-// 旧的缓存结构 - 保持向后兼容
+// Old cache structure - maintain backward compatibility
 export interface SelectionCache {
   selections: Selection[];
   expandedUseCases: string[];
@@ -15,7 +15,7 @@ export interface SelectionCache {
   version: string;
 }
 
-// 新的独立缓存结构 - 每个selector有自己的缓存空间
+// New independent cache structure - each selector has its own cache space
 export interface IndependentCache {
   multiLevelSelector?: {
     selections: Selection[];
@@ -32,13 +32,13 @@ export interface IndependentCache {
 }
 
 const CACHE_KEY = 'partimeas_multi_level_selections';
-const INDEPENDENT_CACHE_KEY = 'partimeas_independent_selections'; // 新的独立缓存键
+const INDEPENDENT_CACHE_KEY = 'partimeas_independent_selections'; // New independent cache key
 const IDEAL_SCORES_CACHE_KEY = 'partimeas_ideal_response_scores';
 const CACHE_VERSION = '1.1.0'; // Updated to support ideal responses
-const INDEPENDENT_CACHE_VERSION = '2.0.0'; // 新的独立缓存版本
-const CACHE_EXPIRY_HOURS = 0.5; // 缓存30分钟
+const INDEPENDENT_CACHE_VERSION = '2.0.0'; // New independent cache version
+const CACHE_EXPIRY_HOURS = 0.5; // Cache for 30 minutes
 
-// 检查localStorage是否可用
+// Check if localStorage is available
 const isLocalStorageAvailable = (): boolean => {
   try {
     const test = '__localStorage_test__';
@@ -50,7 +50,7 @@ const isLocalStorageAvailable = (): boolean => {
   }
 };
 
-// 安全的localStorage包装器
+// Safe localStorage wrapper
 const safeLocalStorage = {
   getItem: (key: string): string | null => {
     if (!isLocalStorageAvailable()) return null;
@@ -90,24 +90,24 @@ class SelectionCacheManager {
     if (this.isInitialized) return;
     
     try {
-      // 从localStorage加载缓存
+      // Load cache from localStorage
       const cached = safeLocalStorage.getItem(CACHE_KEY);
       if (cached) {
         const parsedCache: SelectionCache = JSON.parse(cached);
         
-        // 检查缓存版本和过期时间
+        // Check cache version and expiry time
         if (this.isCacheValid(parsedCache)) {
           this.memoryCache.set('default', parsedCache);
           console.log('[SelectionCache] Loaded cached selections from localStorage');
         } else {
-          // 清除过期缓存
+          // Clear expired cache
           safeLocalStorage.removeItem(CACHE_KEY);
           console.log('[SelectionCache] Cleared expired cache');
         }
       }
     } catch (error) {
       console.warn('[SelectionCache] Failed to load cache from localStorage:', error);
-      // 清除损坏的缓存
+      // Clear corrupted cache
       safeLocalStorage.removeItem(CACHE_KEY);
     }
     
@@ -128,7 +128,7 @@ class SelectionCacheManager {
     safeLocalStorage.setItem(CACHE_KEY, JSON.stringify(cache));
   }
 
-  // 保存选择状态
+  // Save selection state
   saveSelections(
     selections: Selection[], 
     expandedUseCases: Set<string> | string[],
@@ -149,10 +149,10 @@ class SelectionCacheManager {
       version: CACHE_VERSION
     };
 
-    // 保存到内存缓存
+    // Save to memory cache
     this.memoryCache.set(cacheKey, cache);
     
-    // 保存到localStorage
+    // Save to localStorage
     this.saveToLocalStorage(cache);
     
     console.log(`[SelectionCache] Saved selections for key: ${cacheKey}`, {
@@ -163,7 +163,7 @@ class SelectionCacheManager {
     });
   }
 
-  // 恢复选择状态
+  // Restore selection state
   restoreSelections(cacheKey: string = 'default'): {
     selections: Selection[];
     expandedUseCases: Set<string>;
@@ -198,7 +198,7 @@ class SelectionCacheManager {
     };
   }
 
-  // 清除特定缓存
+  // Clear specific cache
   clearCache(cacheKey: string = 'default') {
     this.memoryCache.delete(cacheKey);
     
@@ -209,14 +209,14 @@ class SelectionCacheManager {
     console.log(`[SelectionCache] Cleared cache for key: ${cacheKey}`);
   }
 
-  // 清除所有缓存
+  // Clear all caches
   clearAllCaches() {
     this.memoryCache.clear();
     safeLocalStorage.removeItem(CACHE_KEY);
     console.log('[SelectionCache] Cleared all caches');
   }
 
-  // 获取缓存统计信息
+  // Get cache statistics
   getCacheStats() {
     return {
       memoryCacheSize: this.memoryCache.size,
@@ -225,14 +225,14 @@ class SelectionCacheManager {
     };
   }
 
-  // 检查是否有缓存
+  // Check if cache exists
   hasCache(cacheKey: string = 'default'): boolean {
     const cache = this.memoryCache.get(cacheKey);
     return cache ? this.isCacheValid(cache) : false;
   }
 }
 
-// 新的独立缓存管理器
+// New independent cache manager
 class IndependentCacheManager {
   private memoryCache: IndependentCache | null = null;
   private isInitialized = false;
@@ -245,17 +245,17 @@ class IndependentCacheManager {
     if (this.isInitialized) return;
     
     try {
-      // 从localStorage加载缓存
+      // Load cache from localStorage
       const cached = safeLocalStorage.getItem(INDEPENDENT_CACHE_KEY);
       if (cached) {
         const parsedCache: IndependentCache = JSON.parse(cached);
         
-        // 检查缓存版本和过期时间
+        // Check cache version and expiry time
         if (this.isCacheValid(parsedCache)) {
           this.memoryCache = parsedCache;
           console.log('[IndependentCache] Loaded cached data from localStorage');
         } else {
-          // 清除过期缓存
+          // Clear expired cache
           safeLocalStorage.removeItem(INDEPENDENT_CACHE_KEY);
           console.log('[IndependentCache] Cleared expired cache');
         }
@@ -284,7 +284,7 @@ class IndependentCacheManager {
     }
   }
 
-  // 获取当前缓存
+  // Get current cache
   getCache(): IndependentCache {
     if (!this.memoryCache) {
       this.memoryCache = {
@@ -295,7 +295,7 @@ class IndependentCacheManager {
     return this.memoryCache;
   }
 
-  // 保存多级选择器数据
+  // Save multi-level selector data
   saveMultiLevelSelections(selections: Selection[], expandedUseCases: Set<string> | string[]) {
     const cache = this.getCache();
     const expandedArray = Array.isArray(expandedUseCases) 
@@ -315,7 +315,7 @@ class IndependentCacheManager {
     });
   }
 
-  // 恢复多级选择器数据
+  // Restore multi-level selector data
   restoreMultiLevelSelections(): { selections: Selection[]; expandedUseCases: Set<string>; } | null {
     const cache = this.getCache();
     if (!cache.multiLevelSelector) return null;
@@ -326,7 +326,7 @@ class IndependentCacheManager {
     };
   }
 
-  // 保存标准选择器数据
+  // Save criteria selector data
   saveCriteriaSelection(selectedCriteriaVersionId: string) {
     const cache = this.getCache();
     cache.criteriaSelector = { selectedCriteriaVersionId };
@@ -336,13 +336,13 @@ class IndependentCacheManager {
     console.log('[IndependentCache] Saved CriteriaSelector data:', selectedCriteriaVersionId);
   }
 
-  // 恢复标准选择器数据
+  // Restore criteria selector data
   restoreCriteriaSelection(): string | null {
     const cache = this.getCache();
     return cache.criteriaSelector?.selectedCriteriaVersionId || null;
   }
 
-  // 保存理想回复选择器数据
+  // Save ideal response selector data
   saveIdealResponseSelection(selectedIdealResponseId: string) {
     const cache = this.getCache();
     cache.idealResponseSelector = { selectedIdealResponseId };
@@ -352,23 +352,23 @@ class IndependentCacheManager {
     console.log('[IndependentCache] Saved IdealResponseSelector data:', selectedIdealResponseId);
   }
 
-  // 恢复理想回复选择器数据
+  // Restore ideal response selector data
   restoreIdealResponseSelection(): string | null {
     const cache = this.getCache();
     return cache.idealResponseSelector?.selectedIdealResponseId || null;
   }
 
-  // 清除特定选择器的缓存
+  // Clear specific selector cache
   clearCache(selector?: 'multiLevel' | 'criteria' | 'idealResponse') {
     const cache = this.getCache();
     
     if (!selector) {
-      // 清除所有
+      // Clear all
       this.memoryCache = null;
       safeLocalStorage.removeItem(INDEPENDENT_CACHE_KEY);
       console.log('[IndependentCache] Cleared all cache');
     } else {
-      // 清除特定选择器
+      // Clear specific selector
       switch (selector) {
         case 'multiLevel':
           delete cache.multiLevelSelector;
@@ -386,7 +386,7 @@ class IndependentCacheManager {
     }
   }
 
-  // 获取缓存统计信息
+  // Get cache statistics
   getCacheStats() {
     const cache = this.getCache();
     return {
@@ -399,11 +399,11 @@ class IndependentCacheManager {
   }
 }
 
-// 创建单例实例
+// Create singleton instances
 export const selectionCache = new SelectionCacheManager();
 export const independentCache = new IndependentCacheManager();
 
-// 导出便捷函数
+// Export utility functions
 export const saveSelections = (
   selections: Selection[], 
   expandedUseCases: Set<string> | string[],
@@ -421,9 +421,9 @@ export const clearSelectionCache = (cacheKey?: string) =>
 export const clearAllSelectionCaches = () => 
   selectionCache.clearAllCaches();
 
-// 专门用于保存和恢复criteria版本选择的便捷函数
+// Utility functions specifically for saving and restoring criteria version selection
 export const saveCriteriaVersionSelection = (selectedCriteriaVersionId: string) => {
-  // 获取现有缓存，保持其他选择不变
+  // Get existing cache, keep other selections unchanged
   const existing = selectionCache.restoreSelections();
   if (existing) {
     selectionCache.saveSelections(
@@ -433,7 +433,7 @@ export const saveCriteriaVersionSelection = (selectedCriteriaVersionId: string) 
       existing.selectedIdealResponseId
     );
   } else {
-    // 如果没有现有缓存，创建新的
+    // If there's no existing cache, create new one
     selectionCache.saveSelections([], [], selectedCriteriaVersionId);
   }
 };
@@ -443,9 +443,9 @@ export const restoreCriteriaVersionSelection = (): string | null => {
   return restored?.selectedCriteriaVersionId || null;
 };
 
-// 专门用于保存和恢复ideal response选择的便捷函数
+// Utility functions specifically for saving and restoring ideal response selection
 export const saveIdealResponseSelection = (selectedIdealResponseId: string) => {
-  // 获取现有缓存，保持其他选择不变
+  // Get existing cache, keep other selections unchanged
   const existing = selectionCache.restoreSelections();
   if (existing) {
     selectionCache.saveSelections(
@@ -455,7 +455,7 @@ export const saveIdealResponseSelection = (selectedIdealResponseId: string) => {
       selectedIdealResponseId
     );
   } else {
-    // 如果没有现有缓存，创建新的
+    // If there's no existing cache, create new one
     selectionCache.saveSelections([], [], undefined, selectedIdealResponseId);
   }
 };
@@ -465,7 +465,7 @@ export const restoreIdealResponseSelection = (): string | null => {
   return restored?.selectedIdealResponseId || null;
 };
 
-// 理想回复分数缓存管理
+// Ideal response score cache management
 const IDEAL_SCORES_CACHE = new Map<string, IdealResponseCache>();
 
 export const saveIdealResponseScores = (
@@ -480,7 +480,7 @@ export const saveIdealResponseScores = (
 
   IDEAL_SCORES_CACHE.set(idealResponseId, cache);
   
-  // 也保存到localStorage
+  // Also save to localStorage
   safeLocalStorage.setItem(
     `${IDEAL_SCORES_CACHE_KEY}_${idealResponseId}`,
     JSON.stringify(cache)
@@ -496,10 +496,10 @@ export const saveIdealResponseScores = (
 export const restoreIdealResponseScores = (
   idealResponseId: string
 ): IdealResponseScore[] => {
-  // 首先从内存缓存中获取
+  // First get from memory cache
   let cache = IDEAL_SCORES_CACHE.get(idealResponseId);
   
-  // 如果内存中没有，尝试从localStorage恢复
+  // If not in memory, try to restore from localStorage
   if (!cache) {
     const stored = safeLocalStorage.getItem(`${IDEAL_SCORES_CACHE_KEY}_${idealResponseId}`);
     if (stored) {
@@ -530,7 +530,7 @@ export const clearIdealResponseScores = (idealResponseId: string) => {
   console.log(`[SelectionCache] Cleared ideal response scores for: ${idealResponseId}`);
 };
 
-// 新的独立缓存便捷函数
+// New independent cache utility functions
 export const saveIndependentMultiLevelSelections = (selections: Selection[], expandedUseCases: Set<string> | string[]) =>
   independentCache.saveMultiLevelSelections(selections, expandedUseCases);
 
@@ -552,7 +552,7 @@ export const restoreIndependentIdealResponseSelection = () =>
 export const clearIndependentCache = (selector?: 'multiLevel' | 'criteria' | 'idealResponse') =>
   independentCache.clearCache(selector);
 
-// 调试函数 - 直接获取当前缓存状态用于调试
+// Debug function - directly get current cache state for debugging
 export const debugGetCurrentCache = () => {
   const oldCache = selectionCache.restoreSelections();
   const newCache = independentCache.getCacheStats();
@@ -578,7 +578,7 @@ export const debugGetCurrentCache = () => {
   return { oldCache, newCache: fullNewCache };
 };
 
-// 在开发环境下将调试函数暴露到全局，方便在控制台调用
+// Expose debug functions globally in development environment for console access
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).debugCache = debugGetCurrentCache;
   (window as any).independentCache = independentCache;

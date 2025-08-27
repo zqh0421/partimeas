@@ -492,13 +492,13 @@ export const RestartIcon: React.FC<IconProps> = ({
 );
 
 export const Icons = {
-  // 方向图标
+  // Direction icons
   ChevronDown: ChevronDownIcon,
   ChevronUp: ChevronUpIcon,
   ChevronRight: ChevronRightIcon,
   ChevronLeft: ChevronLeftIcon,
   
-  // 操作图标
+  // Action icons
   Check: CheckIcon,
   Refresh: RefreshIcon,
   RefreshCycle: RefreshCycleIcon,
@@ -507,30 +507,30 @@ export const Icons = {
   Stop: StopIcon,
   Restart: RestartIcon,
   
-  // 状态图标
+  // Status icons
   Loading: LoadingSpinner,
   Info: InfoIcon,
   Warning: WarningIcon,
   Error: ErrorIcon,
   Success: SuccessIcon,
   
-  // 文档图标
+  // Document icons
   Document: DocumentIcon,
   Folder: FolderIcon,
   Clipboard: ClipboardIcon,
   
-  // 系统图标
+  // System icons
   Settings: SettingsIcon,
   Search: SearchIcon,
   Filter: FilterIcon,
   
-  // 界面图标
+  // Interface icons
   Menu: MenuIcon,
   Close: CloseIcon,
   Expand: ExpandIcon,
   Collapse: CollapseIcon,
   
-  // 图表图标
+  // Chart icons
   ChartBar: ChartBarIcon
 };
 

@@ -191,9 +191,9 @@ export interface HistoryEntry {
   comment?: string;
   version?: string;
   changeType?: ChangeType;
-  parentId?: string; // 前继节点的ID，用于构建分支结构
-  summary?: string; // AI生成的版本摘要
-  differenceSummary?: string; // 客观的变化描述
+  parentId?: string; // Parent node ID for building branch structure
+  summary?: string; // AI-generated version summary
+  differenceSummary?: string; // Objective description of changes
 }
 
 export interface VersionData {
