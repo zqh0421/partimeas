@@ -103,8 +103,10 @@ export default function MultiLevelSelector({
     setSelections([]);
     onSelectionChange([]);
     onDataLoaded([]);
-    clearIndependentCache('multiLevel');
-    console.log("[MultiLevelSelector] Cleared selections and independent cache");
+    clearIndependentCache("multiLevel");
+    console.log(
+      "[MultiLevelSelector] Cleared selections and independent cache"
+    );
   };
 
   const organizeUseCaseData = (
@@ -292,7 +294,7 @@ export default function MultiLevelSelector({
     setExpandedUseCases(new Set());
     setUseCaseData({});
     onDataLoaded([]);
-    clearIndependentCache('multiLevel');
+    clearIndependentCache("multiLevel");
     console.log("[MultiLevelSelector] Refreshed and cleared independent cache");
     loadAllUseCaseData(true);
   };
@@ -373,6 +375,11 @@ export default function MultiLevelSelector({
       console.log(
         "[MultiLevelSelector] Restored cached selections and expanded states from independent cache"
       );
+
+      // Also notify parent about restored selections so upstream state reflects them
+      if (restored.selections.length > 0) {
+        onSelectionChange(restored.selections);
+      }
 
       // When cache is restored, need to reload corresponding test case data
       if (restored.selections.length > 0) {

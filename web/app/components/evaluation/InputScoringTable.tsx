@@ -911,7 +911,7 @@ export default function InputScoringTable({
                                   aiScores[r.id]?.[resp.id] !== undefined &&
                                   scores[r.id]?.[resp.id] !==
                                     aiScores[r.id][resp.id].score
-                                    ? "border-red-300 bg-red-100 text-red-700"
+                                    ? "border-red-300 bg-red-50 text-red-700"
                                     : "border-gray-200 bg-white text-gray-700"
                                 }`
                               : "shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer border-gray-300 text-gray-700"
@@ -1002,7 +1002,7 @@ export default function InputScoringTable({
                                 ? idealScores[r.id]
                                 : idealPoints[rowIdx]) !==
                                 aiScores[r.id][currentIdealResponseId].score
-                                ? "border-red-300 bg-red-100 text-red-700"
+                                ? "border-red-300 bg-red-50 text-red-700"
                                 : "border-gray-200 bg-white text-gray-700"
                             }`
                           : "shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer border-gray-300 text-gray-700"
@@ -1090,15 +1090,34 @@ export default function InputScoringTable({
                   triggerAiEvaluation();
                 }}
                 disabled={isEvaluating}
-                className={`px-4 py-2 rounded-md text-sm font-medium ${
+                className={`px-4 py-2 rounded-md text-sm font-medium inline-flex items-center gap-2 ${
                   isEvaluating
                     ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                     : "bg-blue-600 text-white hover:bg-blue-700"
                 }`}
               >
-                {isEvaluating
-                  ? "Evaluating..."
-                  : "🔍 Manual Trigger Evaluation"}
+                {isEvaluating ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></span>
+                    Evaluating...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Manual Trigger Evaluation
+                  </>
+                )}
               </button>
               <span className="ml-3 text-xs text-gray-500">
                 Use this button to manually trigger evaluation for debugging
@@ -1354,35 +1373,130 @@ export default function InputScoringTable({
           </div>
         </div>
       )}
+      <div className="flex flex-row justify-between">
+        {isComparingMode ? (
+          <div className="mt-4 mb-3 text-sm text-gray-600 text-left w-fit">
+            <p className="w-fit whitespace-nowrap">
+              <span className="bg-red-50 p-1 rounded-md border border-red-300 text-red-700">
+                Red cells
+              </span>{" "}
+              mean that the AI Grader inaccurately scored the model response,
+              using your rubric.
+            </p>
+            <p className="w-fit whitespace-nowrap">
+              How might you revise your rubric instructions, so the AI Grader
+              can do a better job?
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 mb-3 text-sm text-gray-600 text-left w-fit">
+            <div className="w-fit whitespace-nowrap">
+              <p className="w-fit whitespace-nowrap">
+                Provide your expected scoring points with rationale on how the
+                model responses perform on your rubric,
+              </p>
+              <p className="w-fit whitespace-nowrap">
+                before proceeding and comparing the AI Grader's scoring work.
+              </p>
+            </div>
+            {evaluationError && (
+              <p className="w-fit whitespace-nowrap text-red-600">
+                {evaluationError}
+              </p>
+            )}
+          </div>
+        )}
 
-      <div className="mt-4 flex justify-end">
-        <button
-          className={`px-4 py-2 rounded-md mb-2 transition-all duration-200 ${
-            !canCompare
-              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : isComparingMode
-              ? "bg-red-600 text-white hover:bg-red-700"
-              : "bg-blue-600 text-white hover:bg-blue-700"
-          }`}
-          disabled={!canCompare}
-          onClick={() => {
-            if (canCompare) {
-              setIsComparingMode(!isComparingMode);
-              onCompareClick && onCompareClick();
-            }
-          }}
-          title={
-            !canCompare
-              ? `Complete all scoring first. Human scoring: ${
-                  areAllHumanScoresComplete ? "✓" : "✗"
-                }, AI results: ${areAiResultsAvailable ? "✓" : "✗"}`
-              : isComparingMode
-              ? "Stop comparing with AI results"
-              : "Compare human scores with AI results"
-          }
-        >
-          {isComparingMode ? "Stop Comparing" : "Compare with the AI Grader"}
-        </button>
+        <div className="mt-4 flex justify-end">
+          {!isComparingMode && (
+            <div className="flex items-center gap-3 mb-1 mr-4">
+              <span
+                className={`px-2 py-1 rounded-md border text-xs font-medium whitespace-nowrap inline-flex items-center gap-1 ${
+                  evaluationError
+                    ? "bg-red-50 border-red-300 text-red-700"
+                    : isEvaluating
+                    ? "bg-blue-50 border-blue-300 text-blue-700"
+                    : areAiResultsAvailable
+                    ? "bg-green-50 border-green-300 text-green-700"
+                    : "bg-gray-50 border-gray-300 text-gray-600"
+                }`}
+              >
+                {evaluationError ? (
+                  <>
+                    <svg
+                      className="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    AI grader error
+                  </>
+                ) : isEvaluating ? (
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-3 h-3 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></span>
+                    AI grader is working
+                  </span>
+                ) : areAiResultsAvailable ? (
+                  <>
+                    <svg
+                      className="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                    AI grader ready
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    AI grader pending
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+          <button
+            className={`px-4 py-2 rounded-md mb-2 transition-all duration-200 ${
+              !canCompare
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : isComparingMode
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+            disabled={!canCompare}
+            onClick={() => {
+              if (canCompare) {
+                setIsComparingMode(!isComparingMode);
+                onCompareClick && onCompareClick();
+              }
+            }}
+          >
+            {isComparingMode ? "Stop Comparing" : "Compare with the AI Grader"}
+          </button>
+        </div>
       </div>
     </div>
   );
