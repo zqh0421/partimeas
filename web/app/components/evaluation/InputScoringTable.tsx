@@ -389,12 +389,81 @@ const InputScoringTable = forwardRef<
     );
   }, [aiScores]);
 
-  // Fetch evaluation versions when entering comparing mode
-  useEffect(() => {
+  // Create a function to fetch versions that can be called manually
+  const fetchVersions = async (forceRefresh = false) => {
     // Use test case session ID if available, otherwise fall back to prop session ID
     const effectiveSessionId = testCase?.sessionId || sessionId;
     
-    if (!isComparingMode || !effectiveSessionId) {
+    if (!effectiveSessionId) {
+      console.log("[InputScoringTable] No session ID available for fetching versions");
+      return;
+    }
+
+    // Cancel any previous in-flight request
+    if (fetchVersionsAbortController.current) {
+      fetchVersionsAbortController.current.abort();
+    }
+    
+    // Create new abort controller for this request
+    fetchVersionsAbortController.current = new AbortController();
+    const signal = fetchVersionsAbortController.current.signal;
+    
+    setIsLoadingVersions(true);
+    setVersionsError(null);
+    
+    try {
+      const response = await fetch(
+        `/api/evaluation-records?action=bySession&session_id=${effectiveSessionId}`,
+        {
+          signal,
+          cache: forceRefresh ? 'no-store' : 'default' // Force refresh when needed
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch evaluation versions");
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        // Sort by created_at descending (newest first)
+        const sortedVersions = data.data.sort(
+          (a: EvaluationRecord, b: EvaluationRecord) =>
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime()
+        );
+        
+        // Atomic state update to prevent inconsistency
+        setEvaluationVersions(sortedVersions);
+        
+        // Use setTimeout to ensure state is updated in next tick
+        setTimeout(() => {
+          if (sortedVersions.length > 0 && !signal.aborted) {
+            setCurrentVersionIndex(0);
+          }
+        }, 0);
+        
+        console.log(`[InputScoringTable] Fetched ${sortedVersions.length} versions`);
+      }
+    } catch (error: any) {
+      // Ignore abort errors
+      if (error?.name !== 'AbortError') {
+        console.error("[InputScoringTable] Error fetching versions:", error);
+        setVersionsError(
+          error instanceof Error ? error.message : "Failed to load versions"
+        );
+      }
+    } finally {
+      if (!signal.aborted) {
+        setIsLoadingVersions(false);
+      }
+    }
+  };
+
+  // Fetch evaluation versions when entering comparing mode
+  useEffect(() => {
+    if (!isComparingMode) {
       // Cancel any in-flight requests
       if (fetchVersionsAbortController.current) {
         fetchVersionsAbortController.current.abort();
@@ -405,70 +474,8 @@ const InputScoringTable = forwardRef<
       return;
     }
 
-    const fetchVersions = async () => {
-      // Cancel any previous in-flight request
-      if (fetchVersionsAbortController.current) {
-        fetchVersionsAbortController.current.abort();
-      }
-      
-      // Create new abort controller for this request
-      fetchVersionsAbortController.current = new AbortController();
-      const signal = fetchVersionsAbortController.current.signal;
-      
-      setIsLoadingVersions(true);
-      setVersionsError(null);
-      
-      try {
-        const response = await fetch(
-          `/api/evaluation-records?action=bySession&session_id=${effectiveSessionId}`,
-          {
-            signal,
-            cache: 'no-store' // Disable caching to ensure fresh data
-          }
-        );
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch evaluation versions");
-        }
-        
-        const data = await response.json();
-        
-        if (data.success && data.data) {
-          // Sort by created_at descending (newest first)
-          const sortedVersions = data.data.sort(
-            (a: EvaluationRecord, b: EvaluationRecord) =>
-              new Date(b.created_at).getTime() -
-              new Date(a.created_at).getTime()
-          );
-          
-          // Atomic state update to prevent inconsistency
-          // First set versions, then set index in a callback to ensure versions is updated
-          setEvaluationVersions(sortedVersions);
-          
-          // Use setTimeout to ensure state is updated in next tick
-          // This prevents race condition between versions and index
-          setTimeout(() => {
-            if (sortedVersions.length > 0 && !signal.aborted) {
-              setCurrentVersionIndex(0);
-            }
-          }, 0);
-        }
-      } catch (error: any) {
-        // Ignore abort errors
-        if (error?.name !== 'AbortError') {
-          console.error("[InputScoringTable] Error fetching versions:", error);
-          setVersionsError(
-            error instanceof Error ? error.message : "Failed to load versions"
-          );
-        }
-      } finally {
-        if (!signal.aborted) {
-          setIsLoadingVersions(false);
-        }
-      }
-    };
-
-    fetchVersions();
+    // Fetch versions when entering comparing mode with force refresh
+    fetchVersions(true);
     
     // Cleanup function to cancel request if component unmounts or dependencies change
     return () => {
@@ -1129,58 +1136,7 @@ const InputScoringTable = forwardRef<
           `Successfully saved evaluation data (ID: ${result.id})`
         );
         
-        // Refresh version list if in comparing mode to show the new version
-        if (isComparingMode && effectiveSessionId) {
-          console.log(
-            "[InputScoringTable] Refreshing version list after successful save"
-          );
-          
-          // Cancel any existing fetch request
-          if (fetchVersionsAbortController.current) {
-            fetchVersionsAbortController.current.abort();
-          }
-          
-          // Create new abort controller
-          fetchVersionsAbortController.current = new AbortController();
-          const signal = fetchVersionsAbortController.current.signal;
-          
-          // Fetch updated versions with the effective session ID (test-case specific)
-          try {
-            const response = await fetch(
-              `/api/evaluation-records?action=bySession&session_id=${effectiveSessionId}`,
-              {
-                signal,
-                cache: 'no-store'
-              }
-            );
-            
-            if (response.ok) {
-              const data = await response.json();
-              if (data.success && data.data && !signal.aborted) {
-                const sortedVersions = data.data.sort(
-                  (a: EvaluationRecord, b: EvaluationRecord) =>
-                    new Date(b.created_at).getTime() -
-                    new Date(a.created_at).getTime()
-                );
-                
-                // Update versions and set to newest (index 0)
-                setEvaluationVersions(sortedVersions);
-                setTimeout(() => {
-                  if (!signal.aborted) {
-                    setCurrentVersionIndex(0);
-                  }
-                }, 0);
-              }
-            }
-          } catch (error: any) {
-            if (error?.name !== 'AbortError') {
-              console.error(
-                "[InputScoringTable] Error refreshing versions after save:",
-                error
-              );
-            }
-          }
-        }
+        // Don't refresh versions here - it will be done when entering comparison mode
       } else {
         console.error("[InputScoringTable] ❌ Upload failed:", result.error);
         setUploadStatus(`Upload failed: ${result.error}`);
@@ -2094,15 +2050,20 @@ const InputScoringTable = forwardRef<
               disabled={!canCompare || isUploadingData}
               onClick={async () => {
                 if (canCompare && !isUploadingData) {
-                  setIsComparingMode(!isComparingMode);
-
-                  // Upload evaluation data when starting comparison
+                  // Upload evaluation data FIRST when starting comparison
                   if (!isComparingMode) {
                     console.log(
-                      "[InputScoringTable] Starting comparison mode - uploading evaluation data..."
+                      "[InputScoringTable] Starting comparison mode - uploading evaluation data first..."
                     );
+                    // Wait for upload to complete before entering comparison mode
                     await uploadEvaluationData();
+                    
+                    // Small delay to ensure database write is complete
+                    await new Promise(resolve => setTimeout(resolve, 500));
                   }
+                  
+                  // THEN set comparison mode which will trigger version fetch
+                  setIsComparingMode(!isComparingMode);
 
                   if (onCompareClick) {
                     onCompareClick(!isComparingMode);
