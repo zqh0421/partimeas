@@ -259,6 +259,7 @@ export async function collectEvaluationData(
       points: item.points || 2,
       scores,
       ideal_response: snapshot.idealResponse || "",
+      original_id: item.id, // Store the original criterion ID for later mapping
     };
   });
 

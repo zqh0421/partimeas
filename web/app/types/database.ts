@@ -366,6 +366,8 @@ export interface EvaluationCriterion {
   >;
   // Ideal response text for this specific criterion
   ideal_response: string;
+  // Original criterion ID from the rubric (for preserving ID mapping)
+  original_id?: string;
 }
 
 export interface RubricWithScoring {

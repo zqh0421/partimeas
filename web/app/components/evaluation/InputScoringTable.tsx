@@ -10,7 +10,6 @@ import React, {
 } from "react";
 import { useCriteriaData } from "@/app/hooks/useCriteriaData";
 import {
-  // restoreCriteriaVersionSelection, // Replaced by independent cache version
   restoreIdealResponseSelection,
   restoreIndependentCriteriaSelection,
 } from "@/app/utils/selectionCache";
@@ -24,27 +23,7 @@ import { EvaluationRecord } from "@/app/types/database";
 import {
   cacheSessionScore,
   restoreSessionScores,
-  batchCacheSessionData,
 } from "@/app/utils/sessionScoreCache";
-
-interface InputScoringTableProps {
-  responses: { id: string; label: string }[];
-  rubricItems?: { id: string; name: string }[];
-  aiScores?: Record<
-    string,
-    Record<string, { score: number; rationale: string }>
-  >;
-  showAiResults?: boolean;
-  modelOutputs?: any[]; // Model outputs for AI evaluation
-  testCase?: any; // Test case for AI evaluation
-  onCompareClick?: (isComparing: boolean) => void;
-  selectedIdealResponseId?: string; // Optional override for ideal response selection
-  enableIdealScoreEditing?: boolean; // Whether to allow editing ideal scores
-  idealResponses?: IdealModelResponse[]; // Available ideal responses for evaluation
-  sessionId?: string | null; // Session ID for evaluation records
-  onVersionInfo?: (currentIndex: number | null, totalVersions: number) => void; // Callback for version info
-  onVersionChange?: (index: number) => void; // Callback to handle version changes from parent
-}
 
 const InputScoringTable = forwardRef<
   { changeVersion: (index: number) => void },
@@ -64,7 +43,27 @@ const InputScoringTable = forwardRef<
     sessionId,
     onVersionInfo,
     onVersionChange,
-  }: InputScoringTableProps,
+  }: {
+    responses: { id: string; label: string }[];
+    rubricItems?: { id: string; name: string }[];
+    aiScores?: Record<
+      string,
+      Record<string, { score: number; rationale: string }>
+    >;
+    showAiResults?: boolean;
+    modelOutputs?: any[]; // Model outputs for AI evaluation
+    testCase?: any; // Test case for AI evaluation
+    onCompareClick?: (isComparing: boolean) => void;
+    selectedIdealResponseId?: string; // Optional override for ideal response selection
+    enableIdealScoreEditing?: boolean; // Whether to allow editing ideal scores
+    idealResponses?: IdealModelResponse[]; // Available ideal responses for evaluation
+    sessionId?: string | null; // Session ID for evaluation records
+    onVersionInfo?: (
+      currentIndex: number | null,
+      totalVersions: number
+    ) => void; // Callback for version info
+    onVersionChange?: (index: number) => void; // Callback to handle version changes from parent
+  },
   ref
 ) {
   const { criteria, refetch: refetchCriteria } = useCriteriaData();
@@ -113,7 +112,7 @@ const InputScoringTable = forwardRef<
         );
 
         const items = archivedRubric.criteria.map((criterion, idx) => ({
-          id: `archived-criterion-${idx + 1}`,
+          id: criterion.original_id || `archived-criterion-${idx + 1}`,
           name: criterion.name || `Criterion ${idx + 1}`,
         }));
 
@@ -626,14 +625,7 @@ const InputScoringTable = forwardRef<
         }
       });
     });
-  }, [
-    scores,
-    rationales,
-    effectiveSessionId,
-    isComparingMode,
-    derived.items,
-    responses,
-  ]);
+  }, [scores, rationales, effectiveSessionId, isComparingMode, derived.items, responses]);
 
   // Debug aiScores changes
   useEffect(() => {
@@ -774,12 +766,7 @@ const InputScoringTable = forwardRef<
         onVersionInfo(null, 0);
       }
     }
-  }, [
-    currentVersionIndex,
-    evaluationVersions.length,
-    isComparingMode,
-    onVersionInfo,
-  ]);
+  }, [currentVersionIndex, evaluationVersions.length, isComparingMode, onVersionInfo]);
 
   // Expose version change method to parent
   useImperativeHandle(
@@ -834,11 +821,11 @@ const InputScoringTable = forwardRef<
     const newIdealScores: Record<string, number> = {};
 
     rubricData.criteria.forEach((criterion, idx) => {
-      // When viewing archived versions, use the archived criterion ID
-      // Otherwise map to the current derived rubric item ID
+      // When viewing archived versions, use the original criterion ID if available
+      // Otherwise use generated archived ID or current derived rubric item ID
       const rubricItemId =
         isComparingMode && currentVersionIndex !== null
-          ? `archived-criterion-${idx + 1}` // Match the ID used in archived rubric
+          ? criterion.original_id || `archived-criterion-${idx + 1}` // Use original ID if available
           : derived.items[idx]?.id;
       if (!rubricItemId) return;
 
@@ -1141,17 +1128,70 @@ const InputScoringTable = forwardRef<
       );
 
       if (data.success && data.evaluations) {
-        console.log("[InputScoringTable] AI evaluation completed successfully");
         console.log(
-          "[InputScoringTable] Evaluations data:",
-          JSON.stringify(data.evaluations, null, 2)
+          "╔════════════════════════════════════════════════════════════════════╗"
         );
         console.log(
-          "[InputScoringTable] Expected response IDs:",
-          responses.map((r) => r.id)
+          "║               AI EVALUATION COMPLETED SUCCESSFULLY                 ║"
         );
         console.log(
-          "[InputScoringTable] ModelOutputs IDs:",
+          "╚════════════════════════════════════════════════════════════════════╝"
+        );
+
+        console.log("\n📊 EVALUATION SUMMARY:");
+        console.log("=====================");
+        console.log(`✅ Total Evaluations: ${data.evaluations.length}`);
+        console.log(`✅ Test Case ID: ${testCase?.id || "N/A"}`);
+        console.log(
+          `✅ Session ID: ${testCase?.sessionId || sessionId || "N/A"}`
+        );
+
+        console.log("\n🤖 MODEL OUTPUTS EVALUATED:");
+        console.log("===========================");
+        modelOutputs?.forEach((mo, index) => {
+          console.log(
+            `${index + 1}. Model: ${mo.model || mo.modelId || mo.id}`
+          );
+          console.log(`   Output Preview: ${mo.output?.substring(0, 100)}...`);
+        });
+
+        console.log("\n📝 DETAILED EVALUATION RESULTS:");
+        console.log("================================");
+
+        data.evaluations.forEach((evaluation: any, evalIndex: number) => {
+          console.log(`\n🔹 Evaluation ${evalIndex + 1}:`);
+          console.log(
+            `   Response ID: ${evaluation.modelId || evaluation.responseId}`
+          );
+          console.log(`   Model: ${evaluation.model || "Unknown"}`);
+
+          if (evaluation.criteriaScores) {
+            console.log(`\n   📊 Criteria Scores:`);
+            Object.entries(evaluation.criteriaScores).forEach(
+              ([criteriaId, scoreData]: [string, any]) => {
+                const criteriaItem = derived.items.find(
+                  (item) => item.id === criteriaId
+                );
+                console.log(`   ├─ ${criteriaItem?.name || criteriaId}:`);
+                console.log(`   │  Score: ${scoreData.score}`);
+                console.log(
+                  `   │  Rationale: ${
+                    scoreData.rationale || "No rationale provided"
+                  }`
+                );
+              }
+            );
+          }
+        });
+
+        console.log("\n[InputScoringTable] Raw Evaluations data (JSON):");
+        console.log(JSON.stringify(data.evaluations, null, 2));
+
+        console.log("\n[InputScoringTable] Expected response IDs:");
+        console.log(responses.map((r) => r.id));
+
+        console.log("\n[InputScoringTable] ModelOutputs IDs:");
+        console.log(
           modelOutputs?.map((mo, i) => mo.modelId || `resp-${i + 1}`)
         );
 
@@ -1326,17 +1366,41 @@ const InputScoringTable = forwardRef<
         );
 
         setAiScores(transformedScores);
+
+        console.log("\n🎯 FINAL AI SCORES SET:");
+        console.log("========================");
         console.log(
-          "[InputScoringTable] setAiScores called with transformedScores:",
-          {
-            criteriaCount: Object.keys(transformedScores).length,
-            totalScores: Object.values(transformedScores).reduce(
-              (sum, criteriaScores) => sum + Object.keys(criteriaScores).length,
-              0
-            ),
-            scores: transformedScores,
+          `Total Criteria Evaluated: ${Object.keys(transformedScores).length}`
+        );
+        console.log(
+          `Total Individual Scores: ${Object.values(transformedScores).reduce(
+            (sum, criteriaScores) => sum + Object.keys(criteriaScores).length,
+            0
+          )}`
+        );
+
+        console.log("\n📋 Score Details by Criteria:");
+        Object.entries(transformedScores).forEach(
+          ([criteriaId, responseScores]) => {
+            const criteriaItem = derived.items.find(
+              (item) => item.id === criteriaId
+            );
+            console.log(`\n▪️ ${criteriaItem?.name || criteriaId}:`);
+            Object.entries(responseScores).forEach(
+              ([responseId, scoreData]) => {
+                const response = responses.find((r) => r.id === responseId);
+                console.log(
+                  `   ${response?.label || responseId}: Score=${
+                    scoreData.score
+                  }, Rationale="${scoreData.rationale.substring(0, 50)}..."`
+                );
+              }
+            );
           }
         );
+
+        console.log("\n✨ AI EVALUATION PROCESS COMPLETE ✨");
+        console.log("=====================================\n");
       } else {
         throw new Error(data.error || "Evaluation failed");
       }
@@ -1463,6 +1527,20 @@ const InputScoringTable = forwardRef<
             ? aiScores[Object.keys(aiScores)[0]]
             : null,
       });
+
+      // Debug: Check if criterion IDs match
+      console.log("[InputScoringTable] Criterion ID check:");
+      console.log("  Rubric item IDs:", derived.items.map(item => item.id));
+      console.log("  AI score criterion IDs:", Object.keys(aiScores));
+      
+      const criterionIdMismatch = derived.items.some(item => 
+        !aiScores.hasOwnProperty(item.id)
+      );
+      
+      if (criterionIdMismatch) {
+        console.warn("[InputScoringTable] ⚠️ WARNING: Criterion ID mismatch detected!");
+        console.log("  Some rubric items don't have corresponding AI scores");
+      }
 
       const result = await collectAndUploadEvaluationData({
         testCase: testCase,
