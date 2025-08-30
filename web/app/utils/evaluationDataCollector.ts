@@ -164,8 +164,8 @@ export async function collectEvaluationData(
         snapshot.humanScores[item.id]?.[rawId] ??
         snapshot.humanScores[item.id]?.[responseId];
       const humanRationale = 
-        snapshot.humanRationales[item.id]?.[rawId] ??
-        snapshot.humanRationales[item.id]?.[responseId] || "";
+        (snapshot.humanRationales[item.id]?.[rawId] ??
+        snapshot.humanRationales[item.id]?.[responseId]) || "";
       
       // Debug logging for rationales
       if (humanRationale) {
