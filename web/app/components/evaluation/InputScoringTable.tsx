@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useImperativeHandle,
   forwardRef,
+  useRef,
 } from "react";
 import { useCriteriaData } from "@/app/hooks/useCriteriaData";
 import {
@@ -314,6 +315,9 @@ const InputScoringTable = forwardRef<
   );
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
   const [versionsError, setVersionsError] = useState<string | null>(null);
+  
+  // Add ref to track and cancel in-flight requests
+  const fetchVersionsAbortController = useRef<AbortController | null>(null);
 
   // Initialize/merge state when items or responses change
   React.useEffect(() => {
@@ -382,22 +386,44 @@ const InputScoringTable = forwardRef<
   // Fetch evaluation versions when entering comparing mode
   useEffect(() => {
     if (!isComparingMode || !sessionId) {
+      // Cancel any in-flight requests
+      if (fetchVersionsAbortController.current) {
+        fetchVersionsAbortController.current.abort();
+        fetchVersionsAbortController.current = null;
+      }
       setEvaluationVersions([]);
       setCurrentVersionIndex(null);
       return;
     }
 
     const fetchVersions = async () => {
+      // Cancel any previous in-flight request
+      if (fetchVersionsAbortController.current) {
+        fetchVersionsAbortController.current.abort();
+      }
+      
+      // Create new abort controller for this request
+      fetchVersionsAbortController.current = new AbortController();
+      const signal = fetchVersionsAbortController.current.signal;
+      
       setIsLoadingVersions(true);
       setVersionsError(null);
+      
       try {
         const response = await fetch(
-          `/api/evaluation-records?action=bySession&session_id=${sessionId}`
+          `/api/evaluation-records?action=bySession&session_id=${sessionId}`,
+          {
+            signal,
+            cache: 'no-store' // Disable caching to ensure fresh data
+          }
         );
+        
         if (!response.ok) {
           throw new Error("Failed to fetch evaluation versions");
         }
+        
         const data = await response.json();
+        
         if (data.success && data.data) {
           // Sort by created_at descending (newest first)
           const sortedVersions = data.data.sort(
@@ -405,23 +431,43 @@ const InputScoringTable = forwardRef<
               new Date(b.created_at).getTime() -
               new Date(a.created_at).getTime()
           );
+          
+          // Atomic state update to prevent inconsistency
+          // First set versions, then set index in a callback to ensure versions is updated
           setEvaluationVersions(sortedVersions);
-          // Set to the most recent version (index 0)
-          if (sortedVersions.length > 0) {
-            setCurrentVersionIndex(0);
-          }
+          
+          // Use setTimeout to ensure state is updated in next tick
+          // This prevents race condition between versions and index
+          setTimeout(() => {
+            if (sortedVersions.length > 0 && !signal.aborted) {
+              setCurrentVersionIndex(0);
+            }
+          }, 0);
         }
-      } catch (error) {
-        console.error("[InputScoringTable] Error fetching versions:", error);
-        setVersionsError(
-          error instanceof Error ? error.message : "Failed to load versions"
-        );
+      } catch (error: any) {
+        // Ignore abort errors
+        if (error?.name !== 'AbortError') {
+          console.error("[InputScoringTable] Error fetching versions:", error);
+          setVersionsError(
+            error instanceof Error ? error.message : "Failed to load versions"
+          );
+        }
       } finally {
-        setIsLoadingVersions(false);
+        if (!signal.aborted) {
+          setIsLoadingVersions(false);
+        }
       }
     };
 
     fetchVersions();
+    
+    // Cleanup function to cancel request if component unmounts or dependencies change
+    return () => {
+      if (fetchVersionsAbortController.current) {
+        fetchVersionsAbortController.current.abort();
+        fetchVersionsAbortController.current = null;
+      }
+    };
   }, [isComparingMode, sessionId]);
 
   // Notify parent about version info changes
@@ -429,8 +475,20 @@ const InputScoringTable = forwardRef<
     if (onVersionInfo) {
       if (!isComparingMode) {
         onVersionInfo(null, 0);
-      } else if (evaluationVersions.length > 0) {
-        onVersionInfo(currentVersionIndex, evaluationVersions.length);
+      } else if (evaluationVersions.length > 0 && currentVersionIndex !== null) {
+        // Only notify when we have valid data
+        // Validate that currentVersionIndex is within bounds
+        const validIndex = Math.min(currentVersionIndex, evaluationVersions.length - 1);
+        if (validIndex !== currentVersionIndex && validIndex >= 0) {
+          // Fix index if out of bounds
+          setCurrentVersionIndex(validIndex);
+        } else {
+          // Notify with valid data
+          onVersionInfo(currentVersionIndex, evaluationVersions.length);
+        }
+      } else if (evaluationVersions.length === 0 && isComparingMode) {
+        // No versions available yet but in comparing mode
+        onVersionInfo(null, 0);
       }
     }
   }, [
@@ -447,6 +505,10 @@ const InputScoringTable = forwardRef<
       changeVersion: (index: number) => {
         if (index >= 0 && index < evaluationVersions.length) {
           setCurrentVersionIndex(index);
+        } else {
+          console.warn(
+            `[InputScoringTable] Invalid version index ${index}, versions available: ${evaluationVersions.length}`
+          );
         }
       },
     }),
@@ -1037,6 +1099,59 @@ const InputScoringTable = forwardRef<
         setUploadStatus(
           `Successfully saved evaluation data (ID: ${result.id})`
         );
+        
+        // Refresh version list if in comparing mode to show the new version
+        if (isComparingMode && effectiveSessionId) {
+          console.log(
+            "[InputScoringTable] Refreshing version list after successful save"
+          );
+          
+          // Cancel any existing fetch request
+          if (fetchVersionsAbortController.current) {
+            fetchVersionsAbortController.current.abort();
+          }
+          
+          // Create new abort controller
+          fetchVersionsAbortController.current = new AbortController();
+          const signal = fetchVersionsAbortController.current.signal;
+          
+          // Fetch updated versions
+          try {
+            const response = await fetch(
+              `/api/evaluation-records?action=bySession&session_id=${effectiveSessionId}`,
+              {
+                signal,
+                cache: 'no-store'
+              }
+            );
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success && data.data && !signal.aborted) {
+                const sortedVersions = data.data.sort(
+                  (a: EvaluationRecord, b: EvaluationRecord) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime()
+                );
+                
+                // Update versions and set to newest (index 0)
+                setEvaluationVersions(sortedVersions);
+                setTimeout(() => {
+                  if (!signal.aborted) {
+                    setCurrentVersionIndex(0);
+                  }
+                }, 0);
+              }
+            }
+          } catch (error: any) {
+            if (error?.name !== 'AbortError') {
+              console.error(
+                "[InputScoringTable] Error refreshing versions after save:",
+                error
+              );
+            }
+          }
+        }
       } else {
         console.error("[InputScoringTable] ❌ Upload failed:", result.error);
         setUploadStatus(`Upload failed: ${result.error}`);

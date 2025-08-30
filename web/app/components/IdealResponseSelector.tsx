@@ -37,8 +37,11 @@ export default function IdealResponseSelector({
     []
   );
   const [internalLoading, setInternalLoading] = useState(false);
-  const [internalLastUpdateTime, setInternalLastUpdateTime] = useState<Date | null>(null);
-  const [cachedSelectionId, setCachedSelectionId] = useState<string | null>(null);
+  const [internalLastUpdateTime, setInternalLastUpdateTime] =
+    useState<Date | null>(null);
+  const [cachedSelectionId, setCachedSelectionId] = useState<string | null>(
+    null
+  );
   const restoredRef = useRef(false);
 
   // Fetch ideal responses from API
@@ -92,30 +95,42 @@ export default function IdealResponseSelector({
   // Restore cached selection when ideal responses are loaded
   useEffect(() => {
     if (idealResponses.length > 0 && !restoredRef.current) {
-      console.log("[IdealResponseSelector] Attempting to restore cached selection...");
-      
+      console.log(
+        "[IdealResponseSelector] Attempting to restore cached selection..."
+      );
+
       const cachedId = restoreIndependentIdealResponseSelection();
-      console.log("[IdealResponseSelector] Cached ideal response ID:", cachedId);
-      
+      console.log(
+        "[IdealResponseSelector] Cached ideal response ID:",
+        cachedId
+      );
+
       if (cachedId) {
         // Check if the cached selection exists in the loaded data
-        const existingResponse = idealResponses.find(response => response.name === cachedId);
+        const existingResponse = idealResponses.find(
+          (response) => response.name === cachedId
+        );
         if (existingResponse) {
-          console.log("[IdealResponseSelector] Found cached selection in loaded data:", existingResponse.name);
+          console.log(
+            "[IdealResponseSelector] Found cached selection in loaded data:",
+            existingResponse.name
+          );
           setCachedSelectionId(cachedId);
-          
+
           // Use setTimeout to ensure the state update has been processed
           setTimeout(() => {
             onSelectionChange(cachedId);
           }, 0);
         } else {
-          console.log("[IdealResponseSelector] Cached selection not found in data, clearing cache");
-          clearIndependentCache('idealResponse');
+          console.log(
+            "[IdealResponseSelector] Cached selection not found in data, clearing cache"
+          );
+          clearIndependentCache("idealResponse");
         }
       } else {
         console.log("[IdealResponseSelector] No cached selection found");
       }
-      
+
       restoredRef.current = true;
     }
   }, [idealResponses, onSelectionChange]);
@@ -138,7 +153,9 @@ export default function IdealResponseSelector({
   const treeData: TreeNode[] = idealResponses.map((response) => ({
     id: response.id,
     name: response.name,
-    description: response.modelResponse,
+    description: `${response.modelResponse.slice(0, 200)}${
+      response.modelResponse.length > 200 ? "..." : ""
+    }`,
     displayInfo: response.testCaseInput
       ? `Input: ${response.testCaseInput.slice(0, 50)}${
           response.testCaseInput.length > 50 ? "..." : ""
@@ -176,11 +193,11 @@ export default function IdealResponseSelector({
       const selectedResponse = selections[0].node
         .metadata as IdealModelResponse;
       console.log("[IdealResponseSelector] Selected:", selectedResponse.name);
-      
+
       // Save to independent cache
       saveIndependentIdealResponseSelection(selectedResponse.name);
       setCachedSelectionId(selectedResponse.name);
-      
+
       // Verify it was saved
       const verified = restoreIndependentIdealResponseSelection();
       console.log(
@@ -188,14 +205,14 @@ export default function IdealResponseSelector({
         {
           savedId: verified,
           requestedId: selectedResponse.name,
-          success: verified === selectedResponse.name
+          success: verified === selectedResponse.name,
         }
       );
-      
+
       onSelectionChange(selectedResponse.name);
     } else {
       console.log("[IdealResponseSelector] Clearing selection");
-      clearIndependentCache('idealResponse');
+      clearIndependentCache("idealResponse");
       setCachedSelectionId(null);
       onSelectionChange("");
     }
