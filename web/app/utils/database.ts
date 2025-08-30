@@ -883,6 +883,16 @@ export class SQLDatabaseOperations implements DatabaseOperations {
   }
 
   private mapEvaluationRecordFromDB(row: any): EvaluationRecord {
+    // Parse rubric_with_scoring if it's a string (from JSON column)
+    let rubricWithScoring = row.rubric_with_scoring;
+    if (typeof rubricWithScoring === 'string') {
+      try {
+        rubricWithScoring = JSON.parse(rubricWithScoring);
+      } catch (e) {
+        console.error('[Database] Failed to parse rubric_with_scoring:', e);
+      }
+    }
+    
     return {
       id: row.id,
       group_id: row.group_id,
@@ -893,7 +903,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       evaluator_system_prompt: row.evaluator_system_prompt,
       ideal_response: row.ideal_response,
       ideal_test_case: row.ideal_test_case,
-      rubric_with_scoring: row.rubric_with_scoring,
+      rubric_with_scoring: rubricWithScoring,
     };
   }
 }

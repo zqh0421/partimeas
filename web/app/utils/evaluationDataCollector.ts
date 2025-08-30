@@ -149,14 +149,24 @@ export async function collectEvaluationData(
   // Create criteria array combining human and AI scores in the new structure
   const criteria: EvaluationCriterion[] = snapshot.rubricItems.map((item) => {
     // Build per-response score map
+    const humanResponseIds = Object.keys(snapshot.humanScores[item.id] || {});
+    const aiResponseIds = Object.keys(snapshot.aiScores[item.id] || {});
+    
+    console.log(`[EvaluationDataCollector] Processing criterion ${item.id}:`, {
+      humanResponseIds,
+      aiResponseIds,
+      humanScoresAvailable: humanResponseIds.length,
+      aiScoresAvailable: aiResponseIds.length,
+    });
+    
     const responseIds = new Set<string>([
-      ...Object.keys(snapshot.humanScores[item.id] || {}),
-      ...Object.keys(snapshot.aiScores[item.id] || {}),
+      ...humanResponseIds,
+      ...aiResponseIds,
     ]);
 
     const scores: Record<
       string,
-      { human_score?: EvaluationScore; ai_score?: EvaluationScore }
+      { human_score: EvaluationScore; ai_score: EvaluationScore }
     > = {};
     for (const rawId of responseIds) {
       const responseId = normalizeResponseId(item.id, rawId);
@@ -172,28 +182,38 @@ export async function collectEvaluationData(
         console.log(`[EvaluationDataCollector] Found rationale for ${item.id}/${responseId}: "${humanRationale}"`);
       }
       
-      const human_score =
+      const human_score: EvaluationScore =
         typeof humanRaw === "number"
           ? {
               score: humanRaw,
               rationale: humanRationale.trim(),
             }
-          : undefined;
+          : {
+              score: 0,
+              rationale: "",
+            };
 
       const aiRaw =
         snapshot.aiScores[item.id]?.[rawId] ??
         snapshot.aiScores[item.id]?.[responseId];
-      const ai_score = aiRaw
-        ? { score: aiRaw.score ?? 0, rationale: (aiRaw.rationale || "").trim() }
-        : undefined;
-
-      if (human_score || ai_score) {
-        const existing = scores[responseId] || {};
-        scores[responseId] = {
-          human_score: human_score ?? existing.human_score,
-          ai_score: ai_score ?? existing.ai_score,
-        };
+      
+      // Debug logging for AI scores
+      if (aiRaw) {
+        console.log(`[EvaluationDataCollector] Found AI score for ${item.id}/${responseId}:`, {
+          score: aiRaw.score,
+          rationale: aiRaw.rationale?.substring(0, 50) + '...'
+        });
       }
+      
+      const ai_score: EvaluationScore = aiRaw
+        ? { score: aiRaw.score ?? 0, rationale: (aiRaw.rationale || "").trim() }
+        : { score: -1, rationale: "Not evaluated by AI" };
+
+      // Always add the score entry, even if both are defaults
+      scores[responseId] = {
+        human_score: human_score,
+        ai_score: ai_score,
+      };
     }
 
     // Ensure ideal response expected human score is saved even if not in humanScores map
@@ -201,18 +221,35 @@ export async function collectEvaluationData(
       const idealResponseId = "Ideal Response";
       const expected = snapshot.idealExpectedScores?.[item.id];
       const expectedScore = typeof expected === "number" ? expected : 1; // default to 1
-      const existing = scores[idealResponseId]?.human_score;
-      if (!existing) {
+      
+      // If ideal response doesn't exist in scores yet, add it with expected values
+      if (!scores[idealResponseId]) {
         scores[idealResponseId] = {
-          ...(scores[idealResponseId] || {}),
           human_score: {
             score: expectedScore,
             rationale: "Ideal expected score",
           },
+          ai_score: {
+            score: -1,
+            rationale: "Not evaluated by AI",
+          },
+        };
+      } else if (!scores[idealResponseId].human_score || scores[idealResponseId].human_score.score === 0) {
+        // Update human score if it's missing or default
+        scores[idealResponseId].human_score = {
+          score: expectedScore,
+          rationale: "Ideal expected score",
         };
       }
     }
 
+    // Debug: Log final scores for this criterion
+    console.log(`[EvaluationDataCollector] Final scores for criterion "${item.name}":`, {
+      responseCount: Object.keys(scores).length,
+      hasAiScores: Object.values(scores).some(s => s.ai_score !== undefined),
+      scores: JSON.stringify(scores, null, 2)
+    });
+    
     return {
       name: item.name || "Untitled Criterion",
       description: item.description || "No description provided",
@@ -448,17 +485,49 @@ export async function collectAndUploadEvaluationData(params: {
     console.log(
       "[EvaluationDataCollector] Starting data collection and upload..."
     );
+    
+    // Debug: Log incoming AI scores
+    console.log("[EvaluationDataCollector] Incoming AI scores:", {
+      hasAiScores: Object.keys(params.aiScores || {}).length > 0,
+      aiScoresKeys: Object.keys(params.aiScores || {}),
+      sampleAiScore: Object.keys(params.aiScores || {}).length > 0 
+        ? params.aiScores[Object.keys(params.aiScores)[0]] 
+        : null
+    });
 
     // Step 1: Create snapshot
     const snapshot = createEvaluationSnapshot(params);
     console.log(
       "[EvaluationDataCollector] Created evaluation snapshot:",
-      snapshot
+      {
+        ...snapshot,
+        aiScores: Object.keys(snapshot.aiScores).length > 0 
+          ? `${Object.keys(snapshot.aiScores).length} criteria with AI scores`
+          : "No AI scores"
+      }
     );
 
     // Step 2: Convert to evaluation record format
     const record = await collectEvaluationData(snapshot);
-    console.log("[EvaluationDataCollector] Created evaluation record:", record);
+    
+    // Debug: Check if AI scores are in the record
+    const hasAiScoresInRecord = record.rubric_with_scoring.criteria.some(criterion => 
+      Object.values(criterion.scores || {}).some(scoreData => 
+        scoreData.ai_score !== undefined
+      )
+    );
+    
+    console.log("[EvaluationDataCollector] Created evaluation record:", {
+      hasAiScores: hasAiScoresInRecord,
+      criteriaCount: record.rubric_with_scoring.criteria.length,
+      sampleCriterion: record.rubric_with_scoring.criteria[0] 
+        ? {
+            name: record.rubric_with_scoring.criteria[0].name,
+            scoresCount: Object.keys(record.rubric_with_scoring.criteria[0].scores || {}).length,
+            scores: record.rubric_with_scoring.criteria[0].scores
+          }
+        : null
+    });
 
     // Step 3: Upload to server
     const result = await uploadEvaluationRecord(record);

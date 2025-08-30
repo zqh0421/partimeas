@@ -32,11 +32,21 @@ export function validateEvaluationScore(
     result.errors.push(`${fieldName}.score must be a number`);
   } else {
     // Validate score range (0-2 based on the scoring structure)
-    if (score.score < 0 || score.score > 2 || !Number.isInteger(score.score)) {
+    // Allow -1 as a special value for AI scores that haven't been evaluated yet
+    const isAiScore = fieldName.includes("ai_score");
+    const minScore = isAiScore ? -1 : 0; // AI scores can be -1 (not evaluated), human scores must be >= 0
+    
+    if (score.score < minScore || score.score > 2 || !Number.isInteger(score.score)) {
       result.isValid = false;
-      result.errors.push(
-        `${fieldName}.score must be an integer between 0 and 2`
-      );
+      if (isAiScore) {
+        result.errors.push(
+          `${fieldName}.score must be an integer between -1 and 2 (-1 indicates not evaluated)`
+        );
+      } else {
+        result.errors.push(
+          `${fieldName}.score must be an integer between 0 and 2`
+        );
+      }
     }
   }
 

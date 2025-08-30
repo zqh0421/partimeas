@@ -360,8 +360,8 @@ export interface EvaluationCriterion {
   scores: Record<
     string,
     {
-      human_score?: EvaluationScore;
-      ai_score?: EvaluationScore;
+      human_score: EvaluationScore;
+      ai_score: EvaluationScore;
     }
   >;
   // Ideal response text for this specific criterion

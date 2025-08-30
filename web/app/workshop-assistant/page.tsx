@@ -119,24 +119,32 @@ function OutputAnalysisFullPageContent() {
     isComplete: isStreamingComplete,
     sessionId: streamingSessionId,
     startStreaming,
-    resetStream
+    resetStream,
   } = useStreamingGeneration();
-  
+
   // Track if we're using streaming for this session
   const [isUsingStreaming, setIsUsingStreaming] = useState(false);
-  
+
   // Handle streaming completion - update testCasesWithModelOutputs when streaming finishes
   useEffect(() => {
-    if (isUsingStreaming && isStreamingComplete && streamingOutputs.length > 0) {
-      console.log("🔄 Streaming complete, updating test cases with", streamingOutputs.length, "outputs");
-      
+    if (
+      isUsingStreaming &&
+      isStreamingComplete &&
+      streamingOutputs.length > 0
+    ) {
+      console.log(
+        "🔄 Streaming complete, updating test cases with",
+        streamingOutputs.length,
+        "outputs"
+      );
+
       // Convert streaming outputs to model outputs format
       const modelOutputsFromStream = streamingOutputs.map((output, index) => ({
         modelId: output.modelId,
         output: output.output,
         index,
       }));
-      
+
       // Update the first test case with streamed outputs
       if (testCases.length > 0) {
         const updatedTestCase: TestCaseWithModelOutputs = {
@@ -144,24 +152,26 @@ function OutputAnalysisFullPageContent() {
           modelOutputs: modelOutputsFromStream,
           sessionId: streamingSessionId || undefined,
         };
-        
+
         // Store the session ID in the map for test case 0
         if (streamingSessionId) {
           setTestCaseSessionIds((prev) => {
             const newMap = new Map(prev);
             newMap.set(0, streamingSessionId);
-            console.log(`📋 Captured streaming session ID for test case 1: ${streamingSessionId}`);
+            console.log(
+              `📋 Captured streaming session ID for test case 1: ${streamingSessionId}`
+            );
             return newMap;
           });
         }
-        
+
         setTestCasesWithModelOutputs([updatedTestCase]);
         setLocalTestCasesWithModelOutputs([updatedTestCase]);
-        
+
         // Start evaluation phase
         setCurrentPhase("evaluating");
         startEvaluationPhase([updatedTestCase]);
-        
+
         // Reset the streaming flag
         setIsUsingStreaming(false);
       }
@@ -425,19 +435,18 @@ function OutputAnalysisFullPageContent() {
       // Use streaming for single test case
       if (testCases.length === 1) {
         console.log("🌊 Using streaming generation for single test case");
-        
+
         // Set flag to track streaming usage
         setIsUsingStreaming(true);
-        
+
         // Reset stream before starting
         resetStream();
-        
+
         // Start streaming - this will update streamingOutputs as responses arrive
         // The useEffect hook will handle updating testCasesWithModelOutputs when streaming completes
         await startStreaming(testCases[0], currentGroupId);
-        
+
         console.log("✅ Streaming started - outputs will appear in real-time");
-        
       } else {
         // Use batch processing for multiple test cases
         // Generate outputs for all test cases in parallel
@@ -467,76 +476,78 @@ function OutputAnalysisFullPageContent() {
               }),
             });
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const data = await response.json();
-          console.log(
-            `📦 Full API response for test case ${index + 1}:`,
-            JSON.stringify(data, null, 2)
-          );
-          console.log(
-            `✅ Completed test case ${index + 1}/${testCases.length}:`,
-            {
-              testCaseId: testCase.id,
-              responseStatus: response.status,
-              hasOutputs: Array.isArray(data?.outputs),
-              outputsCount: data?.outputs?.length || 0,
-              sessionId: data?.sessionId,
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
             }
-          );
 
-          // Capture the selected assistant models as soon as we get the first successful response
-          if (
-            Array.isArray(data?.selectedAssistantsModels) &&
-            data.selectedAssistantsModels.length > 0
-          ) {
+            const data = await response.json();
             console.log(
-              "🎯 Captured selected assistant models:",
-              data.selectedAssistantsModels
-            );
-            setSelectedOutputModelIds((prev) =>
-              prev && prev.length > 0 ? prev : data.selectedAssistantsModels
-            );
-          }
-
-          // Capture session ID if available - store per test case
-          if (data?.sessionId) {
-            setTestCaseSessionIds((prev) =>
-              new Map(prev).set(index, data.sessionId)
+              `📦 Full API response for test case ${index + 1}:`,
+              JSON.stringify(data, null, 2)
             );
             console.log(
-              `📋 Captured session ID for test case ${index + 1}: ${
-                data.sessionId
-              }`
+              `✅ Completed test case ${index + 1}/${testCases.length}:`,
+              {
+                testCaseId: testCase.id,
+                responseStatus: response.status,
+                hasOutputs: Array.isArray(data?.outputs),
+                outputsCount: data?.outputs?.length || 0,
+                sessionId: data?.sessionId,
+              }
             );
 
-            // Also set currentSessionId for backward compatibility (first test case)
-            if (index === 0) {
-              setCurrentSessionId(data.sessionId);
+            // Capture the selected assistant models as soon as we get the first successful response
+            if (
+              Array.isArray(data?.selectedAssistantsModels) &&
+              data.selectedAssistantsModels.length > 0
+            ) {
               console.log(
-                `🔗 Copy Link button will now appear for session: ${data.sessionId}`
+                "🎯 Captured selected assistant models:",
+                data.selectedAssistantsModels
+              );
+              setSelectedOutputModelIds((prev) =>
+                prev && prev.length > 0 ? prev : data.selectedAssistantsModels
               );
             }
+
+            // Capture session ID if available - store per test case
+            if (data?.sessionId) {
+              setTestCaseSessionIds((prev) =>
+                new Map(prev).set(index, data.sessionId)
+              );
+              console.log(
+                `📋 Captured session ID for test case ${index + 1}: ${
+                  data.sessionId
+                }`
+              );
+
+              // Also set currentSessionId for backward compatibility (first test case)
+              if (index === 0) {
+                setCurrentSessionId(data.sessionId);
+                console.log(
+                  `🔗 Copy Link button will now appear for session: ${data.sessionId}`
+                );
+              }
+            }
+
+            // Update progress
+            handlers.handleEvaluationProgress(
+              index,
+              ((index + 1) / testCases.length) * 50
+            ); // 50% for generation
+
+            return data;
+          } catch (error) {
+            console.error(`❌ Failed test case ${index + 1}:`, error);
+            throw error;
           }
-
-          // Update progress
-          handlers.handleEvaluationProgress(
-            index,
-            ((index + 1) / testCases.length) * 50
-          ); // 50% for generation
-
-          return data;
-        } catch (error) {
-          console.error(`❌ Failed test case ${index + 1}:`, error);
-          throw error;
-        }
         });
 
-        console.log("⏳ Waiting for all output generation promises to settle...");
+        console.log(
+          "⏳ Waiting for all output generation promises to settle..."
+        );
         const results = await Promise.allSettled(outputPromises);
-          console.log(
+        console.log(
           "📊 Output generation results:",
           results.map((r, i) => ({
             index: i,
@@ -549,81 +560,81 @@ function OutputAnalysisFullPageContent() {
         const processedTestCases: TestCaseWithModelOutputs[] = [];
 
         for (let i = 0; i < testCases.length; i++) {
-        const originalTestCase = testCases[i];
-        const result = results[i];
+          const originalTestCase = testCases[i];
+          const result = results[i];
 
-        if (result.status === "fulfilled") {
-          const apiResponse = result.value as any;
+          if (result.status === "fulfilled") {
+            const apiResponse = result.value as any;
 
-          if (apiResponse?.success) {
-            const modelOutputs = apiResponse.outputs || [];
+            if (apiResponse?.success) {
+              const modelOutputs = apiResponse.outputs || [];
 
-            // Debug: Log the modelId values from the API response
-            console.log(`🔍 Test case ${i + 1} API response outputs:`, {
-              count: modelOutputs.length,
-              modelIds: modelOutputs.map((mo: any) => mo.modelId),
-              fullOutputs: modelOutputs,
-            });
+              // Debug: Log the modelId values from the API response
+              console.log(`🔍 Test case ${i + 1} API response outputs:`, {
+                count: modelOutputs.length,
+                modelIds: modelOutputs.map((mo: any) => mo.modelId),
+                fullOutputs: modelOutputs,
+              });
 
-            const testCaseWithOutputs = {
-              id: originalTestCase.id,
-              input: originalTestCase.input,
-              context: originalTestCase.context,
-              modelOutputs: modelOutputs,
-              sessionId: apiResponse.sessionId, // Include session ID from API response
-              useCase: originalTestCase.useCase,
-              scenarioCategory: originalTestCase.scenarioCategory,
-            };
-            processedTestCases.push(testCaseWithOutputs);
-            console.log(
-              `✅ Processed test case ${i + 1} with ${
-                modelOutputs.length
-              } outputs and sessionId: ${apiResponse.sessionId}`
-            );
+              const testCaseWithOutputs = {
+                id: originalTestCase.id,
+                input: originalTestCase.input,
+                context: originalTestCase.context,
+                modelOutputs: modelOutputs,
+                sessionId: apiResponse.sessionId, // Include session ID from API response
+                useCase: originalTestCase.useCase,
+                scenarioCategory: originalTestCase.scenarioCategory,
+              };
+              processedTestCases.push(testCaseWithOutputs);
+              console.log(
+                `✅ Processed test case ${i + 1} with ${
+                  modelOutputs.length
+                } outputs and sessionId: ${apiResponse.sessionId}`
+              );
+            } else {
+              console.log(
+                `⚠️ Test case ${i + 1} API response not successful:`,
+                apiResponse
+              );
+              processedTestCases.push({
+                id: originalTestCase.id,
+                input: originalTestCase.input,
+                context: originalTestCase.context,
+                modelOutputs: [],
+                sessionId: apiResponse?.sessionId, // Include session ID even if no outputs
+                useCase: originalTestCase.useCase,
+                scenarioCategory: originalTestCase.scenarioCategory,
+              });
+            }
           } else {
-            console.log(
-              `⚠️ Test case ${i + 1} API response not successful:`,
-              apiResponse
-            );
+            console.log(`❌ Test case ${i + 1} failed:`, result.reason);
+            // Create empty structure for failed test cases
             processedTestCases.push({
               id: originalTestCase.id,
               input: originalTestCase.input,
               context: originalTestCase.context,
               modelOutputs: [],
-              sessionId: apiResponse?.sessionId, // Include session ID even if no outputs
+              sessionId: undefined, // No session ID for failed test cases
               useCase: originalTestCase.useCase,
               scenarioCategory: originalTestCase.scenarioCategory,
             });
           }
-        } else {
-          console.log(`❌ Test case ${i + 1} failed:`, result.reason);
-          // Create empty structure for failed test cases
-          processedTestCases.push({
-            id: originalTestCase.id,
-            input: originalTestCase.input,
-            context: originalTestCase.context,
-            modelOutputs: [],
-            sessionId: undefined, // No session ID for failed test cases
-            useCase: originalTestCase.useCase,
-            scenarioCategory: originalTestCase.scenarioCategory,
-          });
         }
-      }
 
-      console.log("📋 Created testCasesWithModelOutputs:", {
-        total: processedTestCases.length,
-        withOutputs: processedTestCases.filter(
-          (tc) => tc.modelOutputs.length > 0
-        ).length,
-        withoutOutputs: processedTestCases.filter(
-          (tc) => tc.modelOutputs.length === 0
-        ).length,
-      });
+        console.log("📋 Created testCasesWithModelOutputs:", {
+          total: processedTestCases.length,
+          withOutputs: processedTestCases.filter(
+            (tc) => tc.modelOutputs.length > 0
+          ).length,
+          withoutOutputs: processedTestCases.filter(
+            (tc) => tc.modelOutputs.length === 0
+          ).length,
+        });
 
-      // Update both local and main state with the processed test cases
-      setTestCasesWithModelOutputs(processedTestCases);
-      setLocalTestCasesWithModelOutputs(processedTestCases);
-      setCurrentPhase("evaluating");
+        // Update both local and main state with the processed test cases
+        setTestCasesWithModelOutputs(processedTestCases);
+        setLocalTestCasesWithModelOutputs(processedTestCases);
+        setCurrentPhase("evaluating");
 
         console.log(
           "🔄 About to call startEvaluationPhase with",
@@ -656,11 +667,12 @@ function OutputAnalysisFullPageContent() {
       testCasesWithOutputs.length,
       "test cases"
     );
-    console.log("🔍 Test cases with session IDs:", 
+    console.log(
+      "🔍 Test cases with session IDs:",
       testCasesWithOutputs.map((tc, idx) => ({
         index: idx,
         id: tc.id,
-        sessionId: tc.sessionId
+        sessionId: tc.sessionId,
       }))
     );
     console.log("🔍 isRealEvaluation:", isRealEvaluation);
@@ -1086,8 +1098,8 @@ function OutputAnalysisFullPageContent() {
   const steps = [
     {
       id: "setup",
-      title: "Load Test Cases",
-      description: "Choose a set of test cases from a use case.",
+      title: "Load Test Data",
+      description: "Choose a set of test data to help examine your rubric.",
       status:
         analysisStep === "setup"
           ? ("current" as const)

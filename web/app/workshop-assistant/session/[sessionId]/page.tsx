@@ -3,7 +3,11 @@ import { Suspense, useEffect, useState, use } from "react";
 import VerticalStepper from "@/app/components/steps/VerticalStepper";
 import { RefreshIcon } from "@/app/components/icons";
 import SessionHeader from "@/app/components/SessionHeader";
-import { TestCase, TestCaseWithModelOutputs, IdealModelResponse } from "@/app/types";
+import {
+  TestCase,
+  TestCaseWithModelOutputs,
+  IdealModelResponse,
+} from "@/app/types";
 import type { SessionWithResponses } from "@/app/utils/sessionManager";
 import { useRouter, useSearchParams } from "next/navigation";
 import TestCaseNavigation from "@/app/components/TestCaseNavigation";
@@ -38,11 +42,11 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   // Get configuration values
   const config = useConfig();
   const { numOutputsToShow } = config;
-  
+
   // Get rubric and ideal response from URL params
-  const rubricId = searchParams.get('rubricId');
-  const idealResponseId = searchParams.get('idealResponseId');
-  
+  const rubricId = searchParams.get("rubricId");
+  const idealResponseId = searchParams.get("idealResponseId");
+
   // Load criteria data and ideal responses
   const { criteria } = useCriteriaData();
   const { idealResponses } = useIdealResponses();
@@ -180,7 +184,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   const steps = [
     {
       id: "setup",
-      title: "Load Test Cases",
+      title: "Load Test Data",
       description: "Choose a set of test cases from a use case.",
       status: "completed" as const,
       isCollapsed: true,
@@ -209,19 +213,21 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
           {rubricId && idealResponseId && (
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Response Scoring</h3>
+                <h3 className="text-lg font-medium text-gray-900">
+                  Response Scoring
+                </h3>
                 <button
                   onClick={() => setShowScoring(!showScoring)}
                   className="text-sm text-blue-600 hover:text-blue-700"
                 >
-                  {showScoring ? 'Hide Scoring' : 'Show Scoring'}
+                  {showScoring ? "Hide Scoring" : "Show Scoring"}
                 </button>
               </div>
               {showScoring && (
                 <InputScoringTable
                   responses={sessionModelOutputs.map((output, index) => ({
                     id: output.id,
-                    label: `Response ${index + 1} (${output.modelId})`
+                    label: `Response ${index + 1} (${output.modelId})`,
                   }))}
                   selectedIdealResponseId={idealResponseId}
                   enableIdealScoreEditing={false}
@@ -232,7 +238,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
                     input: session.test_case_prompt,
                     context: session.test_case_scenario_category,
                     useCase: "session-loaded",
-                    scenarioCategory: session.test_case_scenario_category
+                    scenarioCategory: session.test_case_scenario_category,
                   }}
                   showAiResults={true}
                   onCompareClick={(isComparing) => setShowScoring(isComparing)}
@@ -240,7 +246,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
               )}
             </div>
           )}
-          
+
           {/* Model Outputs Grid - using consistent styling */}
           <ModelOutputsGrid
             modelOutputs={testCasesWithModelOutputs[0]?.modelOutputs}

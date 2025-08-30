@@ -527,7 +527,7 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
   const steps = [
     {
       id: "setup",
-      title: "Load Test Cases",
+      title: "Load Test Data",
       description: "Choose a set of test cases from a use case.",
       status:
         analysisStep === "setup"

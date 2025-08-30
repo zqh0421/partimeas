@@ -21,6 +21,11 @@ import {
 import { collectAndUploadEvaluationData } from "@/app/utils/evaluationDataCollector";
 import { IdealModelResponse } from "@/app/types";
 import { EvaluationRecord } from "@/app/types/database";
+import {
+  cacheSessionScore,
+  restoreSessionScores,
+  batchCacheSessionData,
+} from "@/app/utils/sessionScoreCache";
 
 interface InputScoringTableProps {
   responses: { id: string; label: string }[];
@@ -64,8 +69,68 @@ const InputScoringTable = forwardRef<
 ) {
   const { criteria, refetch: refetchCriteria } = useCriteriaData();
 
-  // Derive rubric rows from selected criteria version in cache if no rubricItems provided
+  // State for AI evaluation and comparing mode (moved here to be available for derived useMemo)
+  const [aiScores, setAiScores] = useState(initialAiScores);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluationError, setEvaluationError] = useState<string | null>(null);
+  const [isComparingMode, setIsComparingMode] = useState(false);
+  const [isRefreshingRubric, setIsRefreshingRubric] = useState(false);
+  const [isUploadingData, setIsUploadingData] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
+  // Versioning state for comparing mode
+  const [evaluationVersions, setEvaluationVersions] = useState<
+    EvaluationRecord[]
+  >([]);
+  const [currentVersionIndex, setCurrentVersionIndex] = useState<number | null>(
+    null
+  );
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+
+  // Add ref to track and cancel in-flight requests
+  const fetchVersionsAbortController = useRef<AbortController | null>(null);
+
+  // Derive rubric rows - use archived rubric when viewing versions, latest when editing
   const derived = useMemo(() => {
+    // When in comparing mode and viewing a version, use the archived rubric from that version
+    if (
+      isComparingMode &&
+      currentVersionIndex !== null &&
+      evaluationVersions[currentVersionIndex]
+    ) {
+      const currentVersion = evaluationVersions[currentVersionIndex];
+      const archivedRubric = currentVersion.rubric_with_scoring;
+
+      if (
+        archivedRubric &&
+        archivedRubric.criteria &&
+        archivedRubric.criteria.length > 0
+      ) {
+        console.log(
+          "[InputScoringTable] Using archived rubric from version",
+          currentVersionIndex
+        );
+
+        const items = archivedRubric.criteria.map((criterion, idx) => ({
+          id: `archived-criterion-${idx + 1}`,
+          name: criterion.name || `Criterion ${idx + 1}`,
+        }));
+
+        const instructions = archivedRubric.criteria.map((criterion) => ({
+          positive: criterion.positive_example || "",
+          negative: criterion.negative_example || "",
+        }));
+
+        const points = archivedRubric.criteria.map(
+          (criterion) => criterion.points || 2
+        );
+
+        return { items, instructions, points };
+      }
+    }
+
+    // When provided rubricItems directly (from props), use them
     if (rubricItems && rubricItems.length > 0) {
       return {
         items: rubricItems,
@@ -74,9 +139,12 @@ const InputScoringTable = forwardRef<
       };
     }
 
+    // Otherwise, use the latest rubric from criteria data (for new evaluations)
     // Handle case where criteria is not yet loaded
     if (!criteria || criteria.length === 0) {
-      console.log("[InputScoringTable] No criteria available yet, using empty derived data");
+      console.log(
+        "[InputScoringTable] No criteria available yet, using empty derived data"
+      );
       return { items: [], instructions: [], points: [] };
     }
 
@@ -111,10 +179,65 @@ const InputScoringTable = forwardRef<
     });
 
     return { items, instructions, points };
-  }, [criteria, rubricItems]);
+  }, [
+    criteria,
+    rubricItems,
+    isComparingMode,
+    currentVersionIndex,
+    evaluationVersions,
+  ]);
 
   // Previous version derived data for inline diff highlighting
   const prevDerived = useMemo(() => {
+    // When in comparing mode and viewing versions, compare with the previous version
+    if (
+      isComparingMode &&
+      currentVersionIndex !== null &&
+      evaluationVersions.length > 0
+    ) {
+      // If we're viewing version index > 0, compare with the previous version
+      if (
+        currentVersionIndex > 0 &&
+        evaluationVersions[currentVersionIndex - 1]
+      ) {
+        const prevVersion = evaluationVersions[currentVersionIndex - 1];
+        const prevRubric = prevVersion.rubric_with_scoring;
+
+        if (
+          prevRubric &&
+          prevRubric.criteria &&
+          prevRubric.criteria.length > 0
+        ) {
+          console.log(
+            "[InputScoringTable] Using previous archived rubric for comparison",
+            currentVersionIndex - 1
+          );
+
+          const items = prevRubric.criteria.map((criterion, idx) => ({
+            id: `archived-criterion-${idx + 1}`,
+            name: criterion.name || `Criterion ${idx + 1}`,
+          }));
+
+          const instructions = prevRubric.criteria.map((criterion) => ({
+            positive: criterion.positive_example || "",
+            negative: criterion.negative_example || "",
+          }));
+
+          const points = prevRubric.criteria.map(
+            (criterion) => criterion.points || 2
+          );
+
+          return { items, instructions, points };
+        }
+      }
+      // For the first version (index 0), no previous version to compare with
+      return {
+        items: [] as { id: string; name: string }[],
+        instructions: [] as { positive: string; negative: string }[],
+        points: [] as number[],
+      };
+    }
+
     if (rubricItems && rubricItems.length > 0) {
       return {
         items: [] as { id: string; name: string }[],
@@ -152,7 +275,13 @@ const InputScoringTable = forwardRef<
     });
 
     return { items, instructions, points };
-  }, [criteria, rubricItems]);
+  }, [
+    criteria,
+    rubricItems,
+    isComparingMode,
+    currentVersionIndex,
+    evaluationVersions,
+  ]);
 
   // Helper to extract requirement text without category prefix for matching
   const getRequirementText = (name: string): string => {
@@ -162,9 +291,40 @@ const InputScoringTable = forwardRef<
       .toLowerCase();
   };
 
+  // Get effective session ID
+  const effectiveSessionId = useMemo(() => {
+    return testCase?.sessionId || sessionId;
+  }, [testCase?.sessionId, sessionId]);
+
   const [scores, setScores] = useState<
     Record<string, Record<string, number | "">>
   >(() => {
+    // Try to restore from session cache first
+    if (effectiveSessionId && derived.items.length > 0) {
+      const { scores: cachedScores } = restoreSessionScores(
+        effectiveSessionId,
+        derived.items.length,
+        responses.map((r) => r.id)
+      );
+
+      // Map row indices back to rubric item IDs
+      const mapped: Record<string, Record<string, number | "">> = {};
+      derived.items.forEach((item, index) => {
+        const rowData = cachedScores[`row-${index}`];
+        if (rowData) {
+          mapped[item.id] = rowData;
+        } else {
+          mapped[item.id] = {};
+          for (const resp of responses) {
+            mapped[item.id][resp.id] = "";
+          }
+        }
+      });
+
+      return mapped;
+    }
+
+    // Initialize empty if no cache
     const initial: Record<string, Record<string, number | "">> = {};
     for (const r of derived.items) {
       initial[r.id] = {};
@@ -178,6 +338,32 @@ const InputScoringTable = forwardRef<
   const [rationales, setRationales] = useState<
     Record<string, Record<string, string>>
   >(() => {
+    // Try to restore from session cache first
+    if (effectiveSessionId && derived.items.length > 0) {
+      const { rationales: cachedRationales } = restoreSessionScores(
+        effectiveSessionId,
+        derived.items.length,
+        responses.map((r) => r.id)
+      );
+
+      // Map row indices back to rubric item IDs
+      const mapped: Record<string, Record<string, string>> = {};
+      derived.items.forEach((item, index) => {
+        const rowData = cachedRationales[`row-${index}`];
+        if (rowData) {
+          mapped[item.id] = rowData;
+        } else {
+          mapped[item.id] = {};
+          for (const resp of responses) {
+            mapped[item.id][resp.id] = "";
+          }
+        }
+      });
+
+      return mapped;
+    }
+
+    // Initialize empty if no cache
     const initial: Record<string, Record<string, string>> = {};
     for (const r of derived.items) {
       initial[r.id] = {};
@@ -303,27 +489,7 @@ const InputScoringTable = forwardRef<
     return derived.points;
   }, [currentIdealResponseId, idealScores, derived.points, derived.items]);
 
-  // State for AI evaluation
-  const [aiScores, setAiScores] = useState(initialAiScores);
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [evaluationError, setEvaluationError] = useState<string | null>(null);
-  const [isComparingMode, setIsComparingMode] = useState(false);
-  const [isRefreshingRubric, setIsRefreshingRubric] = useState(false);
-  const [isUploadingData, setIsUploadingData] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
-
-  // Versioning state for comparing mode
-  const [evaluationVersions, setEvaluationVersions] = useState<
-    EvaluationRecord[]
-  >([]);
-  const [currentVersionIndex, setCurrentVersionIndex] = useState<number | null>(
-    null
-  );
-  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
-  const [versionsError, setVersionsError] = useState<string | null>(null);
-  
-  // Add ref to track and cancel in-flight requests
-  const fetchVersionsAbortController = useRef<AbortController | null>(null);
+  // State declarations have been moved to the top of the component
 
   // Initialize/merge state when items or responses change
   React.useEffect(() => {
@@ -332,50 +498,142 @@ const InputScoringTable = forwardRef<
       return;
     }
 
-    setScores((prev) => {
-      let changed = false;
-      const next: Record<string, Record<string, number | "">> = {};
-      for (const r of derived.items) {
-        const prevRow = prev[r.id] || {};
-        const row: Record<string, number | ""> = {};
-        for (const resp of responses) {
-          const before = prevRow[resp.id];
-          const after = before !== undefined ? before : "";
-          row[resp.id] = after;
-          if (after !== before) changed = true;
-        }
-        next[r.id] = row;
-        if (prevRow === undefined) changed = true;
-      }
-      // If number of rows changed
-      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
-      return changed ? next : prev;
-    });
+    // Try to restore cached data when rubric changes
+    if (effectiveSessionId && derived.items.length > 0) {
+      const { scores: cachedScores, rationales: cachedRationales } =
+        restoreSessionScores(
+          effectiveSessionId,
+          derived.items.length,
+          responses.map((r) => r.id)
+        );
 
-    setRationales((prev) => {
-      let changed = false;
-      const next: Record<string, Record<string, string>> = {};
-      for (const r of derived.items) {
-        const prevRow = prev[r.id] || {};
-        const row: Record<string, string> = {};
-        for (const resp of responses) {
-          const before = prevRow[resp.id];
-          const after = before !== undefined ? before : "";
-          row[resp.id] = after;
-          if (after !== before) changed = true;
+      setScores((prev) => {
+        const next: Record<string, Record<string, number | "">> = {};
+
+        derived.items.forEach((item, index) => {
+          const rowData = cachedScores[`row-${index}`];
+          if (rowData && Object.keys(rowData).length > 0) {
+            // Use cached data for this row
+            next[item.id] = rowData;
+          } else {
+            // No cached data, try to preserve existing data if available
+            const prevRow = prev[item.id] || {};
+            const row: Record<string, number | ""> = {};
+            for (const resp of responses) {
+              row[resp.id] =
+                prevRow[resp.id] !== undefined ? prevRow[resp.id] : "";
+            }
+            next[item.id] = row;
+          }
+        });
+
+        return next;
+      });
+
+      setRationales((prev) => {
+        const next: Record<string, Record<string, string>> = {};
+
+        derived.items.forEach((item, index) => {
+          const rowData = cachedRationales[`row-${index}`];
+          if (rowData && Object.keys(rowData).length > 0) {
+            // Use cached data for this row
+            next[item.id] = rowData;
+          } else {
+            // No cached data, try to preserve existing data if available
+            const prevRow = prev[item.id] || {};
+            const row: Record<string, string> = {};
+            for (const resp of responses) {
+              row[resp.id] =
+                prevRow[resp.id] !== undefined ? prevRow[resp.id] : "";
+            }
+            next[item.id] = row;
+          }
+        });
+
+        return next;
+      });
+    } else {
+      // No session ID, initialize normally
+      setScores((prev) => {
+        let changed = false;
+        const next: Record<string, Record<string, number | "">> = {};
+        for (const r of derived.items) {
+          const prevRow = prev[r.id] || {};
+          const row: Record<string, number | ""> = {};
+          for (const resp of responses) {
+            const before = prevRow[resp.id];
+            const after = before !== undefined ? before : "";
+            row[resp.id] = after;
+            if (after !== before) changed = true;
+          }
+          next[r.id] = row;
+          if (prevRow === undefined) changed = true;
         }
-        next[r.id] = row;
-        if (prevRow === undefined) changed = true;
-      }
-      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
-      return changed ? next : prev;
-    });
+        // If number of rows changed
+        if (Object.keys(prev).length !== Object.keys(next).length)
+          changed = true;
+        return changed ? next : prev;
+      });
+
+      setRationales((prev) => {
+        let changed = false;
+        const next: Record<string, Record<string, string>> = {};
+        for (const r of derived.items) {
+          const prevRow = prev[r.id] || {};
+          const row: Record<string, string> = {};
+          for (const resp of responses) {
+            const before = prevRow[resp.id];
+            const after = before !== undefined ? before : "";
+            row[resp.id] = after;
+            if (after !== before) changed = true;
+          }
+          next[r.id] = row;
+          if (prevRow === undefined) changed = true;
+        }
+        if (Object.keys(prev).length !== Object.keys(next).length)
+          changed = true;
+        return changed ? next : prev;
+      });
+    }
   }, [
     derived.items.map((item) => item.id).join(","),
     responses.map((resp) => resp.id).join(","),
     isComparingMode,
     evaluationVersions.length,
+    effectiveSessionId,
   ]); // Use stable string representations
+
+  // Save scores and rationales to session cache whenever they change
+  useEffect(() => {
+    if (!effectiveSessionId || isComparingMode) {
+      return; // Don't cache when in comparing mode or no session
+    }
+
+    // Cache each score/rationale by row index
+    derived.items.forEach((item, rowIndex) => {
+      responses.forEach((resp) => {
+        const score = scores[item.id]?.[resp.id];
+        const rationale = rationales[item.id]?.[resp.id] || "";
+
+        if (score !== undefined) {
+          cacheSessionScore(
+            effectiveSessionId,
+            rowIndex,
+            resp.id,
+            score,
+            rationale
+          );
+        }
+      });
+    });
+  }, [
+    scores,
+    rationales,
+    effectiveSessionId,
+    isComparingMode,
+    derived.items,
+    responses,
+  ]);
 
   // Debug aiScores changes
   useEffect(() => {
@@ -393,9 +651,11 @@ const InputScoringTable = forwardRef<
   const fetchVersions = async (forceRefresh = false) => {
     // Use test case session ID if available, otherwise fall back to prop session ID
     const effectiveSessionId = testCase?.sessionId || sessionId;
-    
+
     if (!effectiveSessionId) {
-      console.log("[InputScoringTable] No session ID available for fetching versions");
+      console.log(
+        "[InputScoringTable] No session ID available for fetching versions"
+      );
       return;
     }
 
@@ -403,52 +663,53 @@ const InputScoringTable = forwardRef<
     if (fetchVersionsAbortController.current) {
       fetchVersionsAbortController.current.abort();
     }
-    
+
     // Create new abort controller for this request
     fetchVersionsAbortController.current = new AbortController();
     const signal = fetchVersionsAbortController.current.signal;
-    
+
     setIsLoadingVersions(true);
     setVersionsError(null);
-    
+
     try {
       const response = await fetch(
         `/api/evaluation-records?action=bySession&session_id=${effectiveSessionId}`,
         {
           signal,
-          cache: forceRefresh ? 'no-store' : 'default' // Force refresh when needed
+          cache: forceRefresh ? "no-store" : "default", // Force refresh when needed
         }
       );
-      
+
       if (!response.ok) {
         throw new Error("Failed to fetch evaluation versions");
       }
-      
+
       const data = await response.json();
-      
+
       if (data.success && data.data) {
         // Sort by created_at descending (newest first)
         const sortedVersions = data.data.sort(
           (a: EvaluationRecord, b: EvaluationRecord) =>
-            new Date(b.created_at).getTime() -
-            new Date(a.created_at).getTime()
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
-        
+
         // Atomic state update to prevent inconsistency
         setEvaluationVersions(sortedVersions);
-        
+
         // Use setTimeout to ensure state is updated in next tick
         setTimeout(() => {
           if (sortedVersions.length > 0 && !signal.aborted) {
             setCurrentVersionIndex(0);
           }
         }, 0);
-        
-        console.log(`[InputScoringTable] Fetched ${sortedVersions.length} versions`);
+
+        console.log(
+          `[InputScoringTable] Fetched ${sortedVersions.length} versions`
+        );
       }
     } catch (error: any) {
       // Ignore abort errors
-      if (error?.name !== 'AbortError') {
+      if (error?.name !== "AbortError") {
         console.error("[InputScoringTable] Error fetching versions:", error);
         setVersionsError(
           error instanceof Error ? error.message : "Failed to load versions"
@@ -476,7 +737,7 @@ const InputScoringTable = forwardRef<
 
     // Fetch versions when entering comparing mode with force refresh
     fetchVersions(true);
-    
+
     // Cleanup function to cancel request if component unmounts or dependencies change
     return () => {
       if (fetchVersionsAbortController.current) {
@@ -491,10 +752,16 @@ const InputScoringTable = forwardRef<
     if (onVersionInfo) {
       if (!isComparingMode) {
         onVersionInfo(null, 0);
-      } else if (evaluationVersions.length > 0 && currentVersionIndex !== null) {
+      } else if (
+        evaluationVersions.length > 0 &&
+        currentVersionIndex !== null
+      ) {
         // Only notify when we have valid data
         // Validate that currentVersionIndex is within bounds
-        const validIndex = Math.min(currentVersionIndex, evaluationVersions.length - 1);
+        const validIndex = Math.min(
+          currentVersionIndex,
+          evaluationVersions.length - 1
+        );
         if (validIndex !== currentVersionIndex && validIndex >= 0) {
           // Fix index if out of bounds
           setCurrentVersionIndex(validIndex);
@@ -548,6 +815,15 @@ const InputScoringTable = forwardRef<
       return;
     }
 
+    console.log(
+      `[InputScoringTable] Loading scores from version ${currentVersionIndex}:`,
+      {
+        versionId: currentVersion.id,
+        criteriaCount: rubricData.criteria.length,
+        derivedItemsCount: derived.items.length,
+      }
+    );
+
     // Update human and AI scores from the selected version
     const newHumanScores: Record<string, Record<string, number | "">> = {};
     const newHumanRationales: Record<string, Record<string, string>> = {};
@@ -558,8 +834,12 @@ const InputScoringTable = forwardRef<
     const newIdealScores: Record<string, number> = {};
 
     rubricData.criteria.forEach((criterion, idx) => {
-      // Map criterion to rubric item ID
-      const rubricItemId = derived.items[idx]?.id;
+      // When viewing archived versions, use the archived criterion ID
+      // Otherwise map to the current derived rubric item ID
+      const rubricItemId =
+        isComparingMode && currentVersionIndex !== null
+          ? `archived-criterion-${idx + 1}` // Match the ID used in archived rubric
+          : derived.items[idx]?.id;
       if (!rubricItemId) return;
 
       newHumanScores[rubricItemId] = {};
@@ -596,10 +876,12 @@ const InputScoringTable = forwardRef<
                   scoreData.human_score.score;
                 newHumanRationales[rubricItemId][mappedResponseId] =
                   scoreData.human_score.rationale || "";
-                
+
                 // Debug logging for loaded rationales
                 if (scoreData.human_score.rationale) {
-                  console.log(`[InputScoringTable] Loaded rationale for ${rubricItemId}/${mappedResponseId}: "${scoreData.human_score.rationale}"`);
+                  console.log(
+                    `[InputScoringTable] Loaded rationale for ${rubricItemId}/${mappedResponseId}: "${scoreData.human_score.rationale}"`
+                  );
                 }
               }
 
@@ -610,6 +892,20 @@ const InputScoringTable = forwardRef<
                   rationale:
                     scoreData.ai_score.rationale || "No rationale provided",
                 };
+
+                // Debug: Log score comparisons
+                if (scoreData.human_score) {
+                  console.log(
+                    `[InputScoringTable] Score comparison for ${rubricItemId}/${mappedResponseId}:`,
+                    {
+                      humanScore: scoreData.human_score.score,
+                      aiScore: scoreData.ai_score.score,
+                      match:
+                        scoreData.human_score.score ===
+                        scoreData.ai_score.score,
+                    }
+                  );
+                }
               }
             }
           }
@@ -632,6 +928,25 @@ const InputScoringTable = forwardRef<
     responses.map((r) => r.id).join(","),
     currentIdealResponseId,
   ]);
+
+  // Track previous AI scores count to detect new evaluation completion
+  const prevAiScoresCount = useRef(0);
+
+  // Remove auto-save functionality - data should only be uploaded when clicking "Compare with AI Grader"
+  useEffect(() => {
+    const currentAiScoresCount = Object.keys(aiScores).length;
+
+    // Just track the count changes for debugging, but don't auto-save
+    if (currentAiScoresCount !== prevAiScoresCount.current) {
+      console.log("[InputScoringTable] AI scores count changed:", {
+        previous: prevAiScoresCount.current,
+        current: currentAiScoresCount,
+      });
+    }
+
+    // Update the previous count
+    prevAiScoresCount.current = currentAiScoresCount;
+  }, [aiScores]); // Monitor aiScores changes
 
   // Auto-trigger AI evaluation when model outputs are ready
   useEffect(() => {
@@ -1012,7 +1327,15 @@ const InputScoringTable = forwardRef<
 
         setAiScores(transformedScores);
         console.log(
-          "[InputScoringTable] setAiScores called with transformedScores"
+          "[InputScoringTable] setAiScores called with transformedScores:",
+          {
+            criteriaCount: Object.keys(transformedScores).length,
+            totalScores: Object.values(transformedScores).reduce(
+              (sum, criteriaScores) => sum + Object.keys(criteriaScores).length,
+              0
+            ),
+            scores: transformedScores,
+          }
         );
       } else {
         throw new Error(data.error || "Evaluation failed");
@@ -1034,34 +1357,45 @@ const InputScoringTable = forwardRef<
     setEvaluationError(null);
 
     try {
-      // Step 1: Exit compare mode to show human scoring panel
+      // Step 1: Exit compare mode to use latest rubric (not archived version)
       console.log(
         "[InputScoringTable] 🔄 Exiting compare mode to show updated rubric"
       );
       setIsComparingMode(false);
-      
+
       // Notify parent component that we're exiting compare mode
       if (onCompareClick) {
         onCompareClick(false);
       }
 
       // Step 2: Re-fetch the latest rubric data from the spreadsheet
+      // This ensures we get any changes made to the rubric since last evaluation
       console.log(
         "[InputScoringTable] 🔄 Re-fetching criteria data from spreadsheet"
       );
       await refetchCriteria();
 
-      // Step 3: Clear existing AI scores to force re-evaluation with fresh rubric
+      // Step 3: The cached data will be automatically restored by the useEffect
+      // that watches for rubric changes, using the session-based cache
+      // No need to manually restore as the cache is keyed by row index
+      console.log(
+        "[InputScoringTable] 🔄 Human scores will be restored from session cache automatically"
+      );
+
+      // Step 4: Clear existing AI scores
       console.log("[InputScoringTable] 🔄 Clearing existing AI scores");
       setAiScores({});
 
-      // Step 4: Wait a moment for the criteria to update, then trigger new AI evaluation
+      // Step 5: Wait a moment for the criteria to update and cached data to restore,
+      // then trigger new AI evaluation (but don't save automatically)
       console.log(
         "[InputScoringTable] 🔄 Triggering new AI evaluation with fresh rubric"
       );
+
+      // Trigger AI evaluation after a short delay to ensure state updates are complete
       setTimeout(() => {
         triggerAiEvaluation();
-      }, 500);
+      }, 500); // Short delay to ensure state updates are complete
     } catch (error) {
       console.error(
         "[InputScoringTable] ❌ Error refreshing AI grader:",
@@ -1091,25 +1425,45 @@ const InputScoringTable = forwardRef<
       // Generate a unique session ID for each test case if not already present
       // This ensures each test case has independent version history
       let effectiveSessionId = testCase?.sessionId || sessionId;
-      
+
       // If no session ID exists, create one unique to this test case
       if (!effectiveSessionId && testCase) {
-        effectiveSessionId = `${testCase.id || 'test'}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        effectiveSessionId = `${
+          testCase.id || "test"
+        }-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         console.log(
           "[InputScoringTable] • Generated unique sessionId for test case:",
           effectiveSessionId
         );
       }
-      
+
       console.log(
         "[InputScoringTable] • Effective sessionId:",
         effectiveSessionId
       );
 
-      // Debug: Log rationales being uploaded
-      console.log("[InputScoringTable] Uploading rationales:", rationales);
-      console.log("[InputScoringTable] Uploading scores:", scores);
-      
+      // Debug: Log rationales and AI scores being uploaded
+      console.log(
+        "[InputScoringTable] Uploading human rationales:",
+        rationales
+      );
+      console.log("[InputScoringTable] Uploading human scores:", scores);
+      console.log(
+        "[InputScoringTable] Uploading AI scores:",
+        JSON.stringify(aiScores, null, 2)
+      );
+      console.log("[InputScoringTable] AI scores available:", {
+        hasAiScores: Object.keys(aiScores).length > 0,
+        criteriaWithAiScores: Object.keys(aiScores),
+        totalAiScores: Object.keys(aiScores).reduce((count, criteriaId) => {
+          return count + Object.keys(aiScores[criteriaId] || {}).length;
+        }, 0),
+        sampleAiScore:
+          Object.keys(aiScores).length > 0
+            ? aiScores[Object.keys(aiScores)[0]]
+            : null,
+      });
+
       const result = await collectAndUploadEvaluationData({
         testCase: testCase,
         modelOutputs: modelOutputs,
@@ -1135,7 +1489,7 @@ const InputScoringTable = forwardRef<
         setUploadStatus(
           `Successfully saved evaluation data (ID: ${result.id})`
         );
-        
+
         // Don't refresh versions here - it will be done when entering comparison mode
       } else {
         console.error("[InputScoringTable] ❌ Upload failed:", result.error);
@@ -1170,6 +1524,21 @@ const InputScoringTable = forwardRef<
       ...prev,
       [rubricId]: { ...prev[rubricId], [responseId]: value },
     }));
+
+    // Cache by row index
+    if (effectiveSessionId && !isComparingMode) {
+      const rowIndex = derived.items.findIndex((item) => item.id === rubricId);
+      if (rowIndex >= 0) {
+        const currentRationale = rationales[rubricId]?.[responseId] || "";
+        cacheSessionScore(
+          effectiveSessionId,
+          rowIndex,
+          responseId,
+          value,
+          currentRationale
+        );
+      }
+    }
   };
 
   const handleRationaleChange = (
@@ -1181,6 +1550,21 @@ const InputScoringTable = forwardRef<
       ...prev,
       [rubricId]: { ...prev[rubricId], [responseId]: value },
     }));
+
+    // Cache by row index
+    if (effectiveSessionId && !isComparingMode) {
+      const rowIndex = derived.items.findIndex((item) => item.id === rubricId);
+      if (rowIndex >= 0) {
+        const currentScore = scores[rubricId]?.[responseId] || "";
+        cacheSessionScore(
+          effectiveSessionId,
+          rowIndex,
+          responseId,
+          currentScore,
+          value
+        );
+      }
+    }
   };
 
   const handleIdealScoreChange = (
@@ -1451,8 +1835,10 @@ const InputScoringTable = forwardRef<
                             isComparingMode
                               ? `cursor-not-allowed ${
                                   aiScores[r.id]?.[resp.id] !== undefined &&
-                                  scores[r.id]?.[resp.id] !==
-                                    aiScores[r.id][resp.id].score
+                                  scores[r.id]?.[resp.id] !== "" &&
+                                  scores[r.id]?.[resp.id] !== undefined &&
+                                  Number(scores[r.id][resp.id]) !==
+                                    Number(aiScores[r.id][resp.id].score)
                                     ? "border-red-300 bg-red-50 text-red-700"
                                     : "border-gray-200 bg-white text-gray-700"
                                 }`
@@ -1536,14 +1922,18 @@ const InputScoringTable = forwardRef<
                     <select
                       className={`w-16 h-10 px-3 py-2 pr-8 border rounded-lg text-sm font-medium text-center transition-all duration-200 appearance-none ${
                         isComparingMode
-                          ? `${
+                          ? `cursor-not-allowed ${
                               currentIdealResponseId &&
                               aiScores[r.id]?.[currentIdealResponseId] !==
                                 undefined &&
-                              (idealScores[r.id] !== undefined
-                                ? idealScores[r.id]
-                                : idealPoints[rowIdx]) !==
-                                aiScores[r.id][currentIdealResponseId].score
+                              Number(
+                                idealScores[r.id] !== undefined
+                                  ? idealScores[r.id]
+                                  : idealPoints[rowIdx]
+                              ) !==
+                                Number(
+                                  aiScores[r.id][currentIdealResponseId].score
+                                )
                                 ? "border-red-300 bg-red-50 text-red-700"
                                 : "border-gray-200 bg-white text-gray-700"
                             }`
@@ -1790,17 +2180,37 @@ const InputScoringTable = forwardRef<
                       )}
                     </td>
                     {responses.map((resp) => {
-                      const score = aiScores[r.id]?.[resp.id]?.score;
+                      const aiScore = aiScores[r.id]?.[resp.id];
+                      const humanScore = scores[r.id]?.[resp.id];
+                      const scoreMatch =
+                        humanScore !== undefined &&
+                        humanScore !== "" &&
+                        aiScore !== undefined &&
+                        Number(humanScore) === Number(aiScore.score);
+
                       console.log(
                         `[InputScoringTable] Rendering AI score for ${r.id} -> ${resp.id}:`,
-                        score,
-                        aiScores[r.id]?.[resp.id]
+                        {
+                          aiScore: aiScore?.score,
+                          humanScore,
+                          match: scoreMatch,
+                        }
                       );
                       return (
                         <React.Fragment key={`ai-${resp.id}`}>
                           <td className="px-4 py-3 align-top border-x border-gray-200">
-                            <div className="w-16 h-10 px-3 py-2 border border-blue-200 rounded-lg shadow-sm bg-blue-50 text-sm font-medium text-blue-700 text-center flex items-center justify-center">
-                              {score ?? "—"}
+                            <div
+                              className={`w-16 h-10 px-3 py-2 border rounded-lg shadow-sm text-sm font-medium text-center flex items-center justify-center ${
+                                isComparingMode &&
+                                !scoreMatch &&
+                                humanScore !== undefined &&
+                                humanScore !== "" &&
+                                aiScore !== undefined
+                                  ? "border-red-300 bg-red-50 text-red-700"
+                                  : "border-blue-200 bg-blue-50 text-blue-700"
+                              }`}
+                            >
+                              {aiScore?.score ?? "—"}
                             </div>
                           </td>
                           <td className="px-4 py-3 align-top border-x border-gray-200">
@@ -1825,11 +2235,15 @@ const InputScoringTable = forwardRef<
                                     currentIdealResponseId &&
                                     aiScores[r.id]?.[currentIdealResponseId] !==
                                       undefined &&
-                                    (idealScores[r.id] !== undefined
-                                      ? idealScores[r.id]
-                                      : idealPoints[rowIdx]) !==
-                                      aiScores[r.id][currentIdealResponseId]
-                                        .score
+                                    Number(
+                                      idealScores[r.id] !== undefined
+                                        ? idealScores[r.id]
+                                        : idealPoints[rowIdx]
+                                    ) !==
+                                      Number(
+                                        aiScores[r.id][currentIdealResponseId]
+                                          .score
+                                      )
                                       ? "border-red-300 text-red-700"
                                       : "border-gray-200 text-gray-600"
                                   }`
@@ -2055,13 +2469,21 @@ const InputScoringTable = forwardRef<
                     console.log(
                       "[InputScoringTable] Starting comparison mode - uploading evaluation data first..."
                     );
+                    console.log(
+                      "[InputScoringTable] AI scores at time of compare click:",
+                      {
+                        hasAiScores: Object.keys(aiScores).length > 0,
+                        criteriaCount: Object.keys(aiScores).length,
+                        aiScores: JSON.stringify(aiScores, null, 2),
+                      }
+                    );
                     // Wait for upload to complete before entering comparison mode
                     await uploadEvaluationData();
-                    
+
                     // Small delay to ensure database write is complete
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise((resolve) => setTimeout(resolve, 500));
                   }
-                  
+
                   // THEN set comparison mode which will trigger version fetch
                   setIsComparingMode(!isComparingMode);
 
