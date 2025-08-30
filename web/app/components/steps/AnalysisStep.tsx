@@ -37,6 +37,13 @@ interface AnalysisStepProps {
   sessionId?: string | null;
   onCompareClick?: () => void;
   idealResponses?: IdealModelResponse[];
+  // Streaming props
+  streamingOutputs?: Array<{ modelId: string; output: string; timestamp: string }>;
+  isStreaming?: boolean;
+  streamingErrors?: Array<{ modelId: string; error: string; timestamp: string }>;
+  // Rubric and ideal response IDs for sharable links
+  selectedCriteriaId?: string;
+  selectedIdealResponseId?: string;
 }
 
 export default function AnalysisStep({
@@ -44,6 +51,8 @@ export default function AnalysisStep({
   testCasesWithModelOutputs,
   selectedTestCaseIndex,
   testCases,
+  selectedCriteriaId,
+  selectedIdealResponseId,
   shouldStartEvaluation,
   analysisStep,
   selectedSystemPrompt,
@@ -59,6 +68,9 @@ export default function AnalysisStep({
   sessionId,
   onCompareClick,
   idealResponses = [],
+  streamingOutputs = [],
+  isStreaming = false,
+  streamingErrors = [],
 }: AnalysisStepProps) {
   const gridConfig = useMemo(() => {
     const isLoading = currentPhase === "generating";
@@ -69,6 +81,24 @@ export default function AnalysisStep({
     )
       ? (loadingModelListOverride as string[])
       : [];
+
+    // Debug logging for sessionId tracking
+    console.log("[AnalysisStep] GridConfig memo:", {
+      isLoading,
+      currentPhase,
+      selectedTestCaseIndex,
+      currentTestCase: currentTestCase ? {
+        id: currentTestCase.id,
+        sessionId: currentTestCase.sessionId,
+        hasModelOutputs: currentTestCase.modelOutputs?.length > 0
+      } : null,
+      testCasesToUse: isLoading ? "testCases" : "testCasesWithModelOutputs",
+      testCasesWithSessionIds: testCasesWithModelOutputs.map((tc, idx) => ({
+        index: idx,
+        id: tc.id,
+        sessionId: tc.sessionId
+      }))
+    });
 
     return {
       isLoading,
@@ -119,7 +149,12 @@ export default function AnalysisStep({
               sessionId={sessionId}
               showFinalResultsHere={false}
               onCompareClick={onCompareClick}
+              selectedCriteriaId={selectedCriteriaId}
+              selectedIdealResponseId={selectedIdealResponseId}
               idealResponses={idealResponses}
+              streamingOutputs={streamingOutputs}
+              isStreaming={isStreaming}
+              streamingErrors={streamingErrors}
             />
           ) : (
             <div className="text-center py-8 text-gray-500">

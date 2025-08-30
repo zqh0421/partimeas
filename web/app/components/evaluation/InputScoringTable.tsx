@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
 import { useCriteriaData } from "@/app/hooks/useCriteriaData";
 import {
   // restoreCriteriaVersionSelection, // Replaced by independent cache version
@@ -13,6 +19,7 @@ import {
 } from "@/app/utils/idealResponseScoring";
 import { collectAndUploadEvaluationData } from "@/app/utils/evaluationDataCollector";
 import { IdealModelResponse } from "@/app/types";
+import { EvaluationRecord } from "@/app/types/database";
 
 interface InputScoringTableProps {
   responses: { id: string; label: string }[];
@@ -29,21 +36,31 @@ interface InputScoringTableProps {
   enableIdealScoreEditing?: boolean; // Whether to allow editing ideal scores
   idealResponses?: IdealModelResponse[]; // Available ideal responses for evaluation
   sessionId?: string | null; // Session ID for evaluation records
+  onVersionInfo?: (currentIndex: number | null, totalVersions: number) => void; // Callback for version info
+  onVersionChange?: (index: number) => void; // Callback to handle version changes from parent
 }
 
-export default function InputScoringTable({
-  responses,
-  rubricItems = [],
-  aiScores: initialAiScores = {},
-  showAiResults = false,
-  modelOutputs = [],
-  testCase,
-  onCompareClick,
-  selectedIdealResponseId,
-  enableIdealScoreEditing = true,
-  idealResponses = [],
-  sessionId,
-}: InputScoringTableProps) {
+const InputScoringTable = forwardRef<
+  { changeVersion: (index: number) => void },
+  InputScoringTableProps
+>(function InputScoringTable(
+  {
+    responses,
+    rubricItems = [],
+    aiScores: initialAiScores = {},
+    showAiResults = false,
+    modelOutputs = [],
+    testCase,
+    onCompareClick,
+    selectedIdealResponseId,
+    enableIdealScoreEditing = true,
+    idealResponses = [],
+    sessionId,
+    onVersionInfo,
+    onVersionChange,
+  }: InputScoringTableProps,
+  ref
+) {
   const { criteria, refetch: refetchCriteria } = useCriteriaData();
 
   // Derive rubric rows from selected criteria version in cache if no rubricItems provided
@@ -137,51 +154,6 @@ export default function InputScoringTable({
       .trim()
       .toLowerCase();
   };
-
-  // Initialize/merge state when items or responses change
-  React.useEffect(() => {
-    setScores((prev) => {
-      let changed = false;
-      const next: Record<string, Record<string, number | "">> = {};
-      for (const r of derived.items) {
-        const prevRow = prev[r.id] || {};
-        const row: Record<string, number | ""> = {};
-        for (const resp of responses) {
-          const before = prevRow[resp.id];
-          const after = before !== undefined ? before : "";
-          row[resp.id] = after;
-          if (after !== before) changed = true;
-        }
-        next[r.id] = row;
-        if (prevRow === undefined) changed = true;
-      }
-      // If number of rows changed
-      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
-      return changed ? next : prev;
-    });
-
-    setRationales((prev) => {
-      let changed = false;
-      const next: Record<string, Record<string, string>> = {};
-      for (const r of derived.items) {
-        const prevRow = prev[r.id] || {};
-        const row: Record<string, string> = {};
-        for (const resp of responses) {
-          const before = prevRow[resp.id];
-          const after = before !== undefined ? before : "";
-          row[resp.id] = after;
-          if (after !== before) changed = true;
-        }
-        next[r.id] = row;
-        if (prevRow === undefined) changed = true;
-      }
-      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
-      return changed ? next : prev;
-    });
-  }, [
-    derived.items.map((item) => item.id).join(","),
-    responses.map((resp) => resp.id).join(","),
-  ]); // Use stable string representations
 
   const [scores, setScores] = useState<
     Record<string, Record<string, number | "">>
@@ -333,6 +305,68 @@ export default function InputScoringTable({
   const [isUploadingData, setIsUploadingData] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
+  // Versioning state for comparing mode
+  const [evaluationVersions, setEvaluationVersions] = useState<
+    EvaluationRecord[]
+  >([]);
+  const [currentVersionIndex, setCurrentVersionIndex] = useState<number | null>(
+    null
+  );
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+
+  // Initialize/merge state when items or responses change
+  React.useEffect(() => {
+    // Skip this if we're in comparing mode and have versions loaded
+    if (isComparingMode && evaluationVersions.length > 0) {
+      return;
+    }
+
+    setScores((prev) => {
+      let changed = false;
+      const next: Record<string, Record<string, number | "">> = {};
+      for (const r of derived.items) {
+        const prevRow = prev[r.id] || {};
+        const row: Record<string, number | ""> = {};
+        for (const resp of responses) {
+          const before = prevRow[resp.id];
+          const after = before !== undefined ? before : "";
+          row[resp.id] = after;
+          if (after !== before) changed = true;
+        }
+        next[r.id] = row;
+        if (prevRow === undefined) changed = true;
+      }
+      // If number of rows changed
+      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
+      return changed ? next : prev;
+    });
+
+    setRationales((prev) => {
+      let changed = false;
+      const next: Record<string, Record<string, string>> = {};
+      for (const r of derived.items) {
+        const prevRow = prev[r.id] || {};
+        const row: Record<string, string> = {};
+        for (const resp of responses) {
+          const before = prevRow[resp.id];
+          const after = before !== undefined ? before : "";
+          row[resp.id] = after;
+          if (after !== before) changed = true;
+        }
+        next[r.id] = row;
+        if (prevRow === undefined) changed = true;
+      }
+      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
+      return changed ? next : prev;
+    });
+  }, [
+    derived.items.map((item) => item.id).join(","),
+    responses.map((resp) => resp.id).join(","),
+    isComparingMode,
+    evaluationVersions.length,
+  ]); // Use stable string representations
+
   // Debug aiScores changes
   useEffect(() => {
     console.log(
@@ -344,6 +378,177 @@ export default function InputScoringTable({
       Object.keys(aiScores).length
     );
   }, [aiScores]);
+
+  // Fetch evaluation versions when entering comparing mode
+  useEffect(() => {
+    if (!isComparingMode || !sessionId) {
+      setEvaluationVersions([]);
+      setCurrentVersionIndex(null);
+      return;
+    }
+
+    const fetchVersions = async () => {
+      setIsLoadingVersions(true);
+      setVersionsError(null);
+      try {
+        const response = await fetch(
+          `/api/evaluation-records?action=bySession&session_id=${sessionId}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch evaluation versions");
+        }
+        const data = await response.json();
+        if (data.success && data.data) {
+          // Sort by created_at descending (newest first)
+          const sortedVersions = data.data.sort(
+            (a: EvaluationRecord, b: EvaluationRecord) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+          );
+          setEvaluationVersions(sortedVersions);
+          // Set to the most recent version (index 0)
+          if (sortedVersions.length > 0) {
+            setCurrentVersionIndex(0);
+          }
+        }
+      } catch (error) {
+        console.error("[InputScoringTable] Error fetching versions:", error);
+        setVersionsError(
+          error instanceof Error ? error.message : "Failed to load versions"
+        );
+      } finally {
+        setIsLoadingVersions(false);
+      }
+    };
+
+    fetchVersions();
+  }, [isComparingMode, sessionId]);
+
+  // Notify parent about version info changes
+  useEffect(() => {
+    if (onVersionInfo) {
+      if (!isComparingMode) {
+        onVersionInfo(null, 0);
+      } else if (evaluationVersions.length > 0) {
+        onVersionInfo(currentVersionIndex, evaluationVersions.length);
+      }
+    }
+  }, [
+    currentVersionIndex,
+    evaluationVersions.length,
+    isComparingMode,
+    onVersionInfo,
+  ]);
+
+  // Expose version change method to parent
+  useImperativeHandle(
+    ref,
+    () => ({
+      changeVersion: (index: number) => {
+        if (index >= 0 && index < evaluationVersions.length) {
+          setCurrentVersionIndex(index);
+        }
+      },
+    }),
+    [evaluationVersions.length]
+  );
+
+  // Update scores and rationales when version changes
+  useEffect(() => {
+    if (
+      currentVersionIndex === null ||
+      !evaluationVersions[currentVersionIndex] ||
+      !isComparingMode // Only update when in comparing mode
+    ) {
+      return;
+    }
+
+    const currentVersion = evaluationVersions[currentVersionIndex];
+    const rubricData = currentVersion.rubric_with_scoring;
+
+    if (!rubricData || !rubricData.criteria) {
+      return;
+    }
+
+    // Update human and AI scores from the selected version
+    const newHumanScores: Record<string, Record<string, number | "">> = {};
+    const newHumanRationales: Record<string, Record<string, string>> = {};
+    const newAiScores: Record<
+      string,
+      Record<string, { score: number; rationale: string }>
+    > = {};
+    const newIdealScores: Record<string, number> = {};
+
+    rubricData.criteria.forEach((criterion, idx) => {
+      // Map criterion to rubric item ID
+      const rubricItemId = derived.items[idx]?.id;
+      if (!rubricItemId) return;
+
+      newHumanScores[rubricItemId] = {};
+      newHumanRationales[rubricItemId] = {};
+      newAiScores[rubricItemId] = {};
+
+      // Process scores for each response
+      Object.entries(criterion.scores || {}).forEach(
+        ([responseId, scoreData]) => {
+          // Handle Ideal Response specially
+          if (responseId === "Ideal Response") {
+            // Store ideal response expected score
+            if (scoreData.human_score) {
+              newIdealScores[rubricItemId] = scoreData.human_score.score;
+            }
+            // Also set AI score for ideal response if available
+            if (scoreData.ai_score && currentIdealResponseId) {
+              newAiScores[rubricItemId][currentIdealResponseId] = {
+                score: scoreData.ai_score.score,
+                rationale:
+                  scoreData.ai_score.rationale || "No rationale provided",
+              };
+            }
+          } else {
+            // Map response IDs from the database to current response IDs
+            const mappedResponseId = responses.find(
+              (r) => r.label === responseId || r.id === responseId
+            )?.id;
+
+            if (mappedResponseId) {
+              // Set human scores and rationales
+              if (scoreData.human_score) {
+                newHumanScores[rubricItemId][mappedResponseId] =
+                  scoreData.human_score.score;
+                newHumanRationales[rubricItemId][mappedResponseId] =
+                  scoreData.human_score.rationale || "";
+              }
+
+              // Set AI scores and rationales
+              if (scoreData.ai_score) {
+                newAiScores[rubricItemId][mappedResponseId] = {
+                  score: scoreData.ai_score.score,
+                  rationale:
+                    scoreData.ai_score.rationale || "No rationale provided",
+                };
+              }
+            }
+          }
+        }
+      );
+    });
+
+    // Update states with version data
+    setScores(newHumanScores);
+    setRationales(newHumanRationales);
+    setAiScores(newAiScores);
+    setIdealScores(newIdealScores); // Update ideal scores from version
+  }, [
+    currentVersionIndex,
+    evaluationVersions,
+    isComparingMode, // Add this to prevent updates when not in comparing mode
+    // Remove derived.items and responses from dependencies to prevent infinite loop
+    // Use stable string representations instead
+    derived.items.map((item) => item.id).join(","),
+    responses.map((r) => r.id).join(","),
+    currentIdealResponseId,
+  ]);
 
   // Auto-trigger AI evaluation when model outputs are ready
   useEffect(() => {
@@ -564,31 +769,48 @@ export default function InputScoringTable({
             JSON.stringify(evaluation, null, 2)
           );
 
-          // Find the corresponding response ID from our responses array
-          // The API returns evaluations with modelId, but we need to map them to our response IDs
-          let responseId = evaluation.modelId;
+          // Check if this is the ideal response evaluation
+          const isIdealResponseEval =
+            evaluation.isIdealResponse ||
+            evaluation.modelId === currentIdealResponseId ||
+            evaluation.modelId === "ideal-response";
 
-          // If the modelId doesn't match any of our response IDs, try to find a match
-          if (!responses.find((r) => r.id === responseId)) {
-            // Try to find a response with a matching modelId
-            const matchingResponse = responses.find(
-              (r) =>
-                r.id === evaluation.modelId ||
-                r.id.includes(evaluation.modelId) ||
-                evaluation.modelId.includes(r.id)
+          let responseId: string;
+
+          if (isIdealResponseEval && currentIdealResponseId) {
+            // This is the ideal response evaluation - use the currentIdealResponseId
+            responseId = currentIdealResponseId;
+            console.log(
+              `[InputScoringTable] Identified ideal response evaluation: ${evaluation.modelId} -> ${responseId}`
             );
+          } else {
+            // Find the corresponding response ID from our responses array
+            // The API returns evaluations with modelId, but we need to map them to our response IDs
+            responseId = evaluation.modelId;
 
-            if (matchingResponse) {
-              responseId = matchingResponse.id;
-            } else {
-              // Fallback to using the index-based response ID
-              responseId = responses[evalIndex]?.id || `resp-${evalIndex + 1}`;
+            // If the modelId doesn't match any of our response IDs, try to find a match
+            if (!responses.find((r) => r.id === responseId)) {
+              // Try to find a response with a matching modelId
+              const matchingResponse = responses.find(
+                (r) =>
+                  r.id === evaluation.modelId ||
+                  r.id.includes(evaluation.modelId) ||
+                  evaluation.modelId.includes(r.id)
+              );
+
+              if (matchingResponse) {
+                responseId = matchingResponse.id;
+              } else {
+                // Fallback to using the index-based response ID
+                responseId =
+                  responses[evalIndex]?.id || `resp-${evalIndex + 1}`;
+              }
             }
-          }
 
-          console.log(
-            `[InputScoringTable] Mapped response ID: ${evaluation.modelId} -> ${responseId}`
-          );
+            console.log(
+              `[InputScoringTable] Mapped response ID: ${evaluation.modelId} -> ${responseId}`
+            );
+          }
 
           // Map criteria scores to rubric items
           Object.entries(evaluation.criteriaScores || {}).forEach(
@@ -734,6 +956,11 @@ export default function InputScoringTable({
         "[InputScoringTable] 🔄 Exiting compare mode to show updated rubric"
       );
       setIsComparingMode(false);
+      
+      // Notify parent component that we're exiting compare mode
+      if (onCompareClick) {
+        onCompareClick(false);
+      }
 
       // Step 2: Re-fetch the latest rubric data from the spreadsheet
       console.log(
@@ -767,12 +994,24 @@ export default function InputScoringTable({
 
   const uploadEvaluationData = async () => {
     console.log("[InputScoringTable] 📤 Starting evaluation data upload...");
+    console.log("[InputScoringTable] • Session ID prop:", sessionId);
+    console.log("[InputScoringTable] • Test case:", testCase);
+    console.log(
+      "[InputScoringTable] • Test case sessionId:",
+      testCase?.sessionId
+    );
 
     setIsUploadingData(true);
     setUploadStatus(null);
 
     try {
-      // Prepare the data for upload
+      // Prepare the data for upload - prefer sessionId from testCase if available
+      const effectiveSessionId = testCase?.sessionId || sessionId;
+      console.log(
+        "[InputScoringTable] • Effective sessionId:",
+        effectiveSessionId
+      );
+
       const result = await collectAndUploadEvaluationData({
         testCase: testCase,
         modelOutputs: modelOutputs,
@@ -785,7 +1024,7 @@ export default function InputScoringTable({
         evaluatorModel: "gpt-4-turbo", // This should be determined from AI evaluation
         evaluatorSystemPrompt: "Evaluation system prompt", // This should come from the actual evaluation
         idealResponses: idealResponses,
-        sessionId: sessionId ?? undefined,
+        sessionId: effectiveSessionId ?? undefined,
         groupId: testCase?.groupId || `group-${Date.now()}`,
         idealExpectedScores: idealScores,
       });
@@ -1035,7 +1274,7 @@ export default function InputScoringTable({
                 </td>
                 <td className="px-4 py-3 text-sm border-x border-gray-200">
                   {derived.instructions[rowIdx] && (
-                    <div className="space-y-1">
+                    <div className="space-y-1 text-[13px]">
                       {(() => {
                         const current = derived.instructions[rowIdx].positive;
                         const prevIdx = prevDerived.items.findIndex(
@@ -1053,15 +1292,13 @@ export default function InputScoringTable({
                         return (
                           current && (
                             <p
-                              className={`text-sm whitespace-pre-wrap ${
+                              className={`whitespace-pre-wrap ${
                                 changed
                                   ? "bg-yellow-50 border border-yellow-200 rounded px-2 py-1"
                                   : ""
                               }`}
                             >
-                              <span className="font-medium">
-                                Positive Examples:{" "}
-                              </span>
+                              <span className="">Positive Examples: </span>
                               {current}
                             </p>
                           )
@@ -1084,7 +1321,7 @@ export default function InputScoringTable({
                         return (
                           current && (
                             <p
-                              className={`text-sm whitespace-pre-wrap ${
+                              className={`whitespace-pre-wrap ${
                                 changed
                                   ? "bg-yellow-50 border border-yellow-200 rounded px-2 py-1"
                                   : ""
@@ -1100,7 +1337,7 @@ export default function InputScoringTable({
                       })()}
                       {!derived.instructions[rowIdx].positive &&
                         !derived.instructions[rowIdx].negative && (
-                          <div className="text-sm text-gray-500">N/A</div>
+                          <div className="text-gray-500">N/A</div>
                         )}
                     </div>
                   )}
@@ -1594,95 +1831,77 @@ export default function InputScoringTable({
             </p>
           </div>
         ) : (
-          <div className="mt-4 mb-3 text-sm text-gray-600 text-left w-fit">
-            <div className="w-fit whitespace-nowrap">
-              <p className="w-fit whitespace-nowrap">
-                Provide your expected scoring points with rationale on how the
-                model responses perform on your rubric,
-              </p>
-              <p className="w-fit whitespace-nowrap">
-                before proceeding and comparing the AI Grader's scoring work.
-              </p>
-            </div>
-            {evaluationError && (
-              <p className="w-fit whitespace-nowrap text-red-600">
-                {evaluationError}
-              </p>
-            )}
+          <div className="flex items-center gap-3 mb-1 mr-4">
+            <span
+              className={`px-2 py-1 rounded-md border text-xs font-medium whitespace-nowrap inline-flex items-center gap-1 ${
+                evaluationError
+                  ? "bg-red-50 border-red-300 text-red-700"
+                  : isEvaluating
+                  ? "bg-blue-50 border-blue-300 text-blue-700"
+                  : areAiResultsAvailable
+                  ? "bg-green-50 border-green-300 text-green-700"
+                  : "bg-gray-50 border-gray-300 text-gray-600"
+              }`}
+            >
+              {evaluationError ? (
+                <>
+                  <svg
+                    className="w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                  AI grader error
+                </>
+              ) : isEvaluating ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></span>
+                  AI grader is working
+                </span>
+              ) : areAiResultsAvailable ? (
+                <>
+                  <svg
+                    className="w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                  AI grader ready
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  AI grader pending
+                </>
+              )}
+            </span>
           </div>
         )}
 
         <div className="mt-4 flex justify-end">
-          {!isComparingMode && (
-            <div className="flex items-center gap-3 mb-1 mr-4">
-              <span
-                className={`px-2 py-1 rounded-md border text-xs font-medium whitespace-nowrap inline-flex items-center gap-1 ${
-                  evaluationError
-                    ? "bg-red-50 border-red-300 text-red-700"
-                    : isEvaluating
-                    ? "bg-blue-50 border-blue-300 text-blue-700"
-                    : areAiResultsAvailable
-                    ? "bg-green-50 border-green-300 text-green-700"
-                    : "bg-gray-50 border-gray-300 text-gray-600"
-                }`}
-              >
-                {evaluationError ? (
-                  <>
-                    <svg
-                      className="w-3.5 h-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                      <line x1="12" y1="9" x2="12" y2="13" />
-                      <line x1="12" y1="17" x2="12.01" y2="17" />
-                    </svg>
-                    AI grader error
-                  </>
-                ) : isEvaluating ? (
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-3 h-3 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></span>
-                    AI grader is working
-                  </span>
-                ) : areAiResultsAvailable ? (
-                  <>
-                    <svg
-                      className="w-3.5 h-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
-                    AI grader ready
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      className="w-3.5 h-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <polyline points="12 6 12 12 16 14" />
-                    </svg>
-                    AI grader pending
-                  </>
-                )}
-              </span>
-            </div>
-          )}
           <div className="flex gap-3">
             {isComparingMode && (
               <button
@@ -1722,10 +1941,10 @@ export default function InputScoringTable({
             )}
             <button
               className={`px-4 py-2 rounded-md mb-2 transition-all duration-200 ${
-                !canCompare || isUploadingData
+                !canCompare && !isUploadingData
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : isComparingMode
-                  ? "hidden bg-red-600 text-white hover:bg-red-700"
+                  : isComparingMode && !isUploadingData
+                  ? "hidden"
                   : "bg-blue-600 text-white hover:bg-blue-700"
               }`}
               disabled={!canCompare || isUploadingData}
@@ -1749,13 +1968,15 @@ export default function InputScoringTable({
             >
               {isUploadingData
                 ? "Uploading data..."
-                : isComparingMode
-                ? "Stop Comparing"
-                : "Compare with the AI Grader"}
+                : !isComparingMode
+                ? "Compare with the AI Grader"
+                : null}
             </button>
           </div>
         </div>
       </div>
     </div>
   );
-}
+});
+
+export default InputScoringTable;

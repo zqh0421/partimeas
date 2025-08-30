@@ -1,13 +1,17 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { ModelOutput, TestCase, IdealModelResponse } from "@/app/types";
+import {
+  ModelOutput,
+  TestCase,
+  TestCaseWithModelOutputs,
+  IdealModelResponse,
+} from "@/app/types";
 import SimpleMarkdownRenderer from "@/app/components/SimpleMarkdownRenderer";
 import { useStepLoading } from "@/app/components/steps/VerticalStepper";
 import TestCaseNavigation from "@/app/components/TestCaseNavigation";
 import RealCriteriaTable from "@/app/components/evaluation/RealCriteriaTable";
 import InputScoringTable from "@/app/components/evaluation/InputScoringTable";
-import MockCriteriaTable from "@/app/components/evaluation/MockCriteriaTable";
 import { EvaluationRecord } from "@/app/types/database";
 
 // Helper function to determine grid columns based on model count
@@ -43,11 +47,16 @@ export default function ModelOutputsGrid({
   showFinalResultsHere = true,
   onCompareClick,
   idealResponses = [],
+  streamingOutputs = [],
+  isStreaming = false,
+  streamingErrors = [],
+  selectedCriteriaId,
+  selectedIdealResponseId,
 }: {
   modelOutputs?: ModelOutput[];
   isLoading?: boolean;
   loadingModelList?: string[];
-  testCases?: TestCase[];
+  testCases?: TestCase[] | TestCaseWithModelOutputs[];
   selectedTestCaseIndex?: number;
   onTestCaseSelect?: (index: number) => void;
   stepId?: string;
@@ -60,6 +69,19 @@ export default function ModelOutputsGrid({
   showFinalResultsHere?: boolean;
   onCompareClick?: () => void;
   idealResponses?: IdealModelResponse[];
+  streamingOutputs?: Array<{
+    modelId: string;
+    output: string;
+    timestamp: string;
+  }>;
+  isStreaming?: boolean;
+  streamingErrors?: Array<{
+    modelId: string;
+    error: string;
+    timestamp: string;
+  }>;
+  selectedCriteriaId?: string;
+  selectedIdealResponseId?: string;
 }) {
   const [viewMode, setViewMode] = useState<"enhanced" | "simple">("enhanced");
   const [evaluationViewMode, setEvaluationViewMode] = useState<
@@ -68,6 +90,23 @@ export default function ModelOutputsGrid({
   const [useRealCriteria, setUseRealCriteria] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [isComparing, setIsComparing] = useState(false);
+  const inputScoringTableRef = React.useRef<{
+    changeVersion: (index: number) => void;
+  } | null>(null);
+
+  // Version info from InputScoringTable
+  const [versionInfo, setVersionInfo] = useState<{
+    currentIndex: number | null;
+    totalVersions: number;
+  }>({ currentIndex: null, totalVersions: 0 });
+
+  // Memoize the version info callback to prevent infinite loops
+  const handleVersionInfo = React.useCallback(
+    (currentIndex: number | null, totalVersions: number) => {
+      setVersionInfo({ currentIndex, totalVersions });
+    },
+    []
+  );
 
   // Versioning state (saved evaluation records for this session/group)
   const [versions, setVersions] = useState<EvaluationRecord[]>([]);
@@ -85,47 +124,39 @@ export default function ModelOutputsGrid({
         setCurrentVersionIndex(null);
         return;
       }
+
       try {
         setIsLoadingVersions(true);
         setVersionsError(null);
-        const res = await fetch(
-          `/api/evaluation-records?action=bySession&session_id=${encodeURIComponent(
-            sessionId
-          )}`
-        );
+
+        const apiUrl = `/api/evaluation-records?action=bySession&session_id=${encodeURIComponent(
+          sessionId
+        )}`;
+
+        const res = await fetch(apiUrl);
+
         const json = await res.json();
+
         if (!res.ok || !json.success) {
           throw new Error(
             json.error || json.details || "Failed to load versions"
           );
         }
+
         const records: EvaluationRecord[] = (json.data || []).map((r: any) => ({
           ...r,
           created_at: r.created_at ? new Date(r.created_at) : new Date(),
         }));
+
         if (records.length === 0) {
           setVersions([]);
-          setCurrentVersionIndex(null);
+          setCurrentVersionIndex(0); // Default to 0 to show "Version 1 of 1"
           return;
         }
-        // Filter to single group if multiple; prefer the latest record's group
-        const latest = records
-          .slice()
-          .sort(
-            (a, b) =>
-              new Date(a.created_at).getTime() -
-              new Date(b.created_at).getTime()
-          )[records.length - 1];
-        const groupId = latest.group_id;
-        const filtered = records.filter((r) => r.group_id === groupId);
-        // Sort by created_at ascending
-        const sorted = filtered
-          .slice()
-          .sort(
-            (a, b) =>
-              new Date(a.created_at).getTime() -
-              new Date(b.created_at).getTime()
-          );
+
+        // Records are already sorted by created_at ASC from the database
+        const sorted = records;
+
         setVersions(sorted);
         setCurrentVersionIndex(sorted.length - 1);
       } catch (e) {
@@ -144,6 +175,19 @@ export default function ModelOutputsGrid({
     return versions[currentVersionIndex] || null;
   }, [versions, currentVersionIndex]);
 
+  // Log when versions state changes
+  useEffect(() => {}, [versions, currentVersionIndex, currentVersion]);
+
+  // Log when comparison state changes
+  useEffect(() => {}, [
+    isComparing,
+    sessionId,
+    isRealEvaluation,
+    versions.length,
+    isLoadingVersions,
+    versionsError,
+  ]);
+
   // Register loading state if stepId is provided
   useStepLoading(stepId || "", isLoading);
 
@@ -152,14 +196,26 @@ export default function ModelOutputsGrid({
     if (!sessionId || selectedTestCaseIndex === undefined) return;
 
     const baseUrl = window.location.origin;
-    const sharableUrl = `${baseUrl}/workshop-assistant/session/${sessionId}`;
+    let sharableUrl = `${baseUrl}/workshop-assistant/session/${sessionId}`;
+
+    // Add rubricId and idealResponseId as query parameters if available
+    const params = new URLSearchParams();
+    if (selectedCriteriaId) {
+      params.append("rubricId", selectedCriteriaId);
+    }
+    if (selectedIdealResponseId) {
+      params.append("idealResponseId", selectedIdealResponseId);
+    }
+
+    if (params.toString()) {
+      sharableUrl += `?${params.toString()}`;
+    }
 
     try {
       await navigator.clipboard.writeText(sharableUrl);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     } catch (error) {
-      console.error("Failed to copy session link:", error);
       // Fallback for older browsers
       const textArea = document.createElement("textarea");
       textArea.value = sharableUrl;
@@ -172,26 +228,85 @@ export default function ModelOutputsGrid({
     }
   };
 
-  // Determine which models to show - prioritize actual outputs, fall back to loading models
+  // Determine which models to show - prioritize streaming outputs, then actual outputs, fall back to loading models
   // When loading, show the configured number of outputs to display
   // When showing actual outputs, limit to numOutputsToShow
-  const displayModels =
-    modelOutputs && modelOutputs.length > 0
-      ? modelOutputs.slice(0, numOutputsToShow)
-      : isLoading
-      ? // Create loading placeholders based on numOutputsToShow
-        Array.from({ length: numOutputsToShow }, (_, index) => ({
-          modelId: `loading-${index + 1}`,
-          output: "",
+  const displayModels = useMemo(() => {
+    // If we have streaming outputs, prioritize them
+    if (isStreaming && streamingOutputs.length > 0) {
+      // Create a combined view: streaming outputs + placeholders for remaining slots
+      const streamingModels = streamingOutputs
+        .slice(0, numOutputsToShow)
+        .map((output, index) => ({
+          modelId: output.modelId,
+          output: output.output,
           index,
-        }))
-      : // Use actual loading model list if available, but limit to numOutputsToShow
-        loadingModelList
-          .slice(0, numOutputsToShow)
-          .map((modelId, index) => ({ modelId, output: "", index }));
+          isStreaming: true,
+        }));
+
+      // Add placeholders for remaining slots if needed
+      const remainingSlots = numOutputsToShow - streamingModels.length;
+      const placeholders = Array.from(
+        { length: remainingSlots },
+        (_, index) => ({
+          modelId: `streaming-placeholder-${
+            streamingModels.length + index + 1
+          }`,
+          output: "",
+          index: streamingModels.length + index,
+          isStreaming: true,
+          isPlaceholder: true,
+        })
+      );
+
+      return [...streamingModels, ...placeholders];
+    }
+
+    // Fallback to existing logic for non-streaming
+    if (modelOutputs && modelOutputs.length > 0) {
+      return modelOutputs.slice(0, numOutputsToShow);
+    }
+
+    if (isLoading) {
+      // Create loading placeholders based on numOutputsToShow
+      return Array.from({ length: numOutputsToShow }, (_, index) => ({
+        modelId: `loading-${index + 1}`,
+        output: "",
+        index,
+      }));
+    }
+
+    // Use actual loading model list if available, but limit to numOutputsToShow
+    return loadingModelList
+      .slice(0, numOutputsToShow)
+      .map((modelId, index) => ({ modelId, output: "", index }));
+  }, [
+    modelOutputs,
+    isLoading,
+    isStreaming,
+    streamingOutputs,
+    loadingModelList,
+    numOutputsToShow,
+  ]);
+
+  // Debug: Log the modelOutputs array to see what modelId values it contains
+  useEffect(() => {
+    if (modelOutputs && modelOutputs.length > 0) {
+    }
+  }, [modelOutputs]);
+
+  // Log when InputScoringTable should be shown with evaluation features
+  useEffect(() => {
+    if (showEvaluationFeatures && sessionId) {
+    }
+  }, [showEvaluationFeatures, sessionId, isRealEvaluation, modelOutputs]);
 
   // Empty state - only show if we have no models to display at all
-  if (displayModels.length === 0 && !isLoading) {
+  if (
+    displayModels.length === 0 &&
+    !isLoading &&
+    currentPhase != "generating"
+  ) {
     return (
       <div className={`text-center py-8 text-gray-500 ${className}`}>
         No model outputs available yet. Please try running the evaluation again.
@@ -215,68 +330,88 @@ export default function ModelOutputsGrid({
         <div className="space-y-4 mt-6">
           {/* Header with view toggle */}
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-gray-900">
-              {isRealEvaluation ? "Response Scoring" : ""}
-            </h3>
-            {isRealEvaluation && isComparing && (
-              <div className="flex items-center gap-2">
-                {currentVersion && (
-                  <span className="text-xs text-gray-500 whitespace-nowrap">
-                    Version {(currentVersionIndex || 0) + 1} of{" "}
-                    {versions.length}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">
+                {isRealEvaluation ? <>Response Scoring</> : ""}
+              </h3>
+              {isRealEvaluation && !isComparing && (
+                <p className="mt-1 text-sm text-gray-600">
+                  Provide your expected scoring points with rationale on how the
+                  model responses perform on your rubric, before proceeding and
+                  comparing the AI Grader's scoring work.
+                </p>
+              )}
+            </div>
+            {/* Only show version navigation when in comparing mode */}
+            {isRealEvaluation &&
+              isComparing &&
+              versionInfo.totalVersions > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    Version{" "}
+                    {Math.max(
+                      versionInfo.totalVersions -
+                        (versionInfo.currentIndex ?? 0),
+                      1
+                    )}{" "}
+                    of {Math.max(versionInfo.totalVersions, 1)}
                   </span>
-                )}
-                <button
-                  className={`px-2 py-1 rounded border text-sm ${
-                    currentVersionIndex !== null && currentVersionIndex > 0
-                      ? "bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
-                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                  }`}
-                  disabled={
-                    !(currentVersionIndex !== null && currentVersionIndex > 0)
-                  }
-                  title="Previous version"
-                  onClick={() => {
-                    if (
-                      currentVersionIndex !== null &&
-                      currentVersionIndex > 0
-                    ) {
-                      setCurrentVersionIndex(currentVersionIndex - 1);
+                  <button
+                    className={`px-2 py-1 rounded border text-sm ${
+                      versionInfo.currentIndex !== null &&
+                      versionInfo.currentIndex < versionInfo.totalVersions - 1
+                        ? "bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
+                        : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    }`}
+                    disabled={
+                      !(
+                        versionInfo.currentIndex !== null &&
+                        versionInfo.currentIndex < versionInfo.totalVersions - 1
+                      )
                     }
-                  }}
-                >
-                  <span>{"<"}</span>
-                </button>
-                <button
-                  className={`px-2 py-1 rounded border text-sm ${
-                    currentVersionIndex !== null &&
-                    versions.length > 0 &&
-                    currentVersionIndex < versions.length - 1
-                      ? "bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
-                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                  }`}
-                  disabled={
-                    !(
-                      currentVersionIndex !== null &&
-                      versions.length > 0 &&
-                      currentVersionIndex < versions.length - 1
-                    )
-                  }
-                  title="Next version"
-                  onClick={() => {
-                    if (
-                      currentVersionIndex !== null &&
-                      versions.length > 0 &&
-                      currentVersionIndex < versions.length - 1
-                    ) {
-                      setCurrentVersionIndex(currentVersionIndex + 1);
+                    title="Previous version"
+                    onClick={() => {
+                      if (
+                        versionInfo.currentIndex !== null &&
+                        versionInfo.currentIndex < versionInfo.totalVersions - 1
+                      ) {
+                        inputScoringTableRef.current?.changeVersion(
+                          versionInfo.currentIndex + 1
+                        );
+                      }
+                    }}
+                  >
+                    <span>{"<"}</span>
+                  </button>
+                  <button
+                    className={`px-2 py-1 rounded border text-sm ${
+                      versionInfo.currentIndex !== null &&
+                      versionInfo.currentIndex > 0
+                        ? "bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
+                        : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    }`}
+                    disabled={
+                      !(
+                        versionInfo.currentIndex !== null &&
+                        versionInfo.currentIndex > 0
+                      )
                     }
-                  }}
-                >
-                  <span>{">"}</span>
-                </button>
-              </div>
-            )}
+                    title="Next version"
+                    onClick={() => {
+                      if (
+                        versionInfo.currentIndex !== null &&
+                        versionInfo.currentIndex > 0
+                      ) {
+                        inputScoringTableRef.current?.changeVersion(
+                          versionInfo.currentIndex - 1
+                        );
+                      }
+                    }}
+                  >
+                    <span>{">"}</span>
+                  </button>
+                </div>
+              )}
           </div>
 
           {isRealEvaluation && isComparing && (
@@ -340,40 +475,60 @@ export default function ModelOutputsGrid({
                 currentPhase === "complete" &&
                 isRealEvaluation &&
                 !showFinalResultsHere;
-              console.log(
-                "[ModelOutputsGrid] InputScoringTable render conditions:",
-                {
-                  isLoading,
-                  currentPhase,
-                  isRealEvaluation,
-                  showFinalResultsHere,
-                  shouldShow,
-                  modelOutputsCount: modelOutputs?.length || 0,
-                  selectedTestCaseIndex,
-                  testCasesCount: testCases?.length || 0,
-                }
-              );
               return shouldShow;
-            })() && (
-              <InputScoringTable
-                responses={(modelOutputs || []).map((mo, i) => ({
-                  id: mo.modelId || `resp-${i + 1}`,
-                  label: `Response ${i + 1}`,
-                }))}
-                modelOutputs={modelOutputs}
-                testCase={
+            })() &&
+              (() => {
+                const selectedTestCase =
                   testCases && selectedTestCaseIndex !== undefined
                     ? testCases[selectedTestCaseIndex]
-                    : undefined
-                }
-                onCompareClick={(enabled) => {
-                  setIsComparing(enabled);
-                  if (onCompareClick) onCompareClick();
-                }}
-                idealResponses={idealResponses}
-                sessionId={sessionId}
-              />
-            )}
+                    : undefined;
+
+                console.log(
+                  "[ModelOutputsGrid] Passing to InputScoringTable:",
+                  {
+                    selectedTestCaseIndex,
+                    selectedTestCase: selectedTestCase
+                      ? {
+                          id: selectedTestCase.id,
+                          sessionId:
+                            "sessionId" in selectedTestCase
+                              ? selectedTestCase.sessionId
+                              : undefined,
+                          hasModelOutputs:
+                            "modelOutputs" in selectedTestCase
+                              ? selectedTestCase.modelOutputs?.length > 0
+                              : false,
+                        }
+                      : null,
+                    sessionIdProp: sessionId,
+                    testCasesCount: testCases?.length,
+                    testCasesWithSessionIds: testCases?.map((tc: any, idx) => ({
+                      index: idx,
+                      id: tc.id,
+                      sessionId: "sessionId" in tc ? tc.sessionId : undefined,
+                    })),
+                  }
+                );
+
+                return (
+                  <InputScoringTable
+                    ref={inputScoringTableRef}
+                    responses={(modelOutputs || []).map((mo, i) => ({
+                      id: mo.modelId || mo.modelName || `Response ${i + 1}`,
+                      label: mo.modelName || `Response ${i + 1}`,
+                    }))}
+                    modelOutputs={modelOutputs}
+                    testCase={selectedTestCase}
+                    onCompareClick={(enabled) => {
+                      setIsComparing(enabled);
+                      if (onCompareClick) onCompareClick();
+                    }}
+                    idealResponses={idealResponses}
+                    sessionId={sessionId}
+                    onVersionInfo={handleVersionInfo}
+                  />
+                );
+              })()}
 
             {/* Optionally render final results table here (used by session view) */}
             {!isLoading &&
@@ -423,7 +578,7 @@ export default function ModelOutputsGrid({
             )}
           </div>
           {/* Only show copy button when sessionId is available (database has returned session_id) */}
-          {/* {sessionId && testCases && selectedTestCaseIndex !== undefined && (
+          {sessionId && testCases && selectedTestCaseIndex !== undefined && (
             <button
               onClick={handleCopySessionLink}
               className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -469,15 +624,25 @@ export default function ModelOutputsGrid({
                 </>
               )}
             </button>
-          )} */}
+          )}
         </div>
         <div className={`grid ${getGridCols(displayModels.length)} gap-4`}>
           {displayModels.map((item, index) => {
             // Check if this specific model is loading
             const isLoadingModel =
               loadingModelList.includes(item.modelId) ||
-              (isLoading && item.modelId.startsWith("loading-"));
+              (isLoading && item.modelId.startsWith("loading-")) ||
+              (isStreaming &&
+                "isPlaceholder" in item &&
+                (item as any).isPlaceholder);
             const hasOutput = "output" in item && item.output;
+            const isStreamingModel =
+              "isStreaming" in item &&
+              (item as any).isStreaming &&
+              !("isPlaceholder" in item && (item as any).isPlaceholder);
+            const streamingError = streamingErrors.find(
+              (error) => error.modelId === item.modelId
+            );
 
             return (
               <div
@@ -488,7 +653,7 @@ export default function ModelOutputsGrid({
                 {/* Model Header */}
                 <div
                   className="bg-gray-50 px-3 py-2 border-b 
-                border-gray-200"
+                border-gray-200 flex justify-between"
                 >
                   <div className="flex flex-col space-y-1">
                     <h4
@@ -501,11 +666,34 @@ export default function ModelOutputsGrid({
                       </span> */}
                     </h4>
                   </div>
+                  {isStreamingModel && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-green-600 font-medium">
+                        Live response
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Model Output Content or Loading */}
                 <div className="p-6 space-y-4">
-                  {isLoadingModel || !hasOutput ? (
+                  {streamingError ? (
+                    // Error state for streaming
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-center">
+                        <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <span className="text-red-600 text-sm">✕</span>
+                        </div>
+                        <p className="text-sm text-red-600 mb-2">
+                          Generation failed
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {streamingError.error}
+                        </p>
+                      </div>
+                    </div>
+                  ) : isLoadingModel || (!hasOutput && !isStreamingModel) ? (
                     // Loading state for content
                     <div className="flex items-center justify-center py-8">
                       <div className="text-center">
@@ -515,14 +703,16 @@ export default function ModelOutputsGrid({
                         animate-spin mx-auto mb-3"
                         ></div>
                         <p className="text-sm text-slate-600">
-                          {isLoading
-                            ? `Preparing response...`
+                          {isStreaming
+                            ? "Preparing response..."
+                            : isLoading
+                            ? "Preparing response..."
                             : "Preparing response..."}
                         </p>
                       </div>
                     </div>
                   ) : (
-                    // Actual content
+                    // Actual content (regular or streaming)
                     <div className="text-sm leading-relaxed overflow-y-auto">
                       <SimpleMarkdownRenderer
                         content={item.output}

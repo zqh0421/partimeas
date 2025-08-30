@@ -63,6 +63,7 @@ export interface EvaluationDataSnapshot {
   // Test case information
   testCasePrompt: string;
   testCaseContext?: string;
+  testCase?: any; // The full test case object which may contain sessionId
 
   // Model responses
   modelOutputs: Array<{
@@ -123,6 +124,18 @@ export async function collectEvaluationData(
     rubricId: string,
     responseId: string
   ): string => {
+    // If ideal response is selected, map both "resp-N" and "Response N" to "Ideal Response"
+    if (snapshot.selectedIdealResponseId) {
+      const match = /^resp-(\d+)$/.exec(
+        responseId?.trim()?.toLowerCase() || ""
+      );
+      if (match) return "Ideal Response";
+      const responseMatch = /^response\s*(\d+)$/i.exec(
+        responseId?.trim() || ""
+      );
+      if (responseMatch) return "Ideal Response";
+    }
+
     const match = /^resp-(\d+)$/.exec(responseId?.trim()?.toLowerCase() || "");
     if (!match) return responseId;
     const idx = parseInt(match[1], 10);
@@ -180,10 +193,7 @@ export async function collectEvaluationData(
 
     // Ensure ideal response expected human score is saved even if not in humanScores map
     if (snapshot.selectedIdealResponseId) {
-      const idealResponseId = normalizeResponseId(
-        item.id,
-        snapshot.selectedIdealResponseId
-      );
+      const idealResponseId = "Ideal Response";
       const expected = snapshot.idealExpectedScores?.[item.id];
       const expectedScore = typeof expected === "number" ? expected : 1; // default to 1
       const existing = scores[idealResponseId]?.human_score;
@@ -234,10 +244,19 @@ export async function collectEvaluationData(
   const groupId =
     cachedGroupId ||
     snapshot.groupId ||
-    `eval-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    `eval-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
+  // Try to get sessionId from multiple sources
+  const sessionId = snapshot.sessionId || snapshot.testCase?.sessionId;
+  
+  console.log("[EvaluationDataCollector] Session ID sources:", {
+    fromSnapshot: snapshot.sessionId,
+    fromTestCase: snapshot.testCase?.sessionId,
+    resolved: sessionId,
+  });
 
   // If no session_id is available, we can't upload the record due to foreign key constraint
-  if (!snapshot.sessionId) {
+  if (!sessionId) {
     throw new Error(
       "Session ID is required but not available. Cannot upload evaluation record."
     );
@@ -245,7 +264,7 @@ export async function collectEvaluationData(
 
   return {
     group_id: groupId,
-    session_id: snapshot.sessionId,
+    session_id: sessionId,
     test_case_prompt:
       snapshot.testCasePrompt || "No test case prompt available",
     evaluator_model:
@@ -270,11 +289,6 @@ export async function uploadEvaluationRecord(
   record: NewEvaluationRecord
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
-    console.log("[UploadEvaluationRecord] Uploading record:", record);
-    console.log(
-      "[UploadEvaluationRecord] Rubric structure:",
-      JSON.stringify(record.rubric_with_scoring, null, 2)
-    );
 
     const response = await fetch("/api/evaluation-records", {
       method: "POST",
@@ -300,7 +314,6 @@ export async function uploadEvaluationRecord(
       };
     }
 
-    console.log("Successfully uploaded evaluation record:", result);
     return {
       success: true,
       id: result.record?.id,
@@ -336,16 +349,6 @@ export function createEvaluationSnapshot(params: {
   groupId?: string;
   idealExpectedScores?: Record<string, number>;
 }): EvaluationDataSnapshot {
-  console.log("[CreateEvaluationSnapshot] Input parameters:", {
-    testCase: params.testCase,
-    rubricItemsCount: params.rubricItems?.length || 0,
-    rubricItems: params.rubricItems,
-    rubricInstructionsCount: params.rubricInstructions?.length || 0,
-    humanScoresKeys: Object.keys(params.humanScores || {}),
-    aiScoresKeys: Object.keys(params.aiScores || {}),
-    sessionId: params.sessionId,
-    groupId: params.groupId,
-  });
 
   // Get selected ideal response
   const selectedIdealResponseId = restoreIdealResponseSelection();

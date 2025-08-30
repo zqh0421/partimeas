@@ -87,6 +87,7 @@ export interface TestCaseWithModelOutputs {
   input: string;
   context: string;
   modelOutputs: ModelOutput[];
+  sessionId?: string; // Session ID from database after output generation
   useCase?: string;
   scenarioCategory?: string;
   use_case_title?: string;

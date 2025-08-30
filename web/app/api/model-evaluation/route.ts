@@ -1543,7 +1543,37 @@ export async function POST(request: NextRequest) {
         ]);
 
         sessionId = sessionResult[0]?.id;
-        console.log(`✅ Session created with ID: ${sessionId}`);
+
+        if (!sessionId) {
+          console.error(
+            `❌ Failed to get session ID from database. Result:`,
+            sessionResult
+          );
+          console.error(`❌ Session creation FAILED - No ID returned`);
+          console.error(`   Query: ${sessionQuery}`);
+          console.error(`   Parameters:`, [
+            outputs.length,
+            testCase.scenarioCategory || testCase.context || "General",
+            testCase.input,
+            assistantModelAlgorithm,
+            groupId || null,
+          ]);
+          throw new Error(
+            "Failed to create session - no ID returned from database"
+          );
+        }
+
+        console.log(`✅ Session created SUCCESSFULLY with ID: ${sessionId}`);
+        console.log(`   📝 Session details:`);
+        console.log(`      - ID: ${sessionId}`);
+        console.log(`      - Response count: ${outputs.length}`);
+        console.log(
+          `      - Test case category: ${
+            testCase.scenarioCategory || testCase.context || "General"
+          }`
+        );
+        console.log(`      - Group ID: ${groupId || "null"}`);
+        console.log(`      - Algorithm: ${assistantModelAlgorithm}`);
 
         // Store all responses
         if (sessionId && outputs.length > 0) {
@@ -1610,8 +1640,25 @@ export async function POST(request: NextRequest) {
         }
       } catch (dbError) {
         console.error("❌ Failed to upload session data to database:", dbError);
+        console.error("❌ Session creation FAILED with error");
+        console.error("Database error details:", {
+          message: dbError instanceof Error ? dbError.message : "Unknown error",
+          stack: dbError instanceof Error ? dbError.stack : undefined,
+        });
+        // Set sessionId to null if database operation failed
+        sessionId = null;
         // Don't fail the entire request if database upload fails
         // The outputs are still generated successfully
+      }
+
+      // Log final session ID status
+      if (!sessionId) {
+        console.error(
+          "⚠️ WARNING: Returning response WITHOUT session ID - evaluation upload will fail!"
+        );
+        console.error("   Database session creation failed or returned null");
+      } else {
+        console.log(`✅ Response will include session ID: ${sessionId}`);
       }
 
       return NextResponse.json({
@@ -1625,6 +1672,7 @@ export async function POST(request: NextRequest) {
         selectedAssistantsModels: selectedAssistants.map((a) => a.model),
         successfulModels: outputs.length,
         failedModels: errors.length,
+        sessionId, // Include session ID in the response (may be null if DB operation failed)
         // Configuration information for the frontend
         numOutputsToShow: actualNumOutputsToShow,
         // Algorithm information for debugging and verification
@@ -1636,8 +1684,6 @@ export async function POST(request: NextRequest) {
         timestamp: new Date().toISOString(),
         message:
           "Output generation completed. Ready to proceed to review page.",
-        // Return session ID for tracking
-        sessionId: sessionId,
       });
     }
 

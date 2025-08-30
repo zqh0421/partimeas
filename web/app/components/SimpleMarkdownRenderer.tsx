@@ -1,6 +1,6 @@
-import React from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import React from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface CustomStyles {
   headings?: {
@@ -27,24 +27,24 @@ interface SimpleMarkdownRendererProps {
 
 export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
   content,
-  className = '',
+  className = "",
   customStyles = {},
   enableGfm = true,
 }) => {
   const defaultStyles: Required<CustomStyles> = {
     headings: {
-      h1: 'text-2xl font-bold text-gray-900 mb-4 mt-6',
-      h2: 'text-xl font-bold text-gray-800 mb-3 mt-5',
-      h3: 'text-lg font-bold text-gray-800 mb-2 mt-4',
-      h4: 'text-base font-bold text-gray-800 mb-2 mt-4',
-      h5: 'text-sm font-bold text-gray-800 mb-2 mt-4',
-      h6: 'text-xs font-bold text-gray-800 mb-2 mt-4',
+      h1: "text-2xl font-bold text-gray-900 mb-4 mt-6",
+      h2: "text-xl font-bold text-gray-800 mb-3 mt-5",
+      h3: "text-lg font-bold text-gray-800 mb-2 mt-4",
+      h4: "text-base font-bold text-gray-800 mb-2 mt-4",
+      h5: "text-sm font-bold text-gray-800 mb-2 mt-4",
+      h6: "text-xs font-bold text-gray-800 mb-2 mt-4",
     },
-    paragraphs: 'text-gray-800 text-sm leading-relaxed mb-3',
-    lists: 'text-gray-800 text-sm leading-relaxed mb-3',
-    code: 'bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-mono',
-    blockquote: 'border-l-4 border-gray-300 pl-4 italic text-gray-600 mb-3',
-    table: 'w-full border-collapse border border-gray-300 mb-4',
+    paragraphs: "text-gray-800 text-sm leading-relaxed mb-3",
+    lists: "text-gray-800 text-sm leading-relaxed mb-3",
+    code: "bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-mono",
+    blockquote: "border-l-4 border-gray-300 pl-4 italic text-gray-600 mb-3",
+    table: "w-full border-collapse border border-gray-300 mb-4",
   };
 
   const styles: Required<CustomStyles> = {
@@ -142,7 +142,10 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
       </thead>
     ),
     th: ({ children, ...props }: any) => (
-      <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-gray-800" {...props}>
+      <th
+        className="border border-gray-300 px-3 py-2 text-left font-semibold text-gray-800"
+        {...props}
+      >
         {children}
       </th>
     ),
@@ -168,10 +171,15 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
     a: ({ children, href, ...props }: any) => (
       <a
         href={href}
-        className="text-blue-600 hover:text-blue-800 underline"
+        className="inline-block align-baseline
+    [overflow-wrap:anywhere] 
+    [word-break:normal]
+    [box-sizing:border-box]
+    antialiased
+    text-blue-600
+    hover:text-blue-800"
         target="_blank"
         rel="noopener noreferrer"
-        title={href}
         {...props}
       >
         {children}
@@ -326,14 +334,11 @@ export const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({
           }
         `}
       </style>
-      <ReactMarkdown
-        components={components}
-        remarkPlugins={plugins}
-      >
+      <ReactMarkdown components={components} remarkPlugins={plugins}>
         {content}
       </ReactMarkdown>
     </div>
   );
 };
 
-export default SimpleMarkdownRenderer; 
+export default SimpleMarkdownRenderer;

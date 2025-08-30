@@ -12,10 +12,10 @@ import {
   Select,
   Modal,
   Form,
-  message,
   Table,
   InputNumber,
   Alert,
+  App,
 } from "antd";
 import {
   PlusOutlined,
@@ -62,6 +62,7 @@ export function AssistantsSection({
   hasAssistantChanges = false,
   hasConfigChanges = false,
 }: AssistantsSectionProps) {
+  const { message } = App.useApp();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingAssistant, setEditingAssistant] =
@@ -712,21 +713,6 @@ export function AssistantsSection({
               showSearch={false}
               maxTagCount={3}
               maxTagTextLength={20}
-              value={form.getFieldValue("model_ids") || []}
-              onChange={(value) => {
-                console.log("Select onChange called with:", value);
-                form.setFieldValue("model_ids", value);
-              }}
-              onFocus={() => {
-                console.log(
-                  "Select onFocus, current form values:",
-                  form.getFieldsValue()
-                );
-                console.log(
-                  "Select onFocus, model_ids field value:",
-                  form.getFieldValue("model_ids")
-                );
-              }}
             >
               {getGroupedModelOptions().map((group) => (
                 <Select.OptGroup key={group.label} label={group.label}>

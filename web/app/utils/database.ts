@@ -1,4 +1,4 @@
-import { executeQuery, executeTransaction } from '../config/database';
+import { executeQuery, executeTransaction } from "../config/database";
 import {
   SystemPrompt,
   NewSystemPrompt,
@@ -18,26 +18,21 @@ import {
   DatabaseOperations,
   EvaluationRecord,
   NewEvaluationRecord,
-  EvaluationRecordFilters
-} from '../types/database';
+  EvaluationRecordFilters,
+} from "../types/database";
 
 // SQL-based Database Operations Implementation
 export class SQLDatabaseOperations implements DatabaseOperations {
-  
   // ==================== CREATE OPERATIONS ====================
-  
+
   async createSystemPrompt(data: NewSystemPrompt): Promise<SystemPrompt> {
     const query = `
       INSERT INTO partimeas_system_prompts (name, prompt, type)
       VALUES ($1, $2, $3)
       RETURNING *
     `;
-    const params = [
-      data.name,
-      data.prompt,
-      data.category || 'system'
-    ];
-    
+    const params = [data.name, data.prompt, data.category || "system"];
+
     const result = await executeQuery(query, params);
     return this.mapSystemPromptFromDB(result[0]);
   }
@@ -54,9 +49,9 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       data.description || null,
       data.category || null,
       data.isEncrypted !== undefined ? data.isEncrypted : false,
-      data.metadata ? JSON.stringify(data.metadata) : null
+      data.metadata ? JSON.stringify(data.metadata) : null,
     ];
-    
+
     const result = await executeQuery(query, params);
     return this.mapSystemSettingFromDB(result[0]);
   }
@@ -77,14 +72,16 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       data.temperature || null,
       data.costPerToken || null,
       data.capabilities ? JSON.stringify(data.capabilities) : null,
-      data.metadata ? JSON.stringify(data.metadata) : null
+      data.metadata ? JSON.stringify(data.metadata) : null,
     ];
-    
+
     const result = await executeQuery(query, params);
     return this.mapModelFromDB(result[0]);
   }
 
-  async createEvaluatorPrompt(data: NewEvaluatorPrompt): Promise<EvaluatorPrompt> {
+  async createEvaluatorPrompt(
+    data: NewEvaluatorPrompt
+  ): Promise<EvaluatorPrompt> {
     const query = `
       INSERT INTO evaluator_prompts (name, description, prompt, evaluation_type, criteria, scoring_method, max_score, is_active, version, metadata)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -99,10 +96,10 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       data.scoringMethod || null,
       data.maxScore || null,
       data.isActive !== undefined ? data.isActive : true,
-      data.version || '1.0.0',
-      data.metadata ? JSON.stringify(data.metadata) : null
+      data.version || "1.0.0",
+      data.metadata ? JSON.stringify(data.metadata) : null,
     ];
-    
+
     const result = await executeQuery(query, params);
     return this.mapEvaluatorPromptFromDB(result[0]);
   }
@@ -121,23 +118,27 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       data.evaluationConfig ? JSON.stringify(data.evaluationConfig) : null,
       data.isActive !== undefined ? data.isActive : true,
       data.priority || 0,
-      data.metadata ? JSON.stringify(data.metadata) : null
+      data.metadata ? JSON.stringify(data.metadata) : null,
     ];
-    
+
     const result = await executeQuery(query, params);
     return this.mapEvaluatorModelFromDB(result[0]);
   }
 
   // ==================== READ OPERATIONS ====================
-  
+
   async getSystemPrompt(id: string): Promise<SystemPrompt | null> {
-    const query = 'SELECT * FROM partimeas_system_prompts WHERE id = $1';
+    const query = "SELECT * FROM partimeas_system_prompts WHERE id = $1";
     const result = await executeQuery(query, [id]);
     return result.length > 0 ? this.mapSystemPromptFromDB(result[0]) : null;
   }
 
-  async getSystemPrompts(filters?: SystemPromptFilters, page: number = 1, limit: number = 10): Promise<PaginatedResponse<SystemPrompt>> {
-    let whereClause = 'WHERE 1=1';
+  async getSystemPrompts(
+    filters?: SystemPromptFilters,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<PaginatedResponse<SystemPrompt>> {
+    let whereClause = "WHERE 1=1";
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -168,39 +169,43 @@ export class SQLDatabaseOperations implements DatabaseOperations {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
   async getSystemSetting(key: string): Promise<SystemSetting | null> {
-    const query = 'SELECT * FROM system_settings WHERE key = $1';
+    const query = "SELECT * FROM system_settings WHERE key = $1";
     const result = await executeQuery(query, [key]);
     return result.length > 0 ? this.mapSystemSettingFromDB(result[0]) : null;
   }
 
   async getSystemSettings(category?: string): Promise<SystemSetting[]> {
-    let query = 'SELECT * FROM system_settings';
+    let query = "SELECT * FROM system_settings";
     const params: any[] = [];
-    
+
     if (category) {
-      query += ' WHERE category = $1';
+      query += " WHERE category = $1";
       params.push(category);
     }
-    
-    query += ' ORDER BY key';
+
+    query += " ORDER BY key";
     const result = await executeQuery(query, params);
     return result.map(this.mapSystemSettingFromDB);
   }
 
   async getModel(id: string): Promise<Model | null> {
-    const query = 'SELECT * FROM models WHERE id = $1';
+    const query = "SELECT * FROM models WHERE id = $1";
     const result = await executeQuery(query, [id]);
     return result.length > 0 ? this.mapModelFromDB(result[0]) : null;
   }
 
-  async getModels(filters?: ModelFilters, page: number = 1, limit: number = 10): Promise<PaginatedResponse<Model>> {
-    let whereClause = 'WHERE 1=1';
+  async getModels(
+    filters?: ModelFilters,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<PaginatedResponse<Model>> {
+    let whereClause = "WHERE 1=1";
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -239,19 +244,23 @@ export class SQLDatabaseOperations implements DatabaseOperations {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
   async getEvaluatorPrompt(id: string): Promise<EvaluatorPrompt | null> {
-    const query = 'SELECT * FROM evaluator_prompts WHERE id = $1';
+    const query = "SELECT * FROM evaluator_prompts WHERE id = $1";
     const result = await executeQuery(query, [id]);
     return result.length > 0 ? this.mapEvaluatorPromptFromDB(result[0]) : null;
   }
 
-  async getEvaluatorPrompts(filters?: EvaluatorPromptFilters, page: number = 1, limit: number = 10): Promise<PaginatedResponse<EvaluatorPrompt>> {
-    let whereClause = 'WHERE 1=1';
+  async getEvaluatorPrompts(
+    filters?: EvaluatorPromptFilters,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<PaginatedResponse<EvaluatorPrompt>> {
+    let whereClause = "WHERE 1=1";
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -290,19 +299,23 @@ export class SQLDatabaseOperations implements DatabaseOperations {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
   async getEvaluatorModel(id: string): Promise<EvaluatorModel | null> {
-    const query = 'SELECT * FROM evaluator_models WHERE id = $1';
+    const query = "SELECT * FROM evaluator_models WHERE id = $1";
     const result = await executeQuery(query, [id]);
     return result.length > 0 ? this.mapEvaluatorModelFromDB(result[0]) : null;
   }
 
-  async getEvaluatorModels(filters?: EvaluatorModelFilters, page: number = 1, limit: number = 10): Promise<PaginatedResponse<EvaluatorModel>> {
-    let whereClause = 'WHERE 1=1';
+  async getEvaluatorModels(
+    filters?: EvaluatorModelFilters,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<PaginatedResponse<EvaluatorModel>> {
+    let whereClause = "WHERE 1=1";
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -341,14 +354,17 @@ export class SQLDatabaseOperations implements DatabaseOperations {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
   // ==================== UPDATE OPERATIONS ====================
-  
-  async updateSystemPrompt(id: string, data: Partial<NewSystemPrompt>): Promise<SystemPrompt> {
+
+  async updateSystemPrompt(
+    id: string,
+    data: Partial<NewSystemPrompt>
+  ): Promise<SystemPrompt> {
     const updates: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -371,7 +387,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
 
     const query = `
       UPDATE partimeas_system_prompts 
-      SET ${updates.join(', ')}
+      SET ${updates.join(", ")}
       WHERE id = $${paramIndex}
       RETURNING *
     `;
@@ -380,7 +396,10 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     return this.mapSystemPromptFromDB(result[0]);
   }
 
-  async updateSystemSetting(key: string, data: Partial<NewSystemSetting>): Promise<SystemSetting> {
+  async updateSystemSetting(
+    key: string,
+    data: Partial<NewSystemSetting>
+  ): Promise<SystemSetting> {
     const updates: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -411,7 +430,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
 
     const query = `
       UPDATE partimeas_system_settings 
-      SET ${updates.join(', ')}
+      SET ${updates.join(", ")}
       WHERE key = $${paramIndex}
       RETURNING *
     `;
@@ -471,7 +490,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
 
     const query = `
       UPDATE models 
-      SET ${updates.join(', ')}
+      SET ${updates.join(", ")}
       WHERE id = $${paramIndex}
       RETURNING *
     `;
@@ -480,7 +499,10 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     return this.mapModelFromDB(result[0]);
   }
 
-  async updateEvaluatorPrompt(id: string, data: Partial<NewEvaluatorPrompt>): Promise<EvaluatorPrompt> {
+  async updateEvaluatorPrompt(
+    id: string,
+    data: Partial<NewEvaluatorPrompt>
+  ): Promise<EvaluatorPrompt> {
     const updates: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -531,7 +553,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
 
     const query = `
       UPDATE evaluator_prompts 
-      SET ${updates.join(', ')}
+      SET ${updates.join(", ")}
       WHERE id = $${paramIndex}
       RETURNING *
     `;
@@ -540,7 +562,10 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     return this.mapEvaluatorPromptFromDB(result[0]);
   }
 
-  async updateEvaluatorModel(id: string, data: Partial<NewEvaluatorModel>): Promise<EvaluatorModel> {
+  async updateEvaluatorModel(
+    id: string,
+    data: Partial<NewEvaluatorModel>
+  ): Promise<EvaluatorModel> {
     const updates: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -563,7 +588,9 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     }
     if (data.evaluationConfig !== undefined) {
       updates.push(`evaluation_config = $${paramIndex++}`);
-      params.push(data.evaluationConfig ? JSON.stringify(data.evaluationConfig) : null);
+      params.push(
+        data.evaluationConfig ? JSON.stringify(data.evaluationConfig) : null
+      );
     }
     if (data.isActive !== undefined) {
       updates.push(`is_active = $${paramIndex++}`);
@@ -583,7 +610,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
 
     const query = `
       UPDATE evaluator_models 
-      SET ${updates.join(', ')}
+      SET ${updates.join(", ")}
       WHERE id = $${paramIndex}
       RETURNING *
     `;
@@ -593,40 +620,43 @@ export class SQLDatabaseOperations implements DatabaseOperations {
   }
 
   // ==================== DELETE OPERATIONS ====================
-  
+
   async deleteSystemPrompt(id: string): Promise<boolean> {
-    const query = 'DELETE FROM partimeas_system_prompts WHERE id = $1 RETURNING id';
+    const query =
+      "DELETE FROM partimeas_system_prompts WHERE id = $1 RETURNING id";
     const result = await executeQuery(query, [id]);
     return result.length > 0;
   }
 
   async deleteSystemSetting(key: string): Promise<boolean> {
-    const query = 'DELETE FROM system_settings WHERE key = $1 RETURNING key';
+    const query = "DELETE FROM system_settings WHERE key = $1 RETURNING key";
     const result = await executeQuery(query, [key]);
     return result.length > 0;
   }
 
   async deleteModel(id: string): Promise<boolean> {
-    const query = 'DELETE FROM models WHERE id = $1 RETURNING id';
+    const query = "DELETE FROM models WHERE id = $1 RETURNING id";
     const result = await executeQuery(query, [id]);
     return result.length > 0;
   }
 
   async deleteEvaluatorPrompt(id: string): Promise<boolean> {
-    const query = 'DELETE FROM evaluator_prompts WHERE id = $1 RETURNING id';
+    const query = "DELETE FROM evaluator_prompts WHERE id = $1 RETURNING id";
     const result = await executeQuery(query, [id]);
     return result.length > 0;
   }
 
   async deleteEvaluatorModel(id: string): Promise<boolean> {
-    const query = 'DELETE FROM evaluator_models WHERE id = $1 RETURNING id';
+    const query = "DELETE FROM evaluator_models WHERE id = $1 RETURNING id";
     const result = await executeQuery(query, [id]);
     return result.length > 0;
   }
 
   // ==================== EVALUATION RECORD OPERATIONS ====================
 
-  async createEvaluationRecord(data: NewEvaluationRecord): Promise<EvaluationRecord> {
+  async createEvaluationRecord(
+    data: NewEvaluationRecord
+  ): Promise<EvaluationRecord> {
     const query = `
       INSERT INTO partimeas_evaluation_records (
         group_id, session_id, test_case_prompt, evaluator_model, 
@@ -643,21 +673,26 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       data.evaluator_system_prompt,
       data.ideal_response,
       data.ideal_test_case,
-      JSON.stringify(data.rubric_with_scoring)
+      JSON.stringify(data.rubric_with_scoring),
     ];
-    
+
     const result = await executeQuery(query, params);
     return this.mapEvaluationRecordFromDB(result[0]);
   }
 
   async getEvaluationRecord(id: string): Promise<EvaluationRecord | null> {
-    const query = 'SELECT * FROM partimeas_evaluation_records WHERE id = $1';
+    const query = "SELECT * FROM partimeas_evaluation_records WHERE id = $1";
     const result = await executeQuery(query, [id]);
     return result.length > 0 ? this.mapEvaluationRecordFromDB(result[0]) : null;
   }
 
-  async getEvaluationRecords(filters?: EvaluationRecordFilters, page: number = 1, limit: number = 10): Promise<PaginatedResponse<EvaluationRecord>> {
-    let whereClause = 'WHERE 1=1';
+  async getEvaluationRecords(
+    filters?: EvaluationRecordFilters,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<PaginatedResponse<EvaluationRecord>> {
+
+    let whereClause = "WHERE 1=1";
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -671,20 +706,24 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     }
 
     const countQuery = `SELECT COUNT(*) FROM partimeas_evaluation_records ${whereClause}`;
+
     const countResult = await executeQuery(countQuery, params);
     const total = parseInt(countResult[0].count);
+
 
     const offset = (page - 1) * limit;
     const query = `
       SELECT * FROM partimeas_evaluation_records 
       ${whereClause}
-      ORDER BY created_at DESC 
+      ORDER BY created_at ASC 
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
     `;
     params.push(limit, offset);
 
+
     const result = await executeQuery(query, params);
     const data = result.map(this.mapEvaluationRecordFromDB);
+
 
     return {
       data,
@@ -692,12 +731,15 @@ export class SQLDatabaseOperations implements DatabaseOperations {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
-  async updateEvaluationRecord(id: string, data: Partial<NewEvaluationRecord>): Promise<EvaluationRecord> {
+  async updateEvaluationRecord(
+    id: string,
+    data: Partial<NewEvaluationRecord>
+  ): Promise<EvaluationRecord> {
     const updates: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -736,13 +778,13 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     }
 
     if (updates.length === 0) {
-      throw new Error('No fields to update');
+      throw new Error("No fields to update");
     }
 
     params.push(id);
     const query = `
       UPDATE partimeas_evaluation_records 
-      SET ${updates.join(', ')}
+      SET ${updates.join(", ")}
       WHERE id = $${paramIndex}
       RETURNING *
     `;
@@ -752,13 +794,14 @@ export class SQLDatabaseOperations implements DatabaseOperations {
   }
 
   async deleteEvaluationRecord(id: string): Promise<boolean> {
-    const query = 'DELETE FROM partimeas_evaluation_records WHERE id = $1 RETURNING id';
+    const query =
+      "DELETE FROM partimeas_evaluation_records WHERE id = $1 RETURNING id";
     const result = await executeQuery(query, [id]);
     return result.length > 0;
   }
 
   // ==================== HELPER METHODS ====================
-  
+
   private mapSystemPromptFromDB(row: any): SystemPrompt {
     return {
       id: row.id,
@@ -766,10 +809,10 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       description: row.description || undefined,
       prompt: row.prompt,
       category: row.type,
-      version: row.version || '1.0.0',
+      version: row.version || "1.0.0",
       metadata: row.metadata || undefined,
       createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at)
+      updatedAt: new Date(row.updated_at),
     };
   }
 
@@ -783,7 +826,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       isEncrypted: row.is_encrypted,
       metadata: row.metadata,
       createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at)
+      updatedAt: new Date(row.updated_at),
     };
   }
 
@@ -801,7 +844,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       capabilities: row.capabilities,
       metadata: row.metadata,
       createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at)
+      updatedAt: new Date(row.updated_at),
     };
   }
 
@@ -819,7 +862,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       version: row.version,
       metadata: row.metadata,
       createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at)
+      updatedAt: new Date(row.updated_at),
     };
   }
 
@@ -835,7 +878,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       priority: row.priority,
       metadata: row.metadata,
       createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at)
+      updatedAt: new Date(row.updated_at),
     };
   }
 
@@ -850,7 +893,7 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       evaluator_system_prompt: row.evaluator_system_prompt,
       ideal_response: row.ideal_response,
       ideal_test_case: row.ideal_test_case,
-      rubric_with_scoring: row.rubric_with_scoring
+      rubric_with_scoring: row.rubric_with_scoring,
     };
   }
 }
@@ -864,24 +907,30 @@ export const systemPromptUtils = {
   getByCategory: (category: string) => db.getSystemPrompts({ category }),
   get: (id: string) => db.getSystemPrompt(id),
   create: (data: NewSystemPrompt) => db.createSystemPrompt(data),
-  update: (id: string, data: Partial<NewSystemPrompt>) => db.updateSystemPrompt(id, data),
-  delete: (id: string) => db.deleteSystemPrompt(id)
+  update: (id: string, data: Partial<NewSystemPrompt>) =>
+    db.updateSystemPrompt(id, data),
+  delete: (id: string) => db.deleteSystemPrompt(id),
 };
 
 export const systemSettingUtils = {
   getAll: () => db.getSystemSettings(),
   get: (key: string) => db.getSystemSetting(key),
   create: (data: NewSystemSetting) => db.createSystemSetting(data),
-  update: (key: string, data: Partial<NewSystemSetting>) => db.updateSystemSetting(key, data),
-  delete: (key: string) => db.deleteSystemSetting(key)
+  update: (key: string, data: Partial<NewSystemSetting>) =>
+    db.updateSystemSetting(key, data),
+  delete: (key: string) => db.deleteSystemSetting(key),
 };
 
 export const evaluationRecordUtils = {
-  getAll: (filters?: EvaluationRecordFilters) => db.getEvaluationRecords(filters),
-  getByGroupId: (groupId: string) => db.getEvaluationRecords({ group_id: groupId }),
-  getBySessionId: (sessionId: string) => db.getEvaluationRecords({ session_id: sessionId }),
+  getAll: (filters?: EvaluationRecordFilters) =>
+    db.getEvaluationRecords(filters),
+  getByGroupId: (groupId: string) =>
+    db.getEvaluationRecords({ group_id: groupId }),
+  getBySessionId: (sessionId: string) =>
+    db.getEvaluationRecords({ session_id: sessionId }),
   get: (id: string) => db.getEvaluationRecord(id),
   create: (data: NewEvaluationRecord) => db.createEvaluationRecord(data),
-  update: (id: string, data: Partial<NewEvaluationRecord>) => db.updateEvaluationRecord(id, data),
-  delete: (id: string) => db.deleteEvaluationRecord(id)
-}; 
+  update: (id: string, data: Partial<NewEvaluationRecord>) =>
+    db.updateEvaluationRecord(id, data),
+  delete: (id: string) => db.deleteEvaluationRecord(id),
+};

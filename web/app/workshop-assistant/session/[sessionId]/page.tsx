@@ -3,12 +3,15 @@ import { Suspense, useEffect, useState, use } from "react";
 import VerticalStepper from "@/app/components/steps/VerticalStepper";
 import { RefreshIcon } from "@/app/components/icons";
 import SessionHeader from "@/app/components/SessionHeader";
-import { TestCase, TestCaseWithModelOutputs } from "@/app/types";
+import { TestCase, TestCaseWithModelOutputs, IdealModelResponse } from "@/app/types";
 import type { SessionWithResponses } from "@/app/utils/sessionManager";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import TestCaseNavigation from "@/app/components/TestCaseNavigation";
 import ModelOutputsGrid from "@/app/components/ModelOutputsGrid";
+import InputScoringTable from "@/app/components/evaluation/InputScoringTable";
 import { useConfig } from "@/app/hooks/useConfig";
+import { useCriteriaData } from "@/app/hooks/useCriteriaData";
+import { useIdealResponses } from "@/app/hooks/useIdealResponses";
 
 // Loading fallback component
 function LoadingFallback() {
@@ -28,11 +31,21 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   const [session, setSession] = useState<SessionWithResponses | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showScoring, setShowScoring] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Get configuration values
   const config = useConfig();
   const { numOutputsToShow } = config;
+  
+  // Get rubric and ideal response from URL params
+  const rubricId = searchParams.get('rubricId');
+  const idealResponseId = searchParams.get('idealResponseId');
+  
+  // Load criteria data and ideal responses
+  const { criteria } = useCriteriaData();
+  const { idealResponses } = useIdealResponses();
 
   useEffect(() => {
     const loadSession = async () => {
@@ -137,7 +150,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   ];
 
   // Convert session responses to model outputs format
-  const sessionModelOutputs = session.responses.map((response) => ({
+  const sessionModelOutputs = session.responses.map((response, index) => ({
     id: response.id,
     modelId: `${response.provider}/${response.model}`,
     modelName: response.model,
@@ -146,6 +159,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
     rubricScores: {},
     feedback: "",
     suggestions: [],
+    index: index,
   }));
 
   // Create TestCaseWithModelOutputs from session data
@@ -191,6 +205,42 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
       isCollapsed: false,
       content: (
         <div className="space-y-6">
+          {/* Scoring Table if rubric and ideal response are selected */}
+          {rubricId && idealResponseId && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Response Scoring</h3>
+                <button
+                  onClick={() => setShowScoring(!showScoring)}
+                  className="text-sm text-blue-600 hover:text-blue-700"
+                >
+                  {showScoring ? 'Hide Scoring' : 'Show Scoring'}
+                </button>
+              </div>
+              {showScoring && (
+                <InputScoringTable
+                  responses={sessionModelOutputs.map((output, index) => ({
+                    id: output.id,
+                    label: `Response ${index + 1} (${output.modelId})`
+                  }))}
+                  selectedIdealResponseId={idealResponseId}
+                  enableIdealScoreEditing={false}
+                  idealResponses={idealResponses}
+                  sessionId={sessionId}
+                  modelOutputs={sessionModelOutputs}
+                  testCase={{
+                    input: session.test_case_prompt,
+                    context: session.test_case_scenario_category,
+                    useCase: "session-loaded",
+                    scenarioCategory: session.test_case_scenario_category
+                  }}
+                  showAiResults={true}
+                  onCompareClick={(isComparing) => setShowScoring(isComparing)}
+                />
+              )}
+            </div>
+          )}
+          
           {/* Model Outputs Grid - using consistent styling */}
           <ModelOutputsGrid
             modelOutputs={testCasesWithModelOutputs[0]?.modelOutputs}
@@ -199,11 +249,12 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
             onTestCaseSelect={() => {}} // No-op for read-only session
             stepId="analysis"
             className=""
-            showEvaluationFeatures={false}
-            isRealEvaluation={false}
+            showEvaluationFeatures={rubricId && idealResponseId ? true : false}
+            isRealEvaluation={rubricId && idealResponseId ? true : false}
             currentPhase="complete"
             numOutputsToShow={numOutputsToShow}
             sessionId={sessionId}
+            idealResponses={idealResponses}
           />
         </div>
       ),
