@@ -163,15 +163,20 @@ export async function collectEvaluationData(
       const humanRaw =
         snapshot.humanScores[item.id]?.[rawId] ??
         snapshot.humanScores[item.id]?.[responseId];
+      const humanRationale = 
+        snapshot.humanRationales[item.id]?.[rawId] ??
+        snapshot.humanRationales[item.id]?.[responseId] || "";
+      
+      // Debug logging for rationales
+      if (humanRationale) {
+        console.log(`[EvaluationDataCollector] Found rationale for ${item.id}/${responseId}: "${humanRationale}"`);
+      }
+      
       const human_score =
         typeof humanRaw === "number"
           ? {
               score: humanRaw,
-              rationale: (
-                (snapshot.humanRationales[item.id]?.[rawId] ??
-                  snapshot.humanRationales[item.id]?.[responseId]) ||
-                ""
-              ).trim(),
+              rationale: humanRationale.trim(),
             }
           : undefined;
 

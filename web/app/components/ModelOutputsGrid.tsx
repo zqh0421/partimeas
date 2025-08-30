@@ -89,7 +89,8 @@ export default function ModelOutputsGrid({
   >("cards");
   const [useRealCriteria, setUseRealCriteria] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
-  const [isComparing, setIsComparing] = useState(false);
+  // Track comparison state per test case
+  const [comparingStates, setComparingStates] = useState<Map<string | number, boolean>>(new Map());
   const inputScoringTableRef = React.useRef<{
     changeVersion: (index: number) => void;
   } | null>(null);
@@ -119,7 +120,9 @@ export default function ModelOutputsGrid({
   // Fetch saved evaluation versions for this session and filter to same group
   useEffect(() => {
     const fetchVersions = async () => {
-      if (!sessionId || !isRealEvaluation || !isComparing) {
+      // Check if any test case is in comparing mode
+      const isAnyComparing = Array.from(comparingStates.values()).some(v => v);
+      if (!sessionId || !isRealEvaluation || !isAnyComparing) {
         setVersions([]);
         setCurrentVersionIndex(null);
         return;
@@ -168,7 +171,7 @@ export default function ModelOutputsGrid({
       }
     };
     fetchVersions();
-  }, [sessionId, isRealEvaluation, isComparing]);
+  }, [sessionId, isRealEvaluation, comparingStates]);
 
   const currentVersion: EvaluationRecord | null = useMemo(() => {
     if (currentVersionIndex === null) return null;
@@ -180,7 +183,7 @@ export default function ModelOutputsGrid({
 
   // Log when comparison state changes
   useEffect(() => {}, [
-    isComparing,
+    comparingStates,
     sessionId,
     isRealEvaluation,
     versions.length,
@@ -334,7 +337,7 @@ export default function ModelOutputsGrid({
               <h3 className="text-lg font-medium text-gray-900">
                 {isRealEvaluation ? <>Response Scoring</> : ""}
               </h3>
-              {isRealEvaluation && !isComparing && (
+              {isRealEvaluation && !comparingStates.get(testCases?.[selectedTestCaseIndex || 0]?.id || selectedTestCaseIndex || 0) && (
                 <p className="mt-1 text-sm text-gray-600">
                   Provide your expected scoring points with rationale on how the
                   model responses perform on your rubric, before proceeding and
@@ -342,9 +345,9 @@ export default function ModelOutputsGrid({
                 </p>
               )}
             </div>
-            {/* Only show version navigation when in comparing mode */}
+            {/* Only show version navigation when in comparing mode for the current test case */}
             {isRealEvaluation &&
-              isComparing &&
+              comparingStates.get(testCases?.[selectedTestCaseIndex || 0]?.id || selectedTestCaseIndex || 0) &&
               versionInfo.totalVersions > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="ml-2 text-xs font-normal text-gray-500">
@@ -414,7 +417,7 @@ export default function ModelOutputsGrid({
               )}
           </div>
 
-          {isRealEvaluation && isComparing && (
+          {isRealEvaluation && comparingStates.get(testCases?.[selectedTestCaseIndex || 0]?.id || selectedTestCaseIndex || 0) && (
             <div className="mt-2">
               {isLoadingVersions && (
                 <div className="text-xs text-slate-500">Loading versions…</div>
@@ -510,8 +513,14 @@ export default function ModelOutputsGrid({
                   }
                 );
 
+                // Create a unique key for each test case to force component remount
+                const testCaseKey = `scoring-table-${selectedTestCase?.id || selectedTestCaseIndex || 0}`;
+                const testCaseId = selectedTestCase?.id || selectedTestCaseIndex || 0;
+                const isTestCaseComparing = comparingStates.get(testCaseId) || false;
+
                 return (
                   <InputScoringTable
+                    key={testCaseKey}
                     ref={inputScoringTableRef}
                     responses={(modelOutputs || []).map((mo, i) => ({
                       id: mo.modelId || mo.modelName || `Response ${i + 1}`,
@@ -520,7 +529,12 @@ export default function ModelOutputsGrid({
                     modelOutputs={modelOutputs}
                     testCase={selectedTestCase}
                     onCompareClick={(enabled) => {
-                      setIsComparing(enabled);
+                      // Update the comparison state for this specific test case
+                      setComparingStates(prev => {
+                        const newMap = new Map(prev);
+                        newMap.set(testCaseId, enabled);
+                        return newMap;
+                      });
                       if (onCompareClick) onCompareClick();
                     }}
                     idealResponses={idealResponses}

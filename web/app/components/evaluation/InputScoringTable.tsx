@@ -74,6 +74,12 @@ const InputScoringTable = forwardRef<
       };
     }
 
+    // Handle case where criteria is not yet loaded
+    if (!criteria || criteria.length === 0) {
+      console.log("[InputScoringTable] No criteria available yet, using empty derived data");
+      return { items: [], instructions: [], points: [] };
+    }
+
     const selectedVersionId = restoreIndependentCriteriaSelection();
     let selectedVersion = criteria.find(
       (v) => v.sheetName === selectedVersionId
@@ -385,7 +391,10 @@ const InputScoringTable = forwardRef<
 
   // Fetch evaluation versions when entering comparing mode
   useEffect(() => {
-    if (!isComparingMode || !sessionId) {
+    // Use test case session ID if available, otherwise fall back to prop session ID
+    const effectiveSessionId = testCase?.sessionId || sessionId;
+    
+    if (!isComparingMode || !effectiveSessionId) {
       // Cancel any in-flight requests
       if (fetchVersionsAbortController.current) {
         fetchVersionsAbortController.current.abort();
@@ -411,7 +420,7 @@ const InputScoringTable = forwardRef<
       
       try {
         const response = await fetch(
-          `/api/evaluation-records?action=bySession&session_id=${sessionId}`,
+          `/api/evaluation-records?action=bySession&session_id=${effectiveSessionId}`,
           {
             signal,
             cache: 'no-store' // Disable caching to ensure fresh data
@@ -468,7 +477,7 @@ const InputScoringTable = forwardRef<
         fetchVersionsAbortController.current = null;
       }
     };
-  }, [isComparingMode, sessionId]);
+  }, [isComparingMode, sessionId, testCase?.sessionId]);
 
   // Notify parent about version info changes
   useEffect(() => {
@@ -580,6 +589,11 @@ const InputScoringTable = forwardRef<
                   scoreData.human_score.score;
                 newHumanRationales[rubricItemId][mappedResponseId] =
                   scoreData.human_score.rationale || "";
+                
+                // Debug logging for loaded rationales
+                if (scoreData.human_score.rationale) {
+                  console.log(`[InputScoringTable] Loaded rationale for ${rubricItemId}/${mappedResponseId}: "${scoreData.human_score.rationale}"`);
+                }
               }
 
               // Set AI scores and rationales
@@ -1067,13 +1081,28 @@ const InputScoringTable = forwardRef<
     setUploadStatus(null);
 
     try {
-      // Prepare the data for upload - prefer sessionId from testCase if available
-      const effectiveSessionId = testCase?.sessionId || sessionId;
+      // Generate a unique session ID for each test case if not already present
+      // This ensures each test case has independent version history
+      let effectiveSessionId = testCase?.sessionId || sessionId;
+      
+      // If no session ID exists, create one unique to this test case
+      if (!effectiveSessionId && testCase) {
+        effectiveSessionId = `${testCase.id || 'test'}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        console.log(
+          "[InputScoringTable] • Generated unique sessionId for test case:",
+          effectiveSessionId
+        );
+      }
+      
       console.log(
         "[InputScoringTable] • Effective sessionId:",
         effectiveSessionId
       );
 
+      // Debug: Log rationales being uploaded
+      console.log("[InputScoringTable] Uploading rationales:", rationales);
+      console.log("[InputScoringTable] Uploading scores:", scores);
+      
       const result = await collectAndUploadEvaluationData({
         testCase: testCase,
         modelOutputs: modelOutputs,
@@ -1115,7 +1144,7 @@ const InputScoringTable = forwardRef<
           fetchVersionsAbortController.current = new AbortController();
           const signal = fetchVersionsAbortController.current.signal;
           
-          // Fetch updated versions
+          // Fetch updated versions with the effective session ID (test-case specific)
           try {
             const response = await fetch(
               `/api/evaluation-records?action=bySession&session_id=${effectiveSessionId}`,

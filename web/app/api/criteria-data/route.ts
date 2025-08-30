@@ -30,7 +30,21 @@ export async function GET(request: NextRequest) {
     // Validate criteria
     const validation = validateCriteria(allCriteria);
     
+    // Special handling for "No criterion versions found" - this is OK for initial setup
     if (!validation.isValid) {
+      // Check if the only error is "No criterion versions found"
+      if (validation.errors.length === 1 && validation.errors[0] === 'No criterion versions found') {
+        console.warn('[criteria-data] No criterion versions found - this is normal for initial setup');
+        // Return success with empty criteria
+        return NextResponse.json({
+          success: true,
+          criteria: [],
+          validation: { isValid: true, errors: [], warnings: ['No criterion versions found yet'] },
+          totalCriteria: 0
+        });
+      }
+      
+      // Other validation errors are real problems
       return NextResponse.json(
         { 
           error: 'Criteria validation failed',

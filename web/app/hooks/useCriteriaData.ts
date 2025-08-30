@@ -22,6 +22,12 @@ export function useCriteriaData(): UseCriteriaDataReturn {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        // Handle "No criterion versions found" as a warning, not an error
+        if (errorData.details === 'No criterion versions found') {
+          console.warn('[useCriteriaData] No criterion versions found yet - this is normal for new sessions');
+          setCriteria([]);
+          return;
+        }
         throw new Error(errorData.details || `Failed to fetch criteria: ${response.statusText}`);
       }
       
