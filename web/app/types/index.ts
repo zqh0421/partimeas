@@ -482,7 +482,7 @@ export interface IdealModelResponse {
   id: string;
   name: string; // Primary key from column A1
   modelResponse: string; // From column B1
-  testCaseInput?: string; // From column C1 (optional)
+  testCaseInput: string; // From column C1 (required)
 }
 
 export interface IdealResponseScore {

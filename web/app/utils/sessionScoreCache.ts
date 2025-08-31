@@ -1,6 +1,6 @@
 /**
  * Session-based caching for scores and rationales
- * Caches data by session ID and row index, independent of rubric content
+ * Caches data by session ID and criterion num, independent of rubric content
  */
 
 interface ScoreData {
@@ -10,7 +10,7 @@ interface ScoreData {
 
 interface SessionCache {
   [sessionId: string]: {
-    [rowIndex: number]: {
+    [criterionNum: number]: {
       [responseId: string]: ScoreData;
     };
   };
@@ -57,11 +57,11 @@ export function getCachedSessionData(sessionId: string | null | undefined): Reco
 }
 
 /**
- * Cache a score and rationale for a specific session, row, and response
+ * Cache a score and rationale for a specific session, criterion num, and response
  */
 export function cacheSessionScore(
   sessionId: string | null | undefined,
-  rowIndex: number,
+  criterionNum: number,
   responseId: string,
   score: number | "",
   rationale: string
@@ -74,11 +74,11 @@ export function cacheSessionScore(
     cache[sessionId] = {};
   }
   
-  if (!cache[sessionId][rowIndex]) {
-    cache[sessionId][rowIndex] = {};
+  if (!cache[sessionId][criterionNum]) {
+    cache[sessionId][criterionNum] = {};
   }
   
-  cache[sessionId][rowIndex][responseId] = {
+  cache[sessionId][criterionNum][responseId] = {
     score,
     rationale
   };
@@ -99,10 +99,11 @@ export function clearSessionCache(sessionId: string | null | undefined): void {
 
 /**
  * Get all cached data for restoring state
+ * @param criterionNums - Array of criterion num values for mapping cached data
  */
 export function restoreSessionScores(
   sessionId: string | null | undefined,
-  rowCount: number,
+  criterionNums: number[],
   responseIds: string[]
 ): {
   scores: Record<string, Record<string, number | "">>;
@@ -116,16 +117,16 @@ export function restoreSessionScores(
   const scores: Record<string, Record<string, number | "">> = {};
   const rationales: Record<string, Record<string, string>> = {};
   
-  // Initialize empty structure for all rows
-  for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-    const rowId = `row-${rowIndex}`;
+  // Initialize empty structure for all criteria by their num
+  criterionNums.forEach((num, index) => {
+    const rowId = `criterion-${num}`;
     scores[rowId] = {};
     rationales[rowId] = {};
     
     // Fill in cached data if available
-    if (cachedData[rowIndex]) {
+    if (cachedData[num]) {
       for (const responseId of responseIds) {
-        const cached = cachedData[rowIndex][responseId];
+        const cached = cachedData[num][responseId];
         if (cached) {
           scores[rowId][responseId] = cached.score;
           rationales[rowId][responseId] = cached.rationale;
@@ -135,24 +136,26 @@ export function restoreSessionScores(
         }
       }
     } else {
-      // No cached data for this row, initialize empty
+      // No cached data for this criterion, initialize empty
       for (const responseId of responseIds) {
         scores[rowId][responseId] = "";
         rationales[rowId][responseId] = "";
       }
     }
-  }
+  });
   
   return { scores, rationales };
 }
 
 /**
  * Cache all scores and rationales at once (batch update)
+ * @param criterionNumMap - Map of item IDs to their num values
  */
 export function batchCacheSessionData(
   sessionId: string | null | undefined,
   scores: Record<string, Record<string, number | "">>,
-  rationales: Record<string, Record<string, string>>
+  rationales: Record<string, Record<string, string>>,
+  criterionNumMap: Record<string, number>
 ): void {
   if (!sessionId) return;
   
@@ -162,14 +165,17 @@ export function batchCacheSessionData(
     cache[sessionId] = {};
   }
   
-  // Convert from rubric item IDs to row indices
-  Object.keys(scores).forEach((itemId, rowIndex) => {
-    if (!cache[sessionId][rowIndex]) {
-      cache[sessionId][rowIndex] = {};
+  // Convert from rubric item IDs to criterion nums
+  Object.keys(scores).forEach((itemId) => {
+    const num = criterionNumMap[itemId];
+    if (num === undefined) return; // Skip if no num mapping
+    
+    if (!cache[sessionId][num]) {
+      cache[sessionId][num] = {};
     }
     
     Object.keys(scores[itemId]).forEach(responseId => {
-      cache[sessionId][rowIndex][responseId] = {
+      cache[sessionId][num][responseId] = {
         score: scores[itemId][responseId],
         rationale: rationales[itemId]?.[responseId] || ""
       };

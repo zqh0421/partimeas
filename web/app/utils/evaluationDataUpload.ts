@@ -4,18 +4,15 @@ import { IdealModelResponse } from "@/app/types";
 interface RubricItem {
   id: string;
   name: string;
-}
-
-interface RubricInstruction {
-  positive: string;
-  negative: string;
+  requirement?: string;
+  num: number;
+  weight?: string;
 }
 
 interface EvaluationUploadParams {
   testCase?: any;
   modelOutputs?: any[];
   rubricItems: RubricItem[];
-  rubricInstructions: RubricInstruction[];
   rubricPoints: number[];
   humanScores: Record<string, Record<string, number | "">>;
   humanRationales: Record<string, Record<string, string>>;
@@ -53,7 +50,6 @@ export function useEvaluationDataUpload(
         testCase: params.testCase,
         modelOutputs: params.modelOutputs,
         rubricItems: params.rubricItems,
-        rubricInstructions: params.rubricInstructions,
         rubricPoints: params.rubricPoints,
         humanScores: params.humanScores,
         humanRationales: params.humanRationales,

@@ -472,7 +472,7 @@ export default function ModelComparisonStep({
               </div>
             )}
             {/* Only show copy button when sessionId is available (database has returned session_id) */}
-            {sessionId && (
+            {/* {sessionId && (
               <button
                 onClick={async () => {
                   const baseUrl = window.location.origin;
@@ -509,7 +509,7 @@ export default function ModelComparisonStep({
                 </svg>
                 Copy Sharable Link
               </button>
-            )}
+            )} */}
           </div>
         </div>
 

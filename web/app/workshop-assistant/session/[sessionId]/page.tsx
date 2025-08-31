@@ -1,21 +1,16 @@
 "use client";
 import { Suspense, useEffect, useState, use } from "react";
 import VerticalStepper from "@/app/components/steps/VerticalStepper";
-import { RefreshIcon } from "@/app/components/icons";
 import SessionHeader from "@/app/components/SessionHeader";
-import {
-  TestCase,
-  TestCaseWithModelOutputs,
-  IdealModelResponse,
-} from "@/app/types";
+import { TestCase, TestCaseWithModelOutputs } from "@/app/types";
 import type { SessionWithResponses } from "@/app/utils/sessionManager";
 import { useRouter, useSearchParams } from "next/navigation";
 import TestCaseNavigation from "@/app/components/TestCaseNavigation";
 import ModelOutputsGrid from "@/app/components/ModelOutputsGrid";
-import InputScoringTable from "@/app/components/evaluation/InputScoringTable";
 import { useConfig } from "@/app/hooks/useConfig";
 import { useCriteriaData } from "@/app/hooks/useCriteriaData";
 import { useIdealResponses } from "@/app/hooks/useIdealResponses";
+import { RefreshIcon } from "@/app/components/icons";
 
 // Loading fallback component
 function LoadingFallback() {
@@ -42,9 +37,13 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   const config = useConfig();
   const { numOutputsToShow } = config;
 
-  // Get rubric and ideal response from URL params
-  const rubricId = searchParams.get("rubricId");
-  const idealResponseId = searchParams.get("idealResponseId");
+  // Get rubric and ideal response from session data (priority) or URL params (fallback)
+  const [rubricId, setRubricId] = useState<string | null>(
+    searchParams.get("rubricId")
+  );
+  const [idealResponseId, setIdealResponseId] = useState<string | null>(
+    searchParams.get("idealResponseId")
+  );
 
   // Load criteria data and ideal responses
   const { criteria } = useCriteriaData();
@@ -90,6 +89,23 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
 
         console.log("✅ Session validation passed");
         setSession(sessionData);
+
+        // Set rubric and ideal response from session data if available
+        if (sessionData.linked_criterion_sheet_name) {
+          console.log(
+            "📋 Using linked rubric from session:",
+            sessionData.linked_criterion_sheet_name
+          );
+          setRubricId(sessionData.linked_criterion_sheet_name);
+        }
+
+        if (sessionData.linked_ideal_response) {
+          console.log(
+            "📋 Using linked ideal response from session:",
+            sessionData.linked_ideal_response
+          );
+          setIdealResponseId(sessionData.linked_ideal_response);
+        }
       } catch (err) {
         console.error("Error loading session:", err);
         setError(err instanceof Error ? err.message : "Failed to load session");
@@ -208,31 +224,25 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
       isCollapsed: false,
       content: (
         <div className="space-y-6">
-          {/* Scoring Table if rubric and ideal response are selected */}
-          {rubricId && idealResponseId && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Response Scoring
-                </h3>
-              </div>
-            </div>
-          )}
-
-          {/* Model Outputs Grid - using consistent styling */}
+          {/* Model Outputs Grid with scoring - configured exactly like workshop-assistant */}
           <ModelOutputsGrid
             modelOutputs={testCasesWithModelOutputs[0]?.modelOutputs}
             testCases={testCases}
             selectedTestCaseIndex={0}
             onTestCaseSelect={() => {}} // No-op for read-only session
             stepId="analysis"
-            className=""
+            className="space-y-4"
             showEvaluationFeatures={rubricId && idealResponseId ? true : false}
             isRealEvaluation={rubricId && idealResponseId ? true : false}
             currentPhase="complete"
             numOutputsToShow={numOutputsToShow}
             sessionId={sessionId}
+            showFinalResultsHere={false}
+            selectedCriteriaId={rubricId ?? undefined}
+            selectedIdealResponseId={idealResponseId ?? undefined}
             idealResponses={idealResponses}
+            isStreaming={false}
+            isLoading={false}
           />
         </div>
       ),

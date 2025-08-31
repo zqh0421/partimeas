@@ -23,7 +23,7 @@ interface UseStreamingGenerationReturn {
   isStreaming: boolean;
   isComplete: boolean;
   sessionId: string | null;
-  startStreaming: (testCase: any, groupId?: string) => Promise<void>;
+  startStreaming: (testCase: any, groupId?: string, idealResponse?: any, criteriaSheetName?: string) => Promise<void>;
   resetStream: () => void;
 }
 
@@ -62,7 +62,7 @@ export const useStreamingGeneration = (): UseStreamingGenerationReturn => {
     partialOutputsRef.current.clear();
   }, []);
 
-  const startStreaming = useCallback(async (testCase: any, groupId?: string) => {
+  const startStreaming = useCallback(async (testCase: any, groupId?: string, idealResponse?: any, criteriaSheetName?: string) => {
     try {
       // Reset previous state
       resetStream();
@@ -70,7 +70,7 @@ export const useStreamingGeneration = (): UseStreamingGenerationReturn => {
       setIsStreaming(true);
       setIsComplete(false);
 
-      console.log('🚀 Starting streaming generation...', { testCase, groupId });
+      console.log('🚀 Starting streaming generation...', { testCase, groupId, idealResponse, criteriaSheetName });
 
       // Create abort controller for cleanup
       abortControllerRef.current = new AbortController();
@@ -84,6 +84,8 @@ export const useStreamingGeneration = (): UseStreamingGenerationReturn => {
         body: JSON.stringify({
           testCase,
           groupId,
+          idealResponse,
+          criteriaSheetName,
         }),
         signal: abortControllerRef.current.signal,
       });

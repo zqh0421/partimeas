@@ -531,11 +531,20 @@ const generateModelOutputStreaming = async (
 
 export async function POST(request: NextRequest) {
   try {
-    const { testCase, groupId } = await request.json();
+    const { testCase, groupId, idealResponse, criteriaSheetName } = await request.json();
 
     console.log(`🚀 Streaming model evaluation request received`);
     console.log("Test case:", testCase);
     console.log("Group ID:", groupId);
+    
+    // Log warning if criteria or ideal response are missing (but don't block)
+    if (!criteriaSheetName || !idealResponse?.id) {
+      console.warn("⚠️ Session being created without complete evaluation data:", {
+        criteriaSheetName: criteriaSheetName || "missing",
+        idealResponseId: idealResponse?.id || "missing",
+        note: "Response scoring section will not be available for this session"
+      });
+    }
 
     // Fetch configuration from database (same logic as original)
     let numOutputsToRun = 2;
@@ -723,8 +732,9 @@ export async function POST(request: NextRequest) {
 
             const sessionQuery = `
               INSERT INTO partimeas_sessions 
-              (response_count, test_case_scenario_category, test_case_prompt, random_algorithm_used, group_id)
-              VALUES ($1, $2, $3, $4, $5)
+              (response_count, test_case_scenario_category, test_case_prompt, random_algorithm_used, group_id,
+               linked_ideal_response, linked_ideal_test_case, linked_criterion_sheet_name)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
               RETURNING id
             `;
 
@@ -734,6 +744,9 @@ export async function POST(request: NextRequest) {
               testCase.input,
               assistantModelAlgorithm,
               groupId || null,
+              idealResponse?.id || null,
+              idealResponse?.idealTestCase || idealResponse?.testCaseInput || null,
+              criteriaSheetName || null,
             ]);
 
             sessionId = sessionResult[0]?.id;

@@ -1,17 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getGoogleAccessToken } from "@/app/utils/googleAuth";
 import { IdealModelResponse } from "@/app/types";
 
 // Configuration for the ideal responses spreadsheet
 const IDEAL_RESPONSES_CONFIG = {
-  spreadsheetId: "1mxB0wikvWqgLojt6mY590rfhvSCC8vjk5p0WmWqCULo",
-  sheetName: "Sheet1",
+  spreadsheetId: "1GAKpJzbIWEIi2RxwrKcJVe0fLj2glpuDu1rDC_UkSAs",
+  sheetName: "test cases",
 };
 
 const FIELD_MAP = {
-  name: ["Name"], // A1
-  modelResponse: ["Model Response"], // B1
-  testCaseInput: ["Test Case Input"], // C1 (optional)
+  name: ["Test Case Name/Group"], // A1
+  modelResponse: ["Ideal Response"], // B1
+  testCaseInput: ["Prompt"], // C1 (required)
 };
 
 function findFieldValue(
@@ -53,7 +53,10 @@ async function fetchSheetData(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`[ideal-responses] Google Sheets API error response:`, errorText);
+    console.error(
+      `[ideal-responses] Google Sheets API error response:`,
+      errorText
+    );
     throw new Error(
       `Google Sheets API error: ${response.status} - ${errorText}`
     );
@@ -62,7 +65,9 @@ async function fetchSheetData(
   const data = await response.json();
 
   console.log(
-    `[ideal-responses] Google Sheets API returned ${data.values?.length || 0} total rows`
+    `[ideal-responses] Google Sheets API returned ${
+      data.values?.length || 0
+    } total rows`
   );
   if (data.values && data.values.length > 0) {
     console.log(`[ideal-responses] Headers: ${data.values[0].join(", ")}`);
@@ -77,7 +82,10 @@ async function fetchSheetData(
 }
 
 // Convert sheet data to ideal model responses
-function convertToIdealResponses(headers: string[], rows: string[][]): IdealModelResponse[] {
+function convertToIdealResponses(
+  headers: string[],
+  rows: string[][]
+): IdealModelResponse[] {
   const idealResponses: IdealModelResponse[] = [];
   let skippedCount = 0;
 
@@ -104,16 +112,23 @@ function convertToIdealResponses(headers: string[], rows: string[][]): IdealMode
       return;
     }
 
+    const testCaseInput = findFieldValue(headers, row, FIELD_MAP.testCaseInput);
+    if (!testCaseInput || !testCaseInput.trim()) {
+      console.log(
+        `[ideal-responses] Row ${
+          index + 1
+        } - Skipping row with empty test case input. Name: "${name}"`
+      );
+      skippedCount++;
+      return;
+    }
+
     const idealResponse: IdealModelResponse = {
       id: name.trim(), // Use name as primary key/ID as requested
       name: name.trim(),
       modelResponse: modelResponse.trim(),
+      testCaseInput: testCaseInput.trim(), // Always include test case input
     };
-
-    const testCaseInput = findFieldValue(headers, row, FIELD_MAP.testCaseInput);
-    if (testCaseInput && testCaseInput.trim()) {
-      idealResponse.testCaseInput = testCaseInput.trim();
-    }
 
     idealResponses.push(idealResponse);
   });
@@ -124,7 +139,7 @@ function convertToIdealResponses(headers: string[], rows: string[][]): IdealMode
   return idealResponses;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const accessToken = await getGoogleAccessToken();
     if (!accessToken) {

@@ -98,20 +98,13 @@ async function fetchSheetData(
 }
 
 // Field mapping based on new Google Sheets structure
-// A3-E3: Category (if needed) | Requirement | # Points to Award | Positive Examples | Negative Examples
+// A3-E3: Name | ACTUAL PROMPT | # Points to Award | Weight of Points
 const FIELD_MAP = {
   num: ["Num", "num"],
-  category: ["category (if needed)", "category", "Name", "name"],
-  requirement: ["requirement", "ACTUAL PROMPT"],
-  points: [
-    "# points to award",
-    "points to award",
-    "points",
-    "Weight of Points",
-    "weight of points",
-  ],
-  positiveExamples: ["positive examples"],
-  negativeExamples: ["negative examples"],
+  category: ["Name", "name"],
+  requirement: ["ACTUAL PROMPT"],
+  points: ["# Points to Award", "points to award"],
+  weight: ["Weight of Points", "weight of points"],
 };
 
 // List of sheet names to ignore when reading criteria
@@ -142,11 +135,11 @@ function findFieldValue(
 
 // New criteria structure interfaces
 export interface CriteriaRequirement {
-  category?: string;
+  num: number;
+  category: string;
   requirement: string;
   points: string;
-  positiveExamples: string;
-  negativeExamples: string;
+  weight?: string;
 }
 
 export interface CriterionVersion {
@@ -160,11 +153,11 @@ export interface CriterionVersion {
 interface RawRequirementItem {
   id: string;
   rowNumber: number;
-  category?: string;
+  num: number;
+  category: string;
   requirement: string;
   points: string;
-  positiveExamples: string;
-  negativeExamples: string;
+  weight?: string;
 }
 
 // Export the new criteria item type
@@ -181,28 +174,26 @@ function convertToRawRequirements(
       const requirementItem: RawRequirementItem = {
         id: `row-${index + 4}`, // Row numbering starts from A4 (index 0 = row 4)
         rowNumber: index + 4,
+        num: Number(findFieldValue(headers, row, FIELD_MAP.num).trim()),
         category: findFieldValue(headers, row, FIELD_MAP.category),
         requirement: findFieldValue(headers, row, FIELD_MAP.requirement),
         points: findFieldValue(headers, row, FIELD_MAP.points),
-        positiveExamples: findFieldValue(
-          headers,
-          row,
-          FIELD_MAP.positiveExamples
-        ),
-        negativeExamples: findFieldValue(
-          headers,
-          row,
-          FIELD_MAP.negativeExamples
-        ),
+        weight: findFieldValue(headers, row, FIELD_MAP.weight),
       };
 
       return requirementItem;
     })
     .filter((requirementItem) => {
-      // Keep rows that have both requirement and points (as per requirement)
+      // Only keep rows where Num field is not empty and is a valid number
+      const hasValidNum =
+        !isNaN(requirementItem.num) && requirementItem.num > 0;
+
+      // Also check that requirement and points are valid
       const hasValidRequirement = requirementItem.requirement?.trim() !== "";
       const hasValidPoints = requirementItem.points?.trim() !== "";
-      return hasValidRequirement && hasValidPoints;
+
+      // Only include rows that have valid Num, requirement, and points
+      return hasValidNum && hasValidRequirement && hasValidPoints;
     });
 
   return result;
@@ -216,11 +207,11 @@ function organizeRequirementsData(
   sheetName: string
 ): CriterionVersion {
   const requirements: CriteriaRequirement[] = rawData.map((item) => ({
-    category: item.category?.trim() || undefined,
-    requirement: item.requirement?.trim() || "",
+    num: item.num,
+    category: item.category.trim() || "",
+    requirement: item.requirement.trim() || "",
     points: item.points?.trim() || "",
-    positiveExamples: item.positiveExamples?.trim() || "",
-    negativeExamples: item.negativeExamples?.trim() || "",
+    weight: item.weight?.trim() || "",
   }));
 
   return {
@@ -328,17 +319,10 @@ export async function loadCriteria(
       accessToken
     );
 
-    // Combine default ignored sheets with additional ones
-    const ignoredSheets = [
-      ...IGNORED_SHEET_NAMES,
-      ...(additionalIgnoredSheets || []),
-    ];
-
     // Filter out ignored sheet names (case-insensitive)
     const sheetNames = allSheetNames.filter((sheetName) => {
       return !shouldIgnoreSheet(sheetName, additionalIgnoredSheets);
     });
-
 
     const allCriterionVersions: NewCriteriaItem[] = [];
 

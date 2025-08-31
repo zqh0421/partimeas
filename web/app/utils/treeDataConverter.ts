@@ -13,18 +13,21 @@ export function criteriaToDynamicTree(
   criteriaVersions: CriterionVersion[]
 ): TreeNode[] {
   // Render as a flat, single-level list of selectable criterion versions
-  return criteriaVersions.map((version) => ({
-    id: version.sheetName,
-    name: version.criterionName || version.sheetName,
-    // Show concise description with total requirement count
-    description: `${version.criterionDescription} (${version.requirements.length} items)`,
-    isSelectable: true,
-    metadata: {
-      type: "criterion",
-      version,
-    },
-    // No children → one-level selector
-  }));
+  // Filter out versions with no requirements
+  return criteriaVersions
+    .filter((version) => version.requirements.length > 0)
+    .map((version) => ({
+      id: version.sheetName,
+      name: version.criterionName || version.sheetName,
+      // Show concise description with total requirement count
+      description: `${version.criterionDescription} (${version.requirements.length} items)`,
+      isSelectable: true,
+      metadata: {
+        type: "criterion",
+        version,
+      },
+      // No children → one-level selector
+    }));
 }
 
 // Convert flat list with grouping keys to tree structure

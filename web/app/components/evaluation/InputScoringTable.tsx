@@ -35,7 +35,7 @@ import { InlineSpinner, ButtonSpinner } from "@/app/components/LoadingSpinner";
 
 type InputScoringTableProps = {
   responses: { id: string; label: string }[];
-  rubricItems?: { id: string; name: string }[];
+  rubricItems?: { id: string; name: string; requirement?: string; num: number; weight?: string }[];
   aiScores?: Record<
     string,
     Record<string, { score: number; rationale: string }>
@@ -109,34 +109,40 @@ const InputScoringTable = forwardRef<
         const items = archivedRubric.criteria.map((criterion, idx) => ({
           id: criterion.original_id || `archived-criterion-${idx + 1}`,
           name: criterion.name || `Criterion ${idx + 1}`,
+          num: criterion.num || idx + 1, // Use num from archived data if available
         }));
 
-        const instructions = archivedRubric.criteria.map((criterion) => ({
-          positive: criterion.positive_example || "",
-          negative: criterion.negative_example || "",
-        }));
+        // Sort items by num field
+        items.sort((a, b) => a.num - b.num);
 
-        const points = archivedRubric.criteria.map(
-          (criterion) => criterion.points || 2
-        );
+        // Create points array matching the sorted order
+        const points = items.map((item) => {
+          const criterion = archivedRubric.criteria.find(
+            (c, idx) => (c.num || idx + 1) === item.num
+          );
+          return criterion?.points || 2;
+        });
 
-        return { items, instructions, points };
+        return { items, points };
       }
     }
 
     // When provided rubricItems directly (from props), use them
     if (rubricItems && rubricItems.length > 0) {
+      const sortedItems = [...rubricItems].sort((a, b) => (a.num || 0) - (b.num || 0));
       return {
-        items: rubricItems,
-        instructions: rubricItems.map(() => ({ positive: "", negative: "" })),
-        points: rubricItems.map(() => 1),
+        items: sortedItems.map((item) => ({
+          ...item,
+          num: item.num || 0, // Ensure num field exists
+        })),
+        points: sortedItems.map(() => 1),
       };
     }
 
     // Otherwise, use the latest rubric from criteria data (for new evaluations)
     // Handle case where criteria is not yet loaded
     if (!criteria || criteria.length === 0) {
-      return { items: [], instructions: [], points: [] };
+      return { items: [], points: [] };
     }
 
     const selectedVersionId = restoreIndependentCriteriaSelection();
@@ -145,31 +151,30 @@ const InputScoringTable = forwardRef<
     );
     if (!selectedVersion) selectedVersion = criteria[0];
     if (!selectedVersion) {
-      return { items: [], instructions: [], points: [] };
+      return { items: [], points: [] };
     }
 
     const items = selectedVersion.requirements.map((req, idx) => ({
       id: `${selectedVersion.sheetName}-req-${idx + 1}`,
-      name:
-        (req.category &&
-        req.category.trim() !== "" &&
-        req.category.trim().toLowerCase() !== "num" &&
-        !/^\d+(\.\d+)?$/.test(req.category.trim())
-          ? `${req.category.trim()}: `
-          : "") + (req.requirement || `Requirement ${idx + 1}`),
+      name: req.category?.trim() || `Criterion ${idx + 1}`, // Only use category as name
+      requirement: req.requirement || `Requirement ${idx + 1}`, // Keep requirement separate
+      num: req.num || idx + 1, // Add num field from requirements
+      weight: req.weight, // Pass weight but don't display it
     }));
 
-    const instructions = selectedVersion.requirements.map((req) => ({
-      positive: req.positiveExamples || "",
-      negative: req.negativeExamples || "",
-    }));
+    // Sort items by num field
+    items.sort((a, b) => a.num - b.num);
 
-    const points = selectedVersion.requirements.map((req) => {
-      const n = parseInt((req.points || "1").trim(), 10);
+    // Create points array matching the sorted order
+    const points = items.map((item) => {
+      const req = selectedVersion.requirements.find((r) => 
+        (r.num || selectedVersion.requirements.indexOf(r) + 1) === item.num
+      );
+      const n = parseInt((req?.points || "1").trim(), 10);
       return Number.isNaN(n) ? 1 : n;
     });
 
-    return { items, instructions, points };
+    return { items, points };
   }, [
     criteria,
     rubricItems,
@@ -190,14 +195,14 @@ const InputScoringTable = forwardRef<
     if (effectiveSessionId && derived.items.length > 0) {
       const { scores: cachedScores } = restoreSessionScores(
         effectiveSessionId,
-        derived.items.length,
+        derived.items.map(item => item.num),
         responses.map((r) => r.id)
       );
 
-      // Map row indices back to rubric item IDs
+      // Map criterion nums back to rubric item IDs
       const mapped: Record<string, Record<string, number | "">> = {};
-      derived.items.forEach((item, index) => {
-        const rowData = cachedScores[`row-${index}`];
+      derived.items.forEach((item) => {
+        const rowData = cachedScores[`criterion-${item.num}`];
         if (rowData) {
           mapped[item.id] = rowData;
         } else {
@@ -229,14 +234,14 @@ const InputScoringTable = forwardRef<
     if (effectiveSessionId && derived.items.length > 0) {
       const { rationales: cachedRationales } = restoreSessionScores(
         effectiveSessionId,
-        derived.items.length,
+        derived.items.map(item => item.num),
         responses.map((r) => r.id)
       );
 
-      // Map row indices back to rubric item IDs
+      // Map criterion nums back to rubric item IDs
       const mapped: Record<string, Record<string, string>> = {};
-      derived.items.forEach((item, index) => {
-        const rowData = cachedRationales[`row-${index}`];
+      derived.items.forEach((item) => {
+        const rowData = cachedRationales[`criterion-${item.num}`];
         if (rowData) {
           mapped[item.id] = rowData;
         } else {
@@ -363,17 +368,17 @@ const InputScoringTable = forwardRef<
       const { scores: cachedScores, rationales: cachedRationales } =
         restoreSessionScores(
           effectiveSessionId,
-          derived.items.length,
+          derived.items.map(item => item.num),
           responses.map((r) => r.id)
         );
 
       setScores((prev) => {
         const next: Record<string, Record<string, number | "">> = {};
 
-        derived.items.forEach((item, index) => {
-          const rowData = cachedScores[`row-${index}`];
+        derived.items.forEach((item) => {
+          const rowData = cachedScores[`criterion-${item.num}`];
           if (rowData && Object.keys(rowData).length > 0) {
-            // Use cached data for this row
+            // Use cached data for this criterion
             next[item.id] = rowData;
           } else {
             // No cached data, try to preserve existing data if available
@@ -393,10 +398,10 @@ const InputScoringTable = forwardRef<
       setRationales((prev) => {
         const next: Record<string, Record<string, string>> = {};
 
-        derived.items.forEach((item, index) => {
-          const rowData = cachedRationales[`row-${index}`];
+        derived.items.forEach((item) => {
+          const rowData = cachedRationales[`criterion-${item.num}`];
           if (rowData && Object.keys(rowData).length > 0) {
-            // Use cached data for this row
+            // Use cached data for this criterion
             next[item.id] = rowData;
           } else {
             // No cached data, try to preserve existing data if available
@@ -469,8 +474,8 @@ const InputScoringTable = forwardRef<
       return; // Don't cache when in comparing mode or no session
     }
 
-    // Cache each score/rationale by row index
-    derived.items.forEach((item, rowIndex) => {
+    // Cache each score/rationale by criterion num
+    derived.items.forEach((item) => {
       responses.forEach((resp) => {
         const score = scores[item.id]?.[resp.id];
         const rationale = rationales[item.id]?.[resp.id] || "";
@@ -478,7 +483,7 @@ const InputScoringTable = forwardRef<
         if (score !== undefined) {
           cacheSessionScore(
             effectiveSessionId,
-            rowIndex,
+            item.num,
             resp.id,
             score,
             rationale
@@ -795,10 +800,8 @@ const InputScoringTable = forwardRef<
       const criteriaForApi = derived.items.map((item, index) => ({
         id: item.id,
         name: item.name,
-        description: `Requirements: ${item.name}`,
+        description: item.requirement || item.name, // Use the actual prompt requirement, fallback to name if not available
         scoreRange: `Score range: 0-${idealPoints[index] || 1}`, // Include score range for each criterion
-        positive: derived.instructions[index].positive,
-        negative: derived.instructions[index].negative,
       }));
 
       const response = await fetch("/api/model-evaluation", {
@@ -818,9 +821,13 @@ const InputScoringTable = forwardRef<
                   content: idealResponses.find(
                     (ir) => ir.name === currentIdealResponseId
                   )!.modelResponse,
+                  idealTestCase: idealResponses.find(
+                    (ir) => ir.name === currentIdealResponseId
+                  )!.testCaseInput,
                 }
               : undefined
             : undefined,
+          criteriaSheetName: restoreIndependentCriteriaSelection(), // Pass the selected criteria version
         }),
       });
 
@@ -1006,7 +1013,6 @@ const InputScoringTable = forwardRef<
         testCase: testCase,
         modelOutputs: modelOutputs,
         rubricItems: derived.items,
-        rubricInstructions: derived.instructions,
         rubricPoints: derived.points,
         humanScores: scores,
         humanRationales: rationales,
@@ -1044,14 +1050,14 @@ const InputScoringTable = forwardRef<
       [rubricId]: { ...prev[rubricId], [responseId]: value },
     }));
 
-    // Cache by row index
+    // Cache by criterion num
     if (effectiveSessionId && !isComparingMode) {
-      const rowIndex = derived.items.findIndex((item) => item.id === rubricId);
-      if (rowIndex >= 0) {
+      const item = derived.items.find((item) => item.id === rubricId);
+      if (item) {
         const currentRationale = rationales[rubricId]?.[responseId] || "";
         cacheSessionScore(
           effectiveSessionId,
-          rowIndex,
+          item.num,
           responseId,
           value,
           currentRationale
@@ -1070,14 +1076,14 @@ const InputScoringTable = forwardRef<
       [rubricId]: { ...prev[rubricId], [responseId]: value },
     }));
 
-    // Cache by row index
+    // Cache by criterion num
     if (effectiveSessionId && !isComparingMode) {
-      const rowIndex = derived.items.findIndex((item) => item.id === rubricId);
-      if (rowIndex >= 0) {
+      const item = derived.items.find((item) => item.id === rubricId);
+      if (item) {
         const currentScore = scores[rubricId]?.[responseId] || "";
         cacheSessionScore(
           effectiveSessionId,
-          rowIndex,
+          item.num,
           responseId,
           currentScore,
           value
@@ -1166,6 +1172,9 @@ const InputScoringTable = forwardRef<
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 text-center">
             <tr>
+              <th className="px-2 pt-4 pb-2 text-sm font-bold text-gray-700 w-10 border-x border-gray-200">
+                Num
+              </th>
               <th className="px-4 pt-4 pb-2 text-sm font-bold text-gray-700  w-[15vw] border-x border-gray-200">
                 Assertion Name
               </th>
@@ -1178,11 +1187,12 @@ const InputScoringTable = forwardRef<
                   {resp.label}
                 </th>
               ))}
-              <th className="px-4 pt-4 pb-2  text-sm font-bold text-gray-700 border-x border-gray-200 w-28">
+              <th className="px-4 pt-4 pb-2  text-sm font-bold text-gray-700 border-x border-gray-200 w-28 whitespace-nowrap">
                 Ideal Response
               </th>
             </tr>
             <tr>
+              <th className="px-2 py-2 border-x border-gray-200" />
               <th className="px-4 py-2 border-x border-gray-200" />
               {responses.map((resp) => (
                 <React.Fragment key={`${resp.id}-subheaders`}>
@@ -1202,13 +1212,11 @@ const InputScoringTable = forwardRef<
           <tbody>
             {derived.items.map((r, rowIdx) => (
               <tr key={r.id} className="border-t border-gray-200 align-top">
+                <td className="px-2 py-3 text-sm text-gray-700 text-center border-x border-gray-200">
+                  {r.num}
+                </td>
                 <td className="px-4 py-3 text-sm text-gray-900 border-x border-gray-200">
-                  {(() => {
-                    const parts = (r.name || "").split(":");
-                    const hasCategory = parts.length > 1;
-                    const category = hasCategory ? parts[0].trim() : "";
-                    return <p>{toTitleCase(category)}</p>;
-                  })()}
+                  <p>{toTitleCase(r.name)}</p>
                 </td>
                 {responses.map((resp) => (
                   <React.Fragment key={resp.id}>

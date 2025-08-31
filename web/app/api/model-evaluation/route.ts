@@ -665,10 +665,8 @@ const evaluateModelOutputs = async (
         ${criteria
           .map(
             (c, index) =>
-              `${index + 1}. **${c.name}**: ${c.description}
-              Score Range: ${c.scoreRange} (Use whole numbers only)
-              Positive Examples: ${c.positive}
-              Negative Examples: ${c.negative}`
+              `${index + 1}. Assertion: ${c.description}
+              Score Range: ${c.scoreRange} (Use whole numbers only)`
           )
           .join("\n")}`;
 
@@ -869,8 +867,13 @@ const evaluateModelOutputs = async (
         `  │ Ideal Response ID: ${idealResponse.id || "ideal-response"}`
       );
       console.log(
-        `  │ Test Case Input: ${testCase.input?.substring(0, 100)}${
+        `  │ Original Test Case Input: ${testCase.input?.substring(0, 100)}${
           testCase.input && testCase.input.length > 100 ? "..." : ""
+        }`
+      );
+      console.log(
+        `  │ Ideal Response Test Case Input: ${idealResponse.idealTestCase?.substring(0, 100) || idealResponse.testCaseInput?.substring(0, 100) || "Not provided"}${
+          (idealResponse.idealTestCase || idealResponse.testCaseInput) && (idealResponse.idealTestCase || idealResponse.testCaseInput).length > 100 ? "..." : ""
         }`
       );
       console.log(
@@ -889,34 +892,35 @@ const evaluateModelOutputs = async (
       );
 
       // Build user prompt for ideal response evaluation
+      // Use the test case input from the spreadsheet if available, otherwise fall back to testCase.input
+      const idealTestCaseInput = idealResponse.idealTestCase || idealResponse.testCaseInput || testCase.input;
+      console.log(
+        `  │ Using Test Case Input for Evaluation: ${idealTestCaseInput?.substring(0, 100)}${
+          idealTestCaseInput && idealTestCaseInput.length > 100 ? "..." : ""
+        }`
+      );
       const idealUserQuery = `
         **Test Case User Input:**
-        ${testCase.input}
+        ${idealTestCaseInput}
 
-        **Ideal Response to Evaluate (This is the expected perfect answer):**
+        **AI Model Response to Evaluate:**
         ${idealResponse.content}
 
         **Evaluation Rubric:**
         ${criteria
           .map(
             (c, index) =>
-              `${index + 1}. **${c.name}**: ${c.description}
-              Score Range: ${c.scoreRange} (Use whole numbers only)
-              Positive Examples: ${c.positive}
-              Negative Examples: ${c.negative}`
+              `${index + 1}. Assertion: ${c.description}
+              Score Range: ${c.scoreRange} (Use whole numbers only)`
           )
-          .join("\n")}
-
-        **Important:** This is the IDEAL response that should receive the highest possible scores. Evaluate it as if it were a perfect answer that meets all criteria fully.`;
+          .join("\n")}`;
 
       // Create format instructions for the JSON structure
       const idealFormatInstructions = `
         Respond with a valid JSON object containing:
         - "criteriaScores": object with keys "${criteria
           .map((c) => c.id)
-          .join('", "')}" each having {"score": number, "reasoning": string}
-        
-        Note: This is the ideal response, so scores should reflect the maximum possible points for each criterion.`;
+          .join('", "')}" each having {"score": number, "reasoning": string}`;
 
       // Create prompt template with format instructions - use the same system prompt as regular evaluations
       const idealPrompt = ChatPromptTemplate.fromTemplate(`
@@ -1182,7 +1186,7 @@ const evaluateModelOutputs = async (
 // Main API route handler
 export async function POST(request: NextRequest) {
   try {
-    const { phase, testCase, criteria, outputs, groupId, idealResponse } =
+    const { phase, testCase, criteria, outputs, groupId, idealResponse, criteriaSheetName, sessionId: providedSessionId } =
       await request.json();
 
     console.log(`🚀 Model evaluation request received - Phase: ${phase}`);
@@ -1195,6 +1199,15 @@ export async function POST(request: NextRequest) {
       contentLength: idealResponse?.content?.length || 0,
       fullObject: idealResponse,
     });
+
+    // Log warning if criteria or ideal response are missing (but don't block)
+    if (phase === "generate" && (!criteriaSheetName || !idealResponse?.id)) {
+      console.warn("⚠️ Session being created without complete evaluation data:", {
+        criteriaSheetName: criteriaSheetName || "missing",
+        idealResponseId: idealResponse?.id || "missing",
+        note: "Response scoring section will not be available for this session"
+      });
+    }
 
     if (phase === "generate") {
       console.log(
@@ -1393,10 +1406,6 @@ export async function POST(request: NextRequest) {
           selectedAssistants = [];
         } else {
           // FIXED: Use proper random selection instead of just taking first N
-          const shuffledAssistants = allAssistants.sort(
-            () => Math.random() - 0.5
-          );
-
           // Prioritize required assistants but still maintain randomness
           const requiredCount = Math.min(
             desiredOutputs,
@@ -1526,11 +1535,12 @@ export async function POST(request: NextRequest) {
       try {
         console.log("📊 Uploading session data to database...");
 
-        // Create session record
+        // Create session record with additional fields for rubric and ideal response
         const sessionQuery = `
           INSERT INTO partimeas_sessions 
-          (response_count, test_case_scenario_category, test_case_prompt, random_algorithm_used, group_id)
-          VALUES ($1, $2, $3, $4, $5)
+          (response_count, test_case_scenario_category, test_case_prompt, random_algorithm_used, group_id,
+           linked_ideal_response, linked_ideal_test_case, linked_criterion_sheet_name)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           RETURNING id
         `;
 
@@ -1540,6 +1550,9 @@ export async function POST(request: NextRequest) {
           testCase.input,
           assistantModelAlgorithm,
           groupId || null, // Include group_id from request body
+          idealResponse?.id || null,
+          idealResponse?.idealTestCase || idealResponse?.testCaseInput || null,
+          criteriaSheetName || null,
         ]);
 
         sessionId = sessionResult[0]?.id;

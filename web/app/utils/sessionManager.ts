@@ -8,6 +8,9 @@ export interface SessionData {
   test_case_prompt: string | null;
   random_algorithm_used: string;
   group_id: string | null;
+  linked_ideal_response: string | null;
+  linked_ideal_test_case: string | null;
+  linked_criterion_sheet_name: string | null;
 }
 
 export interface ResponseData {

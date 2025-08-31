@@ -78,10 +78,10 @@ export interface EvaluationDataSnapshot {
   rubricItems: Array<{
     id: string;
     name: string;
+    num: number;
+    weight?: string;
     description?: string;
     requirement: string;
-    positiveExample: string;
-    negativeExample: string;
     points: number;
   }>;
 
@@ -119,46 +119,51 @@ export async function collectEvaluationData(
   // Get the active evaluation assistant info
   const evaluationAssistant = await getActiveEvaluationAssistant();
 
-  // Helper: normalize response IDs like "resp-3" to spreadsheet names (e.g., "Response 3")
+  // Helper: normalize response IDs for database storage
   const normalizeResponseId = (
     rubricId: string,
     responseId: string
   ): string => {
-    // If ideal response is selected, map both "resp-N" and "Response N" to "Ideal Response"
-    if (snapshot.selectedIdealResponseId) {
-      const match = /^resp-(\d+)$/.exec(
-        responseId?.trim()?.toLowerCase() || ""
-      );
-      if (match) return "Ideal Response";
-      const responseMatch = /^response\s*(\d+)$/i.exec(
-        responseId?.trim() || ""
-      );
-      if (responseMatch) return "Ideal Response";
+    // Handle ideal response specially - check if this responseId is the selected ideal response
+    if (snapshot.selectedIdealResponseId && responseId === snapshot.selectedIdealResponseId) {
+      return "Ideal Response";
     }
-
-    const match = /^resp-(\d+)$/.exec(responseId?.trim()?.toLowerCase() || "");
-    if (!match) return responseId;
-    const idx = parseInt(match[1], 10);
-    if (Number.isNaN(idx)) return responseId;
-    const humanKeys = Object.keys(snapshot.humanScores[rubricId] || {});
-    // Try exact case-insensitive match for "response N"
-    const targetRegex = new RegExp(`^response\s*${idx}$`, "i");
-    const found = humanKeys.find((k) => targetRegex.test(k.trim()));
-    return found || responseId;
+    
+    // For regular responses, extract the number and format as "Response N"
+    // Handle various formats: "resp-1", "model-1", "Response 1", etc.
+    const patterns = [
+      /^resp-(\d+)$/i,
+      /^response\s*(\d+)$/i,
+      /^model-(\d+)$/i,
+      /(\d+)$/ // Fallback: any trailing number
+    ];
+    
+    for (const pattern of patterns) {
+      const match = pattern.exec(responseId?.trim() || "");
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!Number.isNaN(num)) {
+          return `Response ${num}`;
+        }
+      }
+    }
+    
+    // If no pattern matches, return the original ID
+    return responseId;
   };
   // Create criteria array combining human and AI scores in the new structure
   const criteria: EvaluationCriterion[] = snapshot.rubricItems.map((item) => {
     // Build per-response score map
     const humanResponseIds = Object.keys(snapshot.humanScores[item.id] || {});
     const aiResponseIds = Object.keys(snapshot.aiScores[item.id] || {});
-    
+
     console.log(`[EvaluationDataCollector] Processing criterion ${item.id}:`, {
       humanResponseIds,
       aiResponseIds,
       humanScoresAvailable: humanResponseIds.length,
       aiScoresAvailable: aiResponseIds.length,
     });
-    
+
     const responseIds = new Set<string>([
       ...humanResponseIds,
       ...aiResponseIds,
@@ -169,19 +174,23 @@ export async function collectEvaluationData(
       { human_score: EvaluationScore; ai_score: EvaluationScore }
     > = {};
     for (const rawId of responseIds) {
-      const responseId = normalizeResponseId(item.id, rawId);
-      const humanRaw =
-        snapshot.humanScores[item.id]?.[rawId] ??
-        snapshot.humanScores[item.id]?.[responseId];
-      const humanRationale = 
-        (snapshot.humanRationales[item.id]?.[rawId] ??
-        snapshot.humanRationales[item.id]?.[responseId]) || "";
+      const normalizedId = normalizeResponseId(item.id, rawId);
       
+      // Always use rawId to look up the actual data, since that's how it's stored
+      const humanRaw = snapshot.humanScores[item.id]?.[rawId];
+      const humanRationale = snapshot.humanRationales[item.id]?.[rawId] || "";
+
       // Debug logging for rationales
       if (humanRationale) {
-        console.log(`[EvaluationDataCollector] Found rationale for ${item.id}/${responseId}: "${humanRationale}"`);
+        console.log(
+          `[EvaluationDataCollector] Found rationale for ${item.id}/${rawId} -> ${normalizedId}: "${humanRationale}"`
+        );
+      } else if (typeof humanRaw === "number") {
+        console.log(
+          `[EvaluationDataCollector] No rationale found for ${item.id}/${rawId} -> ${normalizedId}, score: ${humanRaw}`
+        );
       }
-      
+
       const human_score: EvaluationScore =
         typeof humanRaw === "number"
           ? {
@@ -193,24 +202,26 @@ export async function collectEvaluationData(
               rationale: "",
             };
 
-      const aiRaw =
-        snapshot.aiScores[item.id]?.[rawId] ??
-        snapshot.aiScores[item.id]?.[responseId];
-      
+      const aiRaw = snapshot.aiScores[item.id]?.[rawId];
+
       // Debug logging for AI scores
       if (aiRaw) {
-        console.log(`[EvaluationDataCollector] Found AI score for ${item.id}/${responseId}:`, {
-          score: aiRaw.score,
-          rationale: aiRaw.rationale?.substring(0, 50) + '...'
-        });
+        console.log(
+          `[EvaluationDataCollector] Found AI score for ${item.id}/${rawId} -> ${normalizedId}:`,
+          {
+            score: aiRaw.score,
+            rationale: aiRaw.rationale?.substring(0, 50) + "...",
+          }
+        );
       }
-      
+
       const ai_score: EvaluationScore = aiRaw
         ? { score: aiRaw.score ?? 0, rationale: (aiRaw.rationale || "").trim() }
         : { score: -1, rationale: "Not evaluated by AI" };
 
       // Always add the score entry, even if both are defaults
-      scores[responseId] = {
+      // Use the normalized ID for storage in the database
+      scores[normalizedId] = {
         human_score: human_score,
         ai_score: ai_score,
       };
@@ -221,7 +232,7 @@ export async function collectEvaluationData(
       const idealResponseId = "Ideal Response";
       const expected = snapshot.idealExpectedScores?.[item.id];
       const expectedScore = typeof expected === "number" ? expected : 1; // default to 1
-      
+
       // If ideal response doesn't exist in scores yet, add it with expected values
       if (!scores[idealResponseId]) {
         scores[idealResponseId] = {
@@ -234,7 +245,10 @@ export async function collectEvaluationData(
             rationale: "Not evaluated by AI",
           },
         };
-      } else if (!scores[idealResponseId].human_score || scores[idealResponseId].human_score.score === 0) {
+      } else if (
+        !scores[idealResponseId].human_score ||
+        scores[idealResponseId].human_score.score === 0
+      ) {
         // Update human score if it's missing or default
         scores[idealResponseId].human_score = {
           score: expectedScore,
@@ -244,18 +258,23 @@ export async function collectEvaluationData(
     }
 
     // Debug: Log final scores for this criterion
-    console.log(`[EvaluationDataCollector] Final scores for criterion "${item.name}":`, {
-      responseCount: Object.keys(scores).length,
-      hasAiScores: Object.values(scores).some(s => s.ai_score !== undefined),
-      scores: JSON.stringify(scores, null, 2)
-    });
-    
+    console.log(
+      `[EvaluationDataCollector] Final scores for criterion "${item.name}":`,
+      {
+        responseCount: Object.keys(scores).length,
+        hasAiScores: Object.values(scores).some(
+          (s) => s.ai_score !== undefined
+        ),
+        scores: JSON.stringify(scores, null, 2),
+      }
+    );
+
     return {
       name: item.name || "Untitled Criterion",
-      description: item.description || "No description provided",
+      num: item.num,
+      weight: item.weight,
+      description: item.requirement || item.description || "No description provided", // Use requirement as description
       requirement: item.requirement || "No requirement specified",
-      positive_example: item.positiveExample || "No positive example provided",
-      negative_example: item.negativeExample || "No negative example provided",
       points: item.points || 2,
       scores,
       ideal_response: snapshot.idealResponse || "",
@@ -268,10 +287,9 @@ export async function collectEvaluationData(
     // Create a default criterion if none exist
     criteria.push({
       name: "Default Criterion",
+      num: 1,
       description: "Default evaluation criterion",
       requirement: "Evaluate the response quality",
-      positive_example: "Good responses are clear and helpful",
-      negative_example: "Poor responses are unclear or unhelpful",
       points: 2,
       scores: {},
       ideal_response: snapshot.idealResponse || "",
@@ -291,7 +309,7 @@ export async function collectEvaluationData(
 
   // Try to get sessionId from multiple sources
   const sessionId = snapshot.sessionId || snapshot.testCase?.sessionId;
-  
+
   console.log("[EvaluationDataCollector] Session ID sources:", {
     fromSnapshot: snapshot.sessionId,
     fromTestCase: snapshot.testCase?.sessionId,
@@ -319,7 +337,6 @@ export async function collectEvaluationData(
     ideal_response: snapshot.idealResponse || "No ideal response available",
     ideal_test_case:
       snapshot.idealTestCase ||
-      snapshot.testCasePrompt ||
       "No ideal test case available",
     rubric_with_scoring: rubricWithScoring,
   };
@@ -332,7 +349,6 @@ export async function uploadEvaluationRecord(
   record: NewEvaluationRecord
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
-
     const response = await fetch("/api/evaluation-records", {
       method: "POST",
       headers: {
@@ -376,8 +392,7 @@ export async function uploadEvaluationRecord(
 export function createEvaluationSnapshot(params: {
   testCase?: any;
   modelOutputs?: any[];
-  rubricItems: Array<{ id: string; name: string }>;
-  rubricInstructions: Array<{ positive: string; negative: string }>;
+  rubricItems: Array<{ id: string; name: string; requirement?: string; num: number; weight?: string }>;
   rubricPoints: number[];
   humanScores: Record<string, Record<string, number | "">>;
   humanRationales: Record<string, Record<string, string>>;
@@ -392,7 +407,6 @@ export function createEvaluationSnapshot(params: {
   groupId?: string;
   idealExpectedScores?: Record<string, number>;
 }): EvaluationDataSnapshot {
-
   // Get selected ideal response
   const selectedIdealResponseId = restoreIdealResponseSelection();
   const selectedIdealResponse = params.idealResponses?.find(
@@ -413,14 +427,11 @@ export function createEvaluationSnapshot(params: {
   // Create enhanced rubric items with examples and requirements
   const enhancedRubricItems = params.rubricItems.map((item, index) => ({
     id: item.id,
+    num: item.num,
     name: item.name,
-    description: "",
-    requirement: "Evaluate based on the criteria",
-    positiveExample:
-      params.rubricInstructions[index]?.positive || "Good performance example",
-    negativeExample:
-      params.rubricInstructions[index]?.negative || "Poor performance example",
+    requirement: item.requirement || "Evaluate based on the criteria",
     points: params.rubricPoints[index] || 2,
+    weight: item.weight,
   }));
 
   // Pull expected scores for ideal response from UI state if available
@@ -452,7 +463,7 @@ export function createEvaluationSnapshot(params: {
     evaluatorModel: params.evaluatorModel,
     evaluatorSystemPrompt: params.evaluatorSystemPrompt,
     idealResponse: selectedIdealResponse?.modelResponse || "",
-    idealTestCase: selectedIdealResponse?.testCaseInput || "", // This comes from the Prompt column in spreadsheet
+    idealTestCase: selectedIdealResponse?.testCaseInput || "", // This comes from the Test Case Input column in spreadsheet
     selectedIdealResponseId: selectedIdealResponseId || undefined,
     idealExpectedScores: params.idealExpectedScores,
     sessionId: params.sessionId,
@@ -466,8 +477,7 @@ export function createEvaluationSnapshot(params: {
 export async function collectAndUploadEvaluationData(params: {
   testCase?: any;
   modelOutputs?: any[];
-  rubricItems: Array<{ id: string; name: string }>;
-  rubricInstructions: Array<{ positive: string; negative: string }>;
+  rubricItems: Array<{ id: string; name: string; requirement?: string; num: number; weight?: string }>;
   rubricPoints: number[];
   humanScores: Record<string, Record<string, number | "">>;
   humanRationales: Record<string, Record<string, string>>;
@@ -486,48 +496,50 @@ export async function collectAndUploadEvaluationData(params: {
     console.log(
       "[EvaluationDataCollector] Starting data collection and upload..."
     );
-    
+
     // Debug: Log incoming AI scores
     console.log("[EvaluationDataCollector] Incoming AI scores:", {
       hasAiScores: Object.keys(params.aiScores || {}).length > 0,
       aiScoresKeys: Object.keys(params.aiScores || {}),
-      sampleAiScore: Object.keys(params.aiScores || {}).length > 0 
-        ? params.aiScores[Object.keys(params.aiScores)[0]] 
-        : null
+      sampleAiScore:
+        Object.keys(params.aiScores || {}).length > 0
+          ? params.aiScores[Object.keys(params.aiScores)[0]]
+          : null,
     });
 
     // Step 1: Create snapshot
     const snapshot = createEvaluationSnapshot(params);
-    console.log(
-      "[EvaluationDataCollector] Created evaluation snapshot:",
-      {
-        ...snapshot,
-        aiScores: Object.keys(snapshot.aiScores).length > 0 
+    console.log("[EvaluationDataCollector] Created evaluation snapshot:", {
+      ...snapshot,
+      aiScores:
+        Object.keys(snapshot.aiScores).length > 0
           ? `${Object.keys(snapshot.aiScores).length} criteria with AI scores`
-          : "No AI scores"
-      }
-    );
+          : "No AI scores",
+    });
 
     // Step 2: Convert to evaluation record format
     const record = await collectEvaluationData(snapshot);
-    
+
     // Debug: Check if AI scores are in the record
-    const hasAiScoresInRecord = record.rubric_with_scoring.criteria.some(criterion => 
-      Object.values(criterion.scores || {}).some(scoreData => 
-        scoreData.ai_score !== undefined
-      )
+    const hasAiScoresInRecord = record.rubric_with_scoring.criteria.some(
+      (criterion) =>
+        Object.values(criterion.scores || {}).some(
+          (scoreData) => scoreData.ai_score !== undefined
+        )
     );
-    
+
     console.log("[EvaluationDataCollector] Created evaluation record:", {
       hasAiScores: hasAiScoresInRecord,
       criteriaCount: record.rubric_with_scoring.criteria.length,
-      sampleCriterion: record.rubric_with_scoring.criteria[0] 
+      sampleCriterion: record.rubric_with_scoring.criteria[0]
         ? {
             name: record.rubric_with_scoring.criteria[0].name,
-            scoresCount: Object.keys(record.rubric_with_scoring.criteria[0].scores || {}).length,
-            scores: record.rubric_with_scoring.criteria[0].scores
+            scoresCount: Object.keys(
+              record.rubric_with_scoring.criteria[0].scores || {}
+            ).length,
+            scores: record.rubric_with_scoring.criteria[0].scores,
           }
-        : null
+        : null,
     });
 
     // Step 3: Upload to server

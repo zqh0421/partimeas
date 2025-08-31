@@ -351,10 +351,10 @@ export interface EvaluationScore {
 
 export interface EvaluationCriterion {
   name: string;
+  num: number;
+  weight?: string;
   description: string;
   requirement: string;
-  positive_example: string;
-  negative_example: string;
   points: number;
   // Map of response label/id to scores for that response
   scores: Record<

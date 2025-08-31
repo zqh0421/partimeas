@@ -99,24 +99,19 @@ export function validateEvaluationCriterion(
     result.isValid = false;
     result.errors.push(`${fieldName}.requirement must be a non-empty string`);
   }
-  if (
-    typeof criterion.positive_example !== "string" ||
-    criterion.positive_example.length === 0
-  ) {
+  
+  // Validate num field (required)
+  if (typeof criterion.num !== "number" || criterion.num <= 0) {
     result.isValid = false;
-    result.errors.push(
-      `${fieldName}.positive_example must be a non-empty string`
-    );
+    result.errors.push(`${fieldName}.num must be a positive number`);
   }
-  if (
-    typeof criterion.negative_example !== "string" ||
-    criterion.negative_example.length === 0
-  ) {
+  
+  // Validate weight field (optional)
+  if (criterion.weight !== undefined && typeof criterion.weight !== "string") {
     result.isValid = false;
-    result.errors.push(
-      `${fieldName}.negative_example must be a non-empty string`
-    );
+    result.errors.push(`${fieldName}.weight must be a string if provided`);
   }
+  
   if (
     typeof criterion.points !== "number" ||
     !Number.isInteger(criterion.points) ||

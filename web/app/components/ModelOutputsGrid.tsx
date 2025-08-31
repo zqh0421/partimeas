@@ -616,7 +616,7 @@ export default function ModelOutputsGrid({
             )}
           </div>
           {/* Only show copy button when sessionId is available (database has returned session_id) */}
-          {sessionId && testCases && selectedTestCaseIndex !== undefined && (
+          {/* {sessionId && testCases && selectedTestCaseIndex !== undefined && (
             <button
               onClick={handleCopySessionLink}
               className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -662,7 +662,7 @@ export default function ModelOutputsGrid({
                 </>
               )}
             </button>
-          )}
+          )} */}
         </div>
         <div className={`grid ${getGridCols(displayModels.length)} gap-4`}>
           {displayModels.map((item, index) => {

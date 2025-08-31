@@ -124,6 +124,11 @@ function OutputAnalysisFullPageContent() {
 
   // Track if we're using streaming for this session
   const [isUsingStreaming, setIsUsingStreaming] = useState(false);
+  
+  // Create shareable link when session is created
+  const shareableLink = streamingSessionId 
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/workshop-assistant/session/${streamingSessionId}`
+    : null;
 
   // Handle streaming completion - update testCasesWithModelOutputs when streaming finishes
   useEffect(() => {
@@ -446,9 +451,21 @@ function OutputAnalysisFullPageContent() {
         // Reset stream before starting
         resetStream();
 
+        // Find the selected ideal response object
+        const selectedIdealResponse = idealResponses.find(ir => ir.id === selectedIdealResponseId);
+        
         // Start streaming - this will update streamingOutputs as responses arrive
         // The useEffect hook will handle updating testCasesWithModelOutputs when streaming completes
-        await startStreaming(testCases[0], currentGroupId || undefined);
+        await startStreaming(
+          testCases[0], 
+          currentGroupId || undefined,
+          selectedIdealResponse ? { 
+            id: selectedIdealResponse.id,
+            idealTestCase: selectedIdealResponse.testCaseInput,
+            testCaseInput: selectedIdealResponse.testCaseInput
+          } : null,
+          selectedCriteriaId
+        );
 
         console.log("✅ Streaming started - outputs will appear in real-time");
       } else {
@@ -467,6 +484,9 @@ function OutputAnalysisFullPageContent() {
               }
             );
 
+            // Find the selected ideal response object
+            const selectedIdealResponse = idealResponses.find(ir => ir.id === selectedIdealResponseId);
+            
             const response = await fetch("/api/model-evaluation", {
               method: "POST",
               headers: {
@@ -477,6 +497,12 @@ function OutputAnalysisFullPageContent() {
                 phase: "generate",
                 currentUseCaseType: "original_system123_instructions",
                 groupId: currentGroupId, // Include group ID in the request
+                criteriaSheetName: selectedCriteriaId, // Include criteria sheet name
+                idealResponse: selectedIdealResponse ? { 
+                  id: selectedIdealResponse.id,
+                  idealTestCase: selectedIdealResponse.testCaseInput,
+                  testCaseInput: selectedIdealResponse.testCaseInput
+                } : null, // Include ideal response with test case
               }),
             });
 
@@ -768,6 +794,9 @@ function OutputAnalysisFullPageContent() {
 
             console.log("📤 Evaluation payload:", evaluationPayload);
 
+            // Find the selected ideal response object
+            const selectedIdealResponse = idealResponses.find(ir => ir.id === selectedIdealResponseId);
+            
             const response = await fetch("/api/model-evaluation", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -776,6 +805,12 @@ function OutputAnalysisFullPageContent() {
                 testCase: evaluationPayload.testCase,
                 criteria: evaluationPayload.criteria,
                 outputs: evaluationPayload.modelOutputs,
+                criteriaSheetName: selectedCriteriaId, // Include criteria sheet name
+                idealResponse: selectedIdealResponse ? { 
+                  id: selectedIdealResponse.id,
+                  idealTestCase: selectedIdealResponse.testCaseInput,
+                  testCaseInput: selectedIdealResponse.testCaseInput
+                } : null, // Include ideal response with test case
               }),
             });
 
@@ -1192,12 +1227,11 @@ function OutputAnalysisFullPageContent() {
           }
         }}
         onClearGroupId={clearGroupId}
+        shareableLink={shareableLink}
       />
 
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">
         <div className="space-y-6">
-          {/* Session error display removed - using dedicated session pages */}
-
           {/* Vertical Stepper */}
           <VerticalStepper steps={steps} />
 
