@@ -408,7 +408,7 @@ export default function MultiLevelSelector({
               allSelectedTestCases.length
             );
           }
-        }, 100);
+        }, 0);
       }
     }
   }, [useCaseData, onDataLoaded]);

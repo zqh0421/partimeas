@@ -139,10 +139,14 @@ function OutputAnalysisFullPageContent() {
       );
 
       // Convert streaming outputs to model outputs format
-      const modelOutputsFromStream = streamingOutputs.map((output, index) => ({
+      const modelOutputsFromStream: ModelOutput[] = streamingOutputs.map((output) => ({
         modelId: output.modelId,
+        modelName: output.modelId, // Use modelId as modelName for now
         output: output.output,
-        index,
+        rubricScores: {},
+        feedback: '',
+        suggestions: [],
+        timestamp: new Date().toISOString(),
       }));
 
       // Update the first test case with streamed outputs
@@ -444,7 +448,7 @@ function OutputAnalysisFullPageContent() {
 
         // Start streaming - this will update streamingOutputs as responses arrive
         // The useEffect hook will handle updating testCasesWithModelOutputs when streaming completes
-        await startStreaming(testCases[0], currentGroupId);
+        await startStreaming(testCases[0], currentGroupId || undefined);
 
         console.log("✅ Streaming started - outputs will appear in real-time");
       } else {
@@ -1154,7 +1158,6 @@ function OutputAnalysisFullPageContent() {
           isRealEvaluation={isRealEvaluation}
           numOutputsToShow={numOutputsToShow}
           onTestCaseSelect={handlers.handleTestCaseSelect}
-          onEvaluationComplete={handlers.handleEvaluationComplete}
           onModelComparisonEvaluationComplete={
             handlers.handleModelComparisonEvaluationComplete
           }

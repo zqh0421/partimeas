@@ -1,10 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import RubricEvaluator from "@/app/components/RubricEvaluator";
 // import { ModelComparisonEvaluator } from "@/app/components";
 import ModelOutputsGrid from "@/app/components/ModelOutputsGrid";
-import { TestCase, TestCaseWithModelOutputs, ModelOutput, IdealModelResponse } from "@/app/types";
+import {
+  TestCase,
+  TestCaseWithModelOutputs,
+  ModelOutput,
+  IdealModelResponse,
+} from "@/app/types";
 // No longer import constants from API; UI receives dynamic selection via props
 
 interface AnalysisStepProps {
@@ -20,7 +24,6 @@ interface AnalysisStepProps {
   isRealEvaluation?: boolean;
   numOutputsToShow?: number;
   onTestCaseSelect: (index: number) => void;
-  onEvaluationComplete: (results: any[]) => void;
   onModelComparisonEvaluationComplete: (
     results: Array<{
       testCaseId: string;
@@ -38,9 +41,17 @@ interface AnalysisStepProps {
   onCompareClick?: () => void;
   idealResponses?: IdealModelResponse[];
   // Streaming props
-  streamingOutputs?: Array<{ modelId: string; output: string; timestamp: string }>;
+  streamingOutputs?: Array<{
+    modelId: string;
+    output: string;
+    timestamp: string;
+  }>;
   isStreaming?: boolean;
-  streamingErrors?: Array<{ modelId: string; error: string; timestamp: string }>;
+  streamingErrors?: Array<{
+    modelId: string;
+    error: string;
+    timestamp: string;
+  }>;
   // Rubric and ideal response IDs for sharable links
   selectedCriteriaId?: string;
   selectedIdealResponseId?: string;
@@ -60,7 +71,6 @@ export default function AnalysisStep({
   isRealEvaluation = false,
   numOutputsToShow = 2,
   onTestCaseSelect,
-  onEvaluationComplete,
   onEvaluationError,
   onEvaluationProgress,
   onModelComparisonEvaluationComplete,
@@ -87,17 +97,19 @@ export default function AnalysisStep({
       isLoading,
       currentPhase,
       selectedTestCaseIndex,
-      currentTestCase: currentTestCase ? {
-        id: currentTestCase.id,
-        sessionId: currentTestCase.sessionId,
-        hasModelOutputs: currentTestCase.modelOutputs?.length > 0
-      } : null,
+      currentTestCase: currentTestCase
+        ? {
+            id: currentTestCase.id,
+            sessionId: currentTestCase.sessionId,
+            hasModelOutputs: currentTestCase.modelOutputs?.length > 0,
+          }
+        : null,
       testCasesToUse: isLoading ? "testCases" : "testCasesWithModelOutputs",
       testCasesWithSessionIds: testCasesWithModelOutputs.map((tc, idx) => ({
         index: idx,
         id: tc.id,
-        sessionId: tc.sessionId
-      }))
+        sessionId: tc.sessionId,
+      })),
     });
 
     return {
@@ -117,17 +129,6 @@ export default function AnalysisStep({
 
   return (
     <div className="space-y-6">
-      {/* Hidden but functional evaluation components */}
-      <div style={{ display: "none" }}>
-        <RubricEvaluator
-          testCases={testCases}
-          shouldStart={shouldStartEvaluation}
-          onEvaluationComplete={onEvaluationComplete}
-          onError={onEvaluationError}
-          onProgress={onEvaluationProgress}
-        />
-      </div>
-
       {/* Test Case Results Display */}
       {(analysisStep === "running" || analysisStep === "complete") && (
         <div className="space-y-4">

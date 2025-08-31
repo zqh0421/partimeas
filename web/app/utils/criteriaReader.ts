@@ -74,11 +74,6 @@ async function fetchSheetData(
   const data = await response.json();
 
   if (!data.values || data.values.length < 4) {
-    console.warn(
-      `[CriteriaReader] Skipping sheet - insufficient data (need at least 4 rows): ${
-        data.values?.length || 0
-      } rows found`
-    );
     return null;
   }
 
@@ -105,9 +100,16 @@ async function fetchSheetData(
 // Field mapping based on new Google Sheets structure
 // A3-E3: Category (if needed) | Requirement | # Points to Award | Positive Examples | Negative Examples
 const FIELD_MAP = {
-  category: ["category (if needed)", "category"],
-  requirement: ["requirement"],
-  points: ["# points to award", "points to award", "points"],
+  num: ["Num", "num"],
+  category: ["category (if needed)", "category", "Name", "name"],
+  requirement: ["requirement", "ACTUAL PROMPT"],
+  points: [
+    "# points to award",
+    "points to award",
+    "points",
+    "Weight of Points",
+    "weight of points",
+  ],
   positiveExamples: ["positive examples"],
   negativeExamples: ["negative examples"],
 };
@@ -337,13 +339,6 @@ export async function loadCriteria(
       return !shouldIgnoreSheet(sheetName, additionalIgnoredSheets);
     });
 
-    console.log(
-      `[CriteriaReader] Found ${
-        allSheetNames.length
-      } total sheets, processing ${sheetNames.length} sheets (ignoring: ${
-        allSheetNames.length - sheetNames.length
-      })`
-    );
 
     const allCriterionVersions: NewCriteriaItem[] = [];
 
@@ -358,9 +353,6 @@ export async function loadCriteria(
 
         // Skip if sheet has insufficient data
         if (sheetData === null) {
-          console.log(
-            `[CriteriaReader] Skipped sheet "${sheetName}" due to insufficient data`
-          );
           continue;
         }
 
@@ -385,7 +377,6 @@ export async function loadCriteria(
 
     return allCriterionVersions;
   } catch (error) {
-    console.error(`[CriteriaReader] Error loading criteria:`, error);
     throw new Error(
       `Failed to load criteria: ${
         error instanceof Error ? error.message : "Unknown error"

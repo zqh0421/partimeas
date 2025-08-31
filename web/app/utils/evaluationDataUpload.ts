@@ -19,7 +19,10 @@ interface EvaluationUploadParams {
   rubricPoints: number[];
   humanScores: Record<string, Record<string, number | "">>;
   humanRationales: Record<string, Record<string, string>>;
-  aiScores: Record<string, Record<string, { score: number; rationale: string }>>;
+  aiScores: Record<
+    string,
+    Record<string, { score: number; rationale: string }>
+  >;
   idealResponses: IdealModelResponse[];
   sessionId?: string;
   idealExpectedScores: Record<string, number>;
@@ -37,7 +40,9 @@ export function useEvaluationDataUpload(
   setUploadStatus: (status: string | null) => void
 ): UseEvaluationUploadResult {
   const uploadEvaluationData = async () => {
-    console.log("[useEvaluationDataUpload] 📤 Starting evaluation data upload...");
+    console.log(
+      "[useEvaluationDataUpload] 📤 Starting evaluation data upload..."
+    );
 
     setIsUploadingData(true);
     setUploadStatus(null);
@@ -70,7 +75,10 @@ export function useEvaluationDataUpload(
           `Successfully saved evaluation data (ID: ${result.id})`
         );
       } else {
-        console.error("[useEvaluationDataUpload] ❌ Upload failed:", result.error);
+        console.error(
+          "[useEvaluationDataUpload] ❌ Upload failed:",
+          result.error
+        );
         setUploadStatus(`Upload failed: ${result.error}`);
       }
     } catch (error) {
@@ -87,9 +95,9 @@ export function useEvaluationDataUpload(
       setIsUploadingData(false);
 
       // Clear status after 5 seconds
-      setTimeout(() => {
-        setUploadStatus(null);
-      }, 5000);
+      // setTimeout(() => {
+      //   setUploadStatus(null);
+      // }, 5000);
     }
   };
 

@@ -90,7 +90,9 @@ export default function ModelOutputsGrid({
   const [useRealCriteria, setUseRealCriteria] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   // Track comparison state per test case
-  const [comparingStates, setComparingStates] = useState<Map<string | number, boolean>>(new Map());
+  const [comparingStates, setComparingStates] = useState<
+    Map<string | number, boolean>
+  >(new Map());
   const inputScoringTableRef = React.useRef<{
     changeVersion: (index: number) => void;
   } | null>(null);
@@ -121,7 +123,9 @@ export default function ModelOutputsGrid({
   useEffect(() => {
     const fetchVersions = async () => {
       // Check if any test case is in comparing mode
-      const isAnyComparing = Array.from(comparingStates.values()).some(v => v);
+      const isAnyComparing = Array.from(comparingStates.values()).some(
+        (v) => v
+      );
       if (!sessionId || !isRealEvaluation || !isAnyComparing) {
         setVersions([]);
         setCurrentVersionIndex(null);
@@ -337,17 +341,26 @@ export default function ModelOutputsGrid({
               <h3 className="text-lg font-medium text-gray-900">
                 {isRealEvaluation ? <>Response Scoring</> : ""}
               </h3>
-              {isRealEvaluation && !comparingStates.get(testCases?.[selectedTestCaseIndex || 0]?.id || selectedTestCaseIndex || 0) && (
-                <p className="mt-1 text-sm text-gray-600">
-                  Provide your expected scoring points with rationale on how the
-                  model responses perform on your rubric, before proceeding and
-                  comparing the AI Grader's scoring work.
-                </p>
-              )}
+              {isRealEvaluation &&
+                !comparingStates.get(
+                  testCases?.[selectedTestCaseIndex || 0]?.id ||
+                    selectedTestCaseIndex ||
+                    0
+                ) && (
+                  <p className="mt-1 text-sm text-gray-600">
+                    Provide your expected scoring points with rationale on how
+                    the model responses perform on your rubric, before
+                    proceeding and comparing the AI Grader's scoring work.
+                  </p>
+                )}
             </div>
             {/* Only show version navigation when in comparing mode for the current test case */}
             {isRealEvaluation &&
-              comparingStates.get(testCases?.[selectedTestCaseIndex || 0]?.id || selectedTestCaseIndex || 0) &&
+              comparingStates.get(
+                testCases?.[selectedTestCaseIndex || 0]?.id ||
+                  selectedTestCaseIndex ||
+                  0
+              ) &&
               versionInfo.totalVersions > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="ml-2 text-xs font-normal text-gray-500">
@@ -417,16 +430,23 @@ export default function ModelOutputsGrid({
               )}
           </div>
 
-          {isRealEvaluation && comparingStates.get(testCases?.[selectedTestCaseIndex || 0]?.id || selectedTestCaseIndex || 0) && (
-            <div className="mt-2">
-              {isLoadingVersions && (
-                <div className="text-xs text-slate-500">Loading versions…</div>
-              )}
-              {versionsError && (
-                <div className="text-xs text-red-600">{versionsError}</div>
-              )}
-            </div>
-          )}
+          {/* {isRealEvaluation &&
+            comparingStates.get(
+              testCases?.[selectedTestCaseIndex || 0]?.id ||
+                selectedTestCaseIndex ||
+                0
+            ) && (
+              <div className="mt-2">
+                {isLoadingVersions && (
+                  <div className="text-xs text-slate-500">
+                    Loading versions…
+                  </div>
+                )}
+                {versionsError && (
+                  <div className="text-xs text-red-600">{versionsError}</div>
+                )}
+              </div>
+            )} */}
 
           <>
             {/* Loading State - Waiting for responses */}
@@ -449,7 +469,7 @@ export default function ModelOutputsGrid({
                   <div className="text-center">
                     <div className="w-6 h-6 border-2 border-transparent border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
                     <p className="text-sm text-slate-600">
-                      Evaluating responses...
+                      Loading the Rubric...
                     </p>
                   </div>
                 </div>
@@ -514,9 +534,13 @@ export default function ModelOutputsGrid({
                 );
 
                 // Create a unique key for each test case to force component remount
-                const testCaseKey = `scoring-table-${selectedTestCase?.id || selectedTestCaseIndex || 0}`;
-                const testCaseId = selectedTestCase?.id || selectedTestCaseIndex || 0;
-                const isTestCaseComparing = comparingStates.get(testCaseId) || false;
+                const testCaseKey = `scoring-table-${
+                  selectedTestCase?.id || selectedTestCaseIndex || 0
+                }`;
+                const testCaseId =
+                  selectedTestCase?.id || selectedTestCaseIndex || 0;
+                const isTestCaseComparing =
+                  comparingStates.get(testCaseId) || false;
 
                 return (
                   <InputScoringTable
@@ -524,13 +548,13 @@ export default function ModelOutputsGrid({
                     ref={inputScoringTableRef}
                     responses={(modelOutputs || []).map((mo, i) => ({
                       id: mo.modelId || mo.modelName || `Response ${i + 1}`,
-                      label: mo.modelName || `Response ${i + 1}`,
+                      label: `Response ${i + 1}`,
                     }))}
                     modelOutputs={modelOutputs}
                     testCase={selectedTestCase}
                     onCompareClick={(enabled) => {
                       // Update the comparison state for this specific test case
-                      setComparingStates(prev => {
+                      setComparingStates((prev) => {
                         const newMap = new Map(prev);
                         newMap.set(testCaseId, enabled);
                         return newMap;

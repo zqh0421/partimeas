@@ -1,14 +1,30 @@
+export type AnalysisStep =
+  | "sync"
+  | "run"
+  | "outcomes"
+  | "setup"
+  | "running"
+  | "complete";
 
-export type AnalysisStep = 'sync' | 'run' | 'outcomes' | 'setup' | 'running' | 'complete';
+export type CurrentPhase = "generating" | "evaluating" | "complete";
 
-export type CurrentPhase = 'generating' | 'evaluating' | 'complete';
+export type RubricEffectiveness = "high" | "medium" | "low";
 
-export type RubricEffectiveness = 'high' | 'medium' | 'low';
+export type HistoryAction =
+  | "created"
+  | "modified"
+  | "merged"
+  | "star"
+  | "unstared";
 
-export type HistoryAction = 'created' | 'modified' | 'merged' | 'star' | 'unstared';
-
-export type ChangeType = 'criteria_name' | 'criteria_description' | 'add_criteria' | 'delete_criteria' | 'change_category' | 'add_category' | 'merge_versions';
-
+export type ChangeType =
+  | "criteria_name"
+  | "criteria_description"
+  | "add_criteria"
+  | "delete_criteria"
+  | "change_category"
+  | "add_category"
+  | "merge_versions";
 
 // Updated scoring interfaces for new rubric structure
 export interface SubcriteriaScore {
@@ -273,17 +289,21 @@ export interface AnalysisState {
 export interface AnalysisHandlers {
   handleUseCaseSelected: (useCaseId: string) => void;
   handleScenarioCategorySelected: (categoryId: string) => void;
-  handleMultiLevelSelectionChange: (selections: Array<{
-    useCaseId: string;
-    scenarioCategoryIds: string[];
-  }>) => void;
+  handleMultiLevelSelectionChange: (
+    selections: Array<{
+      useCaseId: string;
+      scenarioCategoryIds: string[];
+    }>
+  ) => void;
   handleUseCaseDataLoaded: (testCases: TestCase[]) => void;
   handleUseCaseError: (error: string) => void;
   handleIdealResponseSelected: (idealResponseId: string) => void;
   handleIdealResponseDataLoaded: (idealResponses: IdealModelResponse[]) => void;
   handleIdealResponseError: (error: string) => void;
   handleEvaluationComplete: (results: RubricOutcome[]) => void;
-  handleModelComparisonEvaluationComplete: (results: RubricOutcomeWithModelComparison[]) => void;
+  handleModelComparisonEvaluationComplete: (
+    results: RubricOutcomeWithModelComparison[]
+  ) => void;
   handleEvaluationError: (error: string) => void;
   handleEvaluationProgress: (currentIndex: number, progress: number) => void;
   handleStartEvaluation: () => void;
@@ -309,12 +329,20 @@ export interface ModelScore {
 
 export interface RubricUtilityTypes {
   // Helper for creating score levels
-  createScoreLevel: (score: RubricScoreRange, meaning: string, examples: string[]) => ScoreLevel;
-  
+  createScoreLevel: (
+    score: RubricScoreRange,
+    meaning: string,
+    examples: string[]
+  ) => ScoreLevel;
+
   // Helper for calculating overall scores
   calculateCriteriaScore: (subcriteriaScores: SubcriteriaScore[]) => number;
-  calculateComponentScore: (criteriaEvaluations: CriteriaEvaluation[]) => number;
-  calculateOverallScore: (componentEvaluations: ComponentEvaluation[]) => number;
+  calculateComponentScore: (
+    criteriaEvaluations: CriteriaEvaluation[]
+  ) => number;
+  calculateOverallScore: (
+    componentEvaluations: ComponentEvaluation[]
+  ) => number;
 }
 
 // Example structure showing the new rubric format
@@ -330,33 +358,45 @@ export const EXAMPLE_RUBRIC_STRUCTURE: RubricStructure = {
         {
           id: "strengths-based-framing",
           name: "Strengths-Based Framing",
-          description: "The response is affirming, constructive, and encourages self-reflection without judgment.",
+          description:
+            "The response is affirming, constructive, and encourages self-reflection without judgment.",
           subcriteria: [
             {
               id: "strengths-based-framing-sub",
               name: "Strengths-Based Framing",
-              description: "The response is affirming, constructive, and encourages self-reflection without judgment.",
+              description:
+                "The response is affirming, constructive, and encourages self-reflection without judgment.",
               scoreLevels: [
                 {
                   score: 0,
                   meaning: "Critical or deficit-focused language",
-                  examples: ["Response uses harsh criticism", "Focuses only on what's wrong"]
+                  examples: [
+                    "Response uses harsh criticism",
+                    "Focuses only on what's wrong",
+                  ],
                 },
                 {
                   score: 1,
-                  meaning: "Mostly constructive but with minor negative framing",
-                  examples: ["Generally positive but some negative language", "Mixed tone"]
+                  meaning:
+                    "Mostly constructive but with minor negative framing",
+                  examples: [
+                    "Generally positive but some negative language",
+                    "Mixed tone",
+                  ],
                 },
                 {
                   score: 2,
                   meaning: "Fully strengths-based and encouraging",
-                  examples: ["Consistently positive and affirming", "Encourages growth mindset"]
-                }
-              ]
-            }
-          ]
-        }
-      ]
+                  examples: [
+                    "Consistently positive and affirming",
+                    "Encourages growth mindset",
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     },
     {
       id: "explanations",
@@ -370,54 +410,71 @@ export const EXAMPLE_RUBRIC_STRUCTURE: RubricStructure = {
             {
               id: "clear-explanations",
               name: "Clear Explanations",
-              description: "The explanation would be interpretable to even a toddler.",
+              description:
+                "The explanation would be interpretable to even a toddler.",
               scoreLevels: [
                 {
                   score: 0,
                   meaning: "No explanations or unclear reasoning",
-                  examples: ["Missing explanations", "Confusing language"]
+                  examples: ["Missing explanations", "Confusing language"],
                 },
                 {
                   score: 1,
                   meaning: "Partial or vague explanations",
-                  examples: ["Some explanation but lacks clarity", "Incomplete reasoning"]
+                  examples: [
+                    "Some explanation but lacks clarity",
+                    "Incomplete reasoning",
+                  ],
                 },
                 {
                   score: 2,
-                  meaning: "Clear, concise, and directly tied to the scenario inputted to the model",
-                  examples: ["Crystal clear explanations", "Easy to understand", "Well connected to input"]
-                }
-              ]
+                  meaning:
+                    "Clear, concise, and directly tied to the scenario inputted to the model",
+                  examples: [
+                    "Crystal clear explanations",
+                    "Easy to understand",
+                    "Well connected to input",
+                  ],
+                },
+              ],
             },
             {
               id: "accurate-explanations",
               name: "Accurate Explanations",
-              description: "The explanation is accurate based on the information presented to the model.",
+              description:
+                "The explanation is accurate based on the information presented to the model.",
               scoreLevels: [
                 {
                   score: 0,
                   meaning: "Inaccurate explanation",
-                  examples: ["Factually wrong", "Misinterprets the scenario"]
+                  examples: ["Factually wrong", "Misinterprets the scenario"],
                 },
                 {
                   score: 1,
                   meaning: "Partially inaccurate or sound explanation",
-                  examples: ["Mostly accurate with minor errors", "Generally sound reasoning"]
+                  examples: [
+                    "Mostly accurate with minor errors",
+                    "Generally sound reasoning",
+                  ],
                 },
                 {
                   score: 2,
                   meaning: "Accurate, sound explanation",
-                  examples: ["Completely accurate", "Factually correct", "Sound reasoning throughout"]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
+                  examples: [
+                    "Completely accurate",
+                    "Factually correct",
+                    "Sound reasoning throughout",
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
   ],
   createdAt: new Date(),
-  updatedAt: new Date()
+  updatedAt: new Date(),
 };
 
 // Ideal Model Response interfaces

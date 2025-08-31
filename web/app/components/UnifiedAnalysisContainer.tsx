@@ -308,7 +308,7 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
         setCurrentPhase("evaluating");
 
         // Small delay to make the evaluating phase visible
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         // Load real evaluation criteria first
         console.log("📋 Loading evaluation criteria...");
@@ -576,7 +576,6 @@ export default function UnifiedAnalysis(props: UnifiedAnalysisProps) {
           isRealEvaluation={props.isRealEvaluation}
           numOutputsToShow={numOutputsToShow}
           onTestCaseSelect={props.onTestCaseSelect}
-          onEvaluationComplete={props.onEvaluationComplete}
           onModelComparisonEvaluationComplete={
             props.onModelComparisonEvaluationComplete
           }

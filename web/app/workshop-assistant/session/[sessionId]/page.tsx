@@ -35,7 +35,6 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   const [session, setSession] = useState<SessionWithResponses | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showScoring, setShowScoring] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -216,34 +215,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
                 <h3 className="text-lg font-medium text-gray-900">
                   Response Scoring
                 </h3>
-                <button
-                  onClick={() => setShowScoring(!showScoring)}
-                  className="text-sm text-blue-600 hover:text-blue-700"
-                >
-                  {showScoring ? "Hide Scoring" : "Show Scoring"}
-                </button>
               </div>
-              {showScoring && (
-                <InputScoringTable
-                  responses={sessionModelOutputs.map((output, index) => ({
-                    id: output.id,
-                    label: `Response ${index + 1} (${output.modelId})`,
-                  }))}
-                  selectedIdealResponseId={idealResponseId}
-                  enableIdealScoreEditing={false}
-                  idealResponses={idealResponses}
-                  sessionId={sessionId}
-                  modelOutputs={sessionModelOutputs}
-                  testCase={{
-                    input: session.test_case_prompt,
-                    context: session.test_case_scenario_category,
-                    useCase: "session-loaded",
-                    scenarioCategory: session.test_case_scenario_category,
-                  }}
-                  showAiResults={true}
-                  onCompareClick={(isComparing) => setShowScoring(isComparing)}
-                />
-              )}
             </div>
           )}
 
