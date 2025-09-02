@@ -455,7 +455,43 @@ const generateModelOutput = async (
     );
 
     // The provider has already been validated and corrected above
-    // No need to reset and re-validate
+    // Use the provider from database (which should be correct)
+    // Only override if there's a clear mismatch that needs fixing
+    finalProvider = provider;
+
+    // Add validation logging
+    console.log(`🔍 modelId: ${modelId}`);
+    console.log(`🔍 provider: ${provider}`);
+    if (modelId.startsWith("claude-") && provider !== "anthropic") {
+      console.warn(
+        `⚠️ Warning: Claude model ${modelId} has provider ${provider}, expected 'anthropic'`
+      );
+      finalProvider = "anthropic";
+    } else if (
+      (modelId.startsWith("gpt-") ||
+        modelId.startsWith("o1") ||
+        modelId.startsWith("o3") ||
+        modelId.startsWith("o4")) &&
+      provider !== "openai"
+    ) {
+      console.warn(
+        `⚠️ Warning: GPT/o-series model ${modelId} has provider ${provider}, expected 'openai'`
+      );
+      finalProvider = "openai";
+    } else if (modelId.startsWith("gemini-") && provider !== "google") {
+      console.warn(
+        `⚠️ Warning: Gemini model ${modelId} has provider ${provider}, expected 'google'`
+      );
+      finalProvider = "google";
+    } else if (modelId.startsWith("google/") && provider !== "openrouter") {
+      console.warn(
+        `⚠️ Warning: OpenRouter model ${modelId} has provider ${provider}, expected 'openrouter'`
+      );
+      finalProvider = "openrouter";
+    }
+
+    // Final processor update
+    console.log(`🔄 Final processor update for: ${finalProvider}/${modelId}`);
 
     return {
       modelId: modelId, // Use original modelId without provider prefix
@@ -531,11 +567,19 @@ const evaluateModelOutputs = async (
     console.log(`\n🔍 Starting evaluation process...`);
     console.log(`📊 Configuration:`);
     console.log(`   - Model outputs to evaluate: ${outputs.length}`);
-    console.log(`   - Ideal response: ${idealResponse ? 'Yes' : 'No'}`);
-    console.log(`   - Total evaluations: ${outputs.length + (idealResponse ? 1 : 0)}`);
+    console.log(`   - Ideal response: ${idealResponse ? "Yes" : "No"}`);
+    console.log(
+      `   - Total evaluations: ${outputs.length + (idealResponse ? 1 : 0)}`
+    );
     console.log(`   - Criteria per evaluation: ${criteria.length}`);
-    console.log(`   - Total criterion evaluations: ${(outputs.length + (idealResponse ? 1 : 0)) * criteria.length}`);
-    console.log(`⏱️  Started at: ${new Date(totalEvaluationStartTime).toISOString()}\n`);
+    console.log(
+      `   - Total criterion evaluations: ${
+        (outputs.length + (idealResponse ? 1 : 0)) * criteria.length
+      }`
+    );
+    console.log(
+      `⏱️  Started at: ${new Date(totalEvaluationStartTime).toISOString()}\n`
+    );
 
     // Use the active evaluation assistant with system prompt
     const activeEvaluationAssistant = await getActiveEvaluationAssistant();
@@ -617,8 +661,8 @@ const evaluateModelOutputs = async (
     );
 
     const evaluations: EvaluationResult[] = [];
-    const modelEvaluationTimes: { 
-      modelId: string; 
+    const modelEvaluationTimes: {
+      modelId: string;
       time: number;
       criteriaCount: number;
       criteriaTimings: {
@@ -627,7 +671,7 @@ const evaluateModelOutputs = async (
         max: number;
         min: number;
         total: number;
-      }
+      };
     }[] = [];
 
     // Helper function to evaluate a single criterion/assertion
@@ -637,7 +681,11 @@ const evaluateModelOutputs = async (
       testCaseInput: string,
       criterion: any,
       isIdeal: boolean = false
-    ): Promise<{ criterionId: string; scoreData: any; evaluationTime: number }> => {
+    ): Promise<{
+      criterionId: string;
+      scoreData: any;
+      evaluationTime: number;
+    }> => {
       const startTime = Date.now();
       const logPrefix = isIdeal ? "🎯 Ideal" : `🔍 Model ${modelId}`;
 
@@ -746,7 +794,7 @@ const evaluateModelOutputs = async (
 
       try {
         // Evaluate all criteria in parallel
-        const criteriaPromises = criteria.map((criterion) => 
+        const criteriaPromises = criteria.map((criterion) =>
           evaluateSingleCriterion(
             responseContent,
             modelId,
@@ -784,21 +832,23 @@ const evaluateModelOutputs = async (
         };
 
         evaluations.push(evaluationWithMetadata);
-        
+
         // Track model evaluation time and criterion details
         const modelEvalTime = Date.now() - modelEvalStartTime;
-        const individualTimes = criteriaResults.map(r => r.evaluationTime);
-        modelEvaluationTimes.push({ 
-          modelId, 
+        const individualTimes = criteriaResults.map((r) => r.evaluationTime);
+        modelEvaluationTimes.push({
+          modelId,
           time: modelEvalTime,
           criteriaCount: criteria.length,
           criteriaTimings: {
             individual: individualTimes,
-            avg: individualTimes.reduce((a, b) => a + b, 0) / individualTimes.length,
+            avg:
+              individualTimes.reduce((a, b) => a + b, 0) /
+              individualTimes.length,
             max: Math.max(...individualTimes),
             min: Math.min(...individualTimes),
-            total: overallEvaluationTime
-          }
+            total: overallEvaluationTime,
+          },
         });
 
         // Store ideal response details for later summary
@@ -834,16 +884,11 @@ const evaluateModelOutputs = async (
 
     // Prepare all evaluation promises (models + ideal)
     const allEvaluationPromises: Promise<void>[] = [];
-    
+
     // Add all model output evaluations
     outputs.forEach((output) => {
       allEvaluationPromises.push(
-        evaluateResponse(
-          output.output,
-          output.modelId,
-          testCase.input,
-          false
-        )
+        evaluateResponse(output.output, output.modelId, testCase.input, false)
       );
     });
 
@@ -866,61 +911,103 @@ const evaluateModelOutputs = async (
 
     // Execute all evaluations in parallel
     await Promise.all(allEvaluationPromises);
-    
+
     const totalEvaluationTime = Date.now() - totalEvaluationStartTime;
 
     // Print comprehensive summary
-    console.log(`\n${'='.repeat(70)}`);
+    console.log(`\n${"=".repeat(70)}`);
     console.log(`                    EVALUATION SUMMARY`);
-    console.log(`${'='.repeat(70)}\n`);
-    
+    console.log(`${"=".repeat(70)}\n`);
+
     console.log(`✅ Evaluation completed successfully!`);
-    console.log(`⏱️  TOTAL TIME: ${totalEvaluationTime}ms (${(totalEvaluationTime / 1000).toFixed(2)} seconds)`);
+    console.log(
+      `⏱️  TOTAL TIME: ${totalEvaluationTime}ms (${(
+        totalEvaluationTime / 1000
+      ).toFixed(2)} seconds)`
+    );
     console.log(`📊 Total evaluations: ${evaluations.length}`);
-    console.log(`📈 Average time per model: ${(totalEvaluationTime / allEvaluationPromises.length).toFixed(0)}ms\n`);
-    
+    console.log(
+      `📈 Average time per model: ${(
+        totalEvaluationTime / allEvaluationPromises.length
+      ).toFixed(0)}ms\n`
+    );
+
     // Sort and display model evaluation times
     modelEvaluationTimes.sort((a, b) => b.time - a.time);
-    console.log(`${'─'.repeat(70)}`);
+    console.log(`${"─".repeat(70)}`);
     console.log(`MODEL EVALUATION BREAKDOWN (sorted by time):`);
-    console.log(`${'─'.repeat(70)}`);
+    console.log(`${"─".repeat(70)}`);
     modelEvaluationTimes.forEach((model) => {
-      const isIdeal = evaluations.find(e => e.modelId === model.modelId)?.isIdealResponse;
-      const prefix = isIdeal ? '🎯 IDEAL' : '🤖 MODEL';
+      const isIdeal = evaluations.find(
+        (e) => e.modelId === model.modelId
+      )?.isIdealResponse;
+      const prefix = isIdeal ? "🎯 IDEAL" : "🤖 MODEL";
       console.log(`${prefix}: ${model.modelId}`);
-      console.log(`   Total time: ${model.time}ms (${(model.time / 1000).toFixed(2)}s)`);
+      console.log(
+        `   Total time: ${model.time}ms (${(model.time / 1000).toFixed(2)}s)`
+      );
       console.log(`   Criteria evaluated: ${model.criteriaCount}`);
-      console.log(`   Avg per criterion: ${model.criteriaTimings.avg.toFixed(0)}ms`);
+      console.log(
+        `   Avg per criterion: ${model.criteriaTimings.avg.toFixed(0)}ms`
+      );
       console.log(`   Fastest criterion: ${model.criteriaTimings.min}ms`);
       console.log(`   Slowest criterion: ${model.criteriaTimings.max}ms`);
-      console.log(`   Criterion parallel speedup: ${(model.criteriaTimings.individual.reduce((a, b) => a + b, 0) / model.criteriaTimings.total).toFixed(2)}x`);
+      console.log(
+        `   Criterion parallel speedup: ${(
+          model.criteriaTimings.individual.reduce((a, b) => a + b, 0) /
+          model.criteriaTimings.total
+        ).toFixed(2)}x`
+      );
       console.log();
     });
-    
+
     // Calculate parallel speedup for models
-    console.log(`${'─'.repeat(70)}`);
+    console.log(`${"─".repeat(70)}`);
     console.log(`PARALLEL PERFORMANCE METRICS:`);
-    console.log(`${'─'.repeat(70)}`);
-    const totalSequentialTime = modelEvaluationTimes.reduce((sum, m) => sum + m.time, 0);
-    const parallelSpeedup = totalSequentialTime / totalEvaluationTime;
-    const totalCriteriaSequential = modelEvaluationTimes.reduce((sum, m) => 
-      sum + m.criteriaTimings.individual.reduce((a, b) => a + b, 0), 0
+    console.log(`${"─".repeat(70)}`);
+    const totalSequentialTime = modelEvaluationTimes.reduce(
+      (sum, m) => sum + m.time,
+      0
     );
-    
+    const parallelSpeedup = totalSequentialTime / totalEvaluationTime;
+    const totalCriteriaSequential = modelEvaluationTimes.reduce(
+      (sum, m) => sum + m.criteriaTimings.individual.reduce((a, b) => a + b, 0),
+      0
+    );
+
     console.log(`🚀 MODEL-LEVEL PARALLELIZATION:`);
-    console.log(`   - Models evaluated in parallel: ${allEvaluationPromises.length}`);
-    console.log(`   - Sequential time (if one-by-one): ${totalSequentialTime}ms`);
+    console.log(
+      `   - Models evaluated in parallel: ${allEvaluationPromises.length}`
+    );
+    console.log(
+      `   - Sequential time (if one-by-one): ${totalSequentialTime}ms`
+    );
     console.log(`   - Actual parallel time: ${totalEvaluationTime}ms`);
     console.log(`   - Speedup: ${parallelSpeedup.toFixed(2)}x`);
-    console.log(`   - Time saved: ${(totalSequentialTime - totalEvaluationTime)}ms\n`);
-    
+    console.log(
+      `   - Time saved: ${totalSequentialTime - totalEvaluationTime}ms\n`
+    );
+
     console.log(`⚡ CRITERIA-LEVEL PARALLELIZATION:`);
-    console.log(`   - Total criteria evaluations: ${modelEvaluationTimes.reduce((sum, m) => sum + m.criteriaCount, 0)}`);
-    console.log(`   - Sequential time (all criteria): ${totalCriteriaSequential}ms`);
-    console.log(`   - Actual time (with parallelization): ${totalEvaluationTime}ms`);
-    console.log(`   - Overall speedup: ${(totalCriteriaSequential / totalEvaluationTime).toFixed(2)}x`);
-    
-    console.log(`\n${'='.repeat(70)}`);
+    console.log(
+      `   - Total criteria evaluations: ${modelEvaluationTimes.reduce(
+        (sum, m) => sum + m.criteriaCount,
+        0
+      )}`
+    );
+    console.log(
+      `   - Sequential time (all criteria): ${totalCriteriaSequential}ms`
+    );
+    console.log(
+      `   - Actual time (with parallelization): ${totalEvaluationTime}ms`
+    );
+    console.log(
+      `   - Overall speedup: ${(
+        totalCriteriaSequential / totalEvaluationTime
+      ).toFixed(2)}x`
+    );
+
+    console.log(`\n${"=".repeat(70)}`);
 
     // Print summary of ideal response evaluations
     const idealResponseEvaluations = evaluations.filter(
@@ -1501,9 +1588,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Debug: Log evaluation phase outputs summary
-      console.log(`📊 Evaluating ${outputs.length} model outputs:`, 
-        outputs.map((o, i) => `  ${i+1}. ${o.provider}/${o.modelId}`).join('\n')
-      );
+      // console.log(
+      //   `📊 Evaluating ${outputs.length} model outputs:`,
+      //   outputs
+      //     .map((o, i) => `  ${i + 1}. ${o.provider}/${o.modelId}`)
+      //     .join("\n")
+      // );
 
       if (!outputs || !Array.isArray(outputs) || outputs.length === 0) {
         return NextResponse.json(
