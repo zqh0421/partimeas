@@ -134,20 +134,34 @@ export async function collectEvaluationData(
       return "Ideal Response";
     }
 
-    // For regular responses, extract the number and format as "Response N"
+    // Check if this is a model ID (contains letters and hyphens, like "claude-3-5-sonnet-20241022")
+    // Model IDs typically have format: provider-model-version or just model-version
+    const isModelId = /^[a-z0-9]+(-[a-z0-9]+)+$/i.test(responseId);
+    if (isModelId) {
+      // For model IDs, find the index in modelOutputs array to get the response number
+      const modelIndex = snapshot.modelOutputs.findIndex(
+        (mo) => mo.modelId === responseId
+      );
+      if (modelIndex !== -1) {
+        return `Response ${modelIndex + 1}`;
+      }
+      // If not found in modelOutputs, return as is (shouldn't happen)
+      return responseId;
+    }
+
+    // For regular response IDs, extract the number and format as "Response N"
     // Handle various formats: "resp-1", "model-1", "Response 1", etc.
     const patterns = [
       /^resp-(\d+)$/i,
       /^response\s*(\d+)$/i,
       /^model-(\d+)$/i,
-      /(\d+)$/, // Fallback: any trailing number
     ];
 
     for (const pattern of patterns) {
       const match = pattern.exec(responseId?.trim() || "");
       if (match) {
         const num = parseInt(match[1], 10);
-        if (!Number.isNaN(num)) {
+        if (!Number.isNaN(num) && num < 100) { // Reasonable response number limit
           return `Response ${num}`;
         }
       }
@@ -155,7 +169,6 @@ export async function collectEvaluationData(
     console.log("after nomalize");
     console.log(responseId);
     // If no pattern matches, return the original ID
-    // This handles cases like "anthropic/claude-sonnet-4-20250514"
     return responseId;
   };
   // Create criteria array combining human and AI scores in the new structure
