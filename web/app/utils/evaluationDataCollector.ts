@@ -124,20 +124,25 @@ export async function collectEvaluationData(
     rubricId: string,
     responseId: string
   ): string => {
+    console.log("before nomalize");
+    console.log(responseId);
     // Handle ideal response specially - check if this responseId is the selected ideal response
-    if (snapshot.selectedIdealResponseId && responseId === snapshot.selectedIdealResponseId) {
+    if (
+      snapshot.selectedIdealResponseId &&
+      responseId === snapshot.selectedIdealResponseId
+    ) {
       return "Ideal Response";
     }
-    
+
     // For regular responses, extract the number and format as "Response N"
     // Handle various formats: "resp-1", "model-1", "Response 1", etc.
     const patterns = [
       /^resp-(\d+)$/i,
       /^response\s*(\d+)$/i,
       /^model-(\d+)$/i,
-      /(\d+)$/ // Fallback: any trailing number
+      /(\d+)$/, // Fallback: any trailing number
     ];
-    
+
     for (const pattern of patterns) {
       const match = pattern.exec(responseId?.trim() || "");
       if (match) {
@@ -147,8 +152,10 @@ export async function collectEvaluationData(
         }
       }
     }
-    
+    console.log("after nomalize");
+    console.log(responseId);
     // If no pattern matches, return the original ID
+    // This handles cases like "anthropic/claude-sonnet-4-20250514"
     return responseId;
   };
   // Create criteria array combining human and AI scores in the new structure
@@ -175,7 +182,7 @@ export async function collectEvaluationData(
     > = {};
     for (const rawId of responseIds) {
       const normalizedId = normalizeResponseId(item.id, rawId);
-      
+
       // Always use rawId to look up the actual data, since that's how it's stored
       const humanRaw = snapshot.humanScores[item.id]?.[rawId];
       const humanRationale = snapshot.humanRationales[item.id]?.[rawId] || "";
@@ -273,7 +280,8 @@ export async function collectEvaluationData(
       name: item.name || "Untitled Criterion",
       num: item.num,
       weight: item.weight,
-      description: item.requirement || item.description || "No description provided", // Use requirement as description
+      description:
+        item.requirement || item.description || "No description provided", // Use requirement as description
       requirement: item.requirement || "No requirement specified",
       points: item.points || 2,
       scores,
@@ -335,9 +343,7 @@ export async function collectEvaluationData(
       snapshot.evaluatorSystemPrompt ||
       "Default evaluation system prompt",
     ideal_response: snapshot.idealResponse || "No ideal response available",
-    ideal_test_case:
-      snapshot.idealTestCase ||
-      "No ideal test case available",
+    ideal_test_case: snapshot.idealTestCase || "No ideal test case available",
     rubric_with_scoring: rubricWithScoring,
   };
 }
@@ -392,7 +398,13 @@ export async function uploadEvaluationRecord(
 export function createEvaluationSnapshot(params: {
   testCase?: any;
   modelOutputs?: any[];
-  rubricItems: Array<{ id: string; name: string; requirement?: string; num: number; weight?: string }>;
+  rubricItems: Array<{
+    id: string;
+    name: string;
+    requirement?: string;
+    num: number;
+    weight?: string;
+  }>;
   rubricPoints: number[];
   humanScores: Record<string, Record<string, number | "">>;
   humanRationales: Record<string, Record<string, string>>;
@@ -477,7 +489,13 @@ export function createEvaluationSnapshot(params: {
 export async function collectAndUploadEvaluationData(params: {
   testCase?: any;
   modelOutputs?: any[];
-  rubricItems: Array<{ id: string; name: string; requirement?: string; num: number; weight?: string }>;
+  rubricItems: Array<{
+    id: string;
+    name: string;
+    requirement?: string;
+    num: number;
+    weight?: string;
+  }>;
   rubricPoints: number[];
   humanScores: Record<string, Record<string, number | "">>;
   humanRationales: Record<string, Record<string, string>>;

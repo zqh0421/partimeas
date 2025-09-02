@@ -547,7 +547,7 @@ export default function ModelOutputsGrid({
                     key={testCaseKey}
                     ref={inputScoringTableRef}
                     responses={(modelOutputs || []).map((mo, i) => ({
-                      id: mo.modelId || mo.modelName || `Response ${i + 1}`,
+                      id: `resp-${i + 1}`,
                       label: `Response ${i + 1}`,
                     }))}
                     modelOutputs={modelOutputs}

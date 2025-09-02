@@ -35,7 +35,13 @@ import { InlineSpinner, ButtonSpinner } from "@/app/components/LoadingSpinner";
 
 type InputScoringTableProps = {
   responses: { id: string; label: string }[];
-  rubricItems?: { id: string; name: string; requirement?: string; num: number; weight?: string }[];
+  rubricItems?: {
+    id: string;
+    name: string;
+    requirement: string;
+    num: number;
+    weight?: string;
+  }[];
   aiScores?: Record<
     string,
     Record<string, { score: number; rationale: string }>
@@ -110,6 +116,7 @@ const InputScoringTable = forwardRef<
           id: criterion.original_id || `archived-criterion-${idx + 1}`,
           name: criterion.name || `Criterion ${idx + 1}`,
           num: criterion.num || idx + 1, // Use num from archived data if available
+          requirement: criterion.name || `Criterion ${idx + 1}`, // Add requirement field for consistency
         }));
 
         // Sort items by num field
@@ -129,7 +136,9 @@ const InputScoringTable = forwardRef<
 
     // When provided rubricItems directly (from props), use them
     if (rubricItems && rubricItems.length > 0) {
-      const sortedItems = [...rubricItems].sort((a, b) => (a.num || 0) - (b.num || 0));
+      const sortedItems = [...rubricItems].sort(
+        (a, b) => (a.num || 0) - (b.num || 0)
+      );
       return {
         items: sortedItems.map((item) => ({
           ...item,
@@ -167,8 +176,9 @@ const InputScoringTable = forwardRef<
 
     // Create points array matching the sorted order
     const points = items.map((item) => {
-      const req = selectedVersion.requirements.find((r) => 
-        (r.num || selectedVersion.requirements.indexOf(r) + 1) === item.num
+      const req = selectedVersion.requirements.find(
+        (r) =>
+          (r.num || selectedVersion.requirements.indexOf(r) + 1) === item.num
       );
       const n = parseInt((req?.points || "1").trim(), 10);
       return Number.isNaN(n) ? 1 : n;
@@ -195,7 +205,7 @@ const InputScoringTable = forwardRef<
     if (effectiveSessionId && derived.items.length > 0) {
       const { scores: cachedScores } = restoreSessionScores(
         effectiveSessionId,
-        derived.items.map(item => item.num),
+        derived.items.map((item) => item.num),
         responses.map((r) => r.id)
       );
 
@@ -234,7 +244,7 @@ const InputScoringTable = forwardRef<
     if (effectiveSessionId && derived.items.length > 0) {
       const { rationales: cachedRationales } = restoreSessionScores(
         effectiveSessionId,
-        derived.items.map(item => item.num),
+        derived.items.map((item) => item.num),
         responses.map((r) => r.id)
       );
 
@@ -368,7 +378,7 @@ const InputScoringTable = forwardRef<
       const { scores: cachedScores, rationales: cachedRationales } =
         restoreSessionScores(
           effectiveSessionId,
-          derived.items.map(item => item.num),
+          derived.items.map((item) => item.num),
           responses.map((r) => r.id)
         );
 
@@ -803,6 +813,9 @@ const InputScoringTable = forwardRef<
         description: item.requirement || item.name, // Use the actual prompt requirement, fallback to name if not available
         scoreRange: `Score range: 0-${idealPoints[index] || 1}`, // Include score range for each criterion
       }));
+
+      console.log(derived.items[0]);
+      console.log(modelOutputs);
 
       const response = await fetch("/api/model-evaluation", {
         method: "POST",

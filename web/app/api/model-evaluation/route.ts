@@ -493,7 +493,9 @@ const generateModelOutput = async (
     console.log(`🔄 Final processor update for: ${finalProvider}/${modelId}`);
 
     return {
-      modelId: `${finalProvider}/${modelId}`,
+      modelId: modelId, // Use original modelId without provider prefix
+      modelName: modelId, // Also include as modelName for compatibility
+      provider: finalProvider, // Include provider separately
       output,
       timestamp: new Date().toISOString(),
       useCaseType, // Include the detected use case type in the response
