@@ -872,8 +872,16 @@ const evaluateModelOutputs = async (
         }`
       );
       console.log(
-        `  │ Ideal Response Test Case Input: ${idealResponse.idealTestCase?.substring(0, 100) || idealResponse.testCaseInput?.substring(0, 100) || "Not provided"}${
-          (idealResponse.idealTestCase || idealResponse.testCaseInput) && (idealResponse.idealTestCase || idealResponse.testCaseInput).length > 100 ? "..." : ""
+        `  │ Ideal Response Test Case Input: ${
+          idealResponse.idealTestCase?.substring(0, 100) ||
+          idealResponse.testCaseInput?.substring(0, 100) ||
+          "Not provided"
+        }${
+          (idealResponse.idealTestCase || idealResponse.testCaseInput) &&
+          (idealResponse.idealTestCase || idealResponse.testCaseInput).length >
+            100
+            ? "..."
+            : ""
         }`
       );
       console.log(
@@ -893,11 +901,15 @@ const evaluateModelOutputs = async (
 
       // Build user prompt for ideal response evaluation
       // Use the test case input from the spreadsheet if available, otherwise fall back to testCase.input
-      const idealTestCaseInput = idealResponse.idealTestCase || idealResponse.testCaseInput || testCase.input;
+      const idealTestCaseInput =
+        idealResponse.idealTestCase ||
+        idealResponse.testCaseInput ||
+        testCase.input;
       console.log(
-        `  │ Using Test Case Input for Evaluation: ${idealTestCaseInput?.substring(0, 100)}${
-          idealTestCaseInput && idealTestCaseInput.length > 100 ? "..." : ""
-        }`
+        `  │ Using Test Case Input for Evaluation: ${idealTestCaseInput?.substring(
+          0,
+          100
+        )}${idealTestCaseInput && idealTestCaseInput.length > 100 ? "..." : ""}`
       );
       const idealUserQuery = `
         **Test Case User Input:**
@@ -1186,8 +1198,16 @@ const evaluateModelOutputs = async (
 // Main API route handler
 export async function POST(request: NextRequest) {
   try {
-    const { phase, testCase, criteria, outputs, groupId, idealResponse, criteriaSheetName, sessionId: providedSessionId } =
-      await request.json();
+    const {
+      phase,
+      testCase,
+      criteria,
+      outputs,
+      groupId,
+      idealResponse,
+      criteriaSheetName,
+      sessionId: providedSessionId,
+    } = await request.json();
 
     console.log(`🚀 Model evaluation request received - Phase: ${phase}`);
     console.log("Test case:", testCase);
@@ -1202,11 +1222,14 @@ export async function POST(request: NextRequest) {
 
     // Log warning if criteria or ideal response are missing (but don't block)
     if (phase === "generate" && (!criteriaSheetName || !idealResponse?.id)) {
-      console.warn("⚠️ Session being created without complete evaluation data:", {
-        criteriaSheetName: criteriaSheetName || "missing",
-        idealResponseId: idealResponse?.id || "missing",
-        note: "Response scoring section will not be available for this session"
-      });
+      console.warn(
+        "⚠️ Session being created without complete evaluation data:",
+        {
+          criteriaSheetName: criteriaSheetName || "missing",
+          idealResponseId: idealResponse?.id || "missing",
+          note: "Response scoring section will not be available for this session",
+        }
+      );
     }
 
     if (phase === "generate") {

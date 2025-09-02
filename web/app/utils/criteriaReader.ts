@@ -459,6 +459,6 @@ export function shouldIgnoreSheet(
     ...(additionalIgnoredSheets || []),
   ];
   return ignoredSheets.some((ignored) =>
-    sheetName.toLowerCase().includes(ignored.toLowerCase())
+    sheetName.toLowerCase() === ignored.toLowerCase()
   );
 }

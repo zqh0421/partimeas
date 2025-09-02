@@ -18,7 +18,7 @@ export function criteriaToDynamicTree(
     .filter((version) => version.requirements.length > 0)
     .map((version) => ({
       id: version.sheetName,
-      name: version.criterionName || version.sheetName,
+      name: `${version.sheetName} (${version.criterionName})`,
       // Show concise description with total requirement count
       description: `${version.criterionDescription} (${version.requirements.length} items)`,
       isSelectable: true,
