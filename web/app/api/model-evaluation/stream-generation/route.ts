@@ -22,7 +22,7 @@ type ModelInstance =
   | { type: "direct_anthropic"; modelName: string; anthropicApiKey: string };
 
 interface StreamMessage {
-  type: 'modelOutput' | 'modelChunk' | 'complete' | 'error';
+  type: "modelOutput" | "modelChunk" | "complete" | "error";
   modelId?: string;
   output?: string;
   chunk?: string;
@@ -244,22 +244,25 @@ const validateAndFixStructure = (
 // Helper function to chunk text into smaller pieces
 const chunkText = (text: string, chunkSize: number = 50): string[] => {
   const chunks: string[] = [];
-  const words = text.split(' ');
-  let currentChunk = '';
-  
+  const words = text.split(" ");
+  let currentChunk = "";
+
   for (const word of words) {
-    if ((currentChunk + ' ' + word).length > chunkSize && currentChunk.length > 0) {
+    if (
+      (currentChunk + " " + word).length > chunkSize &&
+      currentChunk.length > 0
+    ) {
       chunks.push(currentChunk);
       currentChunk = word;
     } else {
       currentChunk = currentChunk ? `${currentChunk} ${word}` : word;
     }
   }
-  
+
   if (currentChunk) {
     chunks.push(currentChunk);
   }
-  
+
   return chunks;
 };
 
@@ -273,7 +276,9 @@ const generateModelOutputStreaming = async (
   sendChunk?: (chunk: string, modelId: string, isComplete: boolean) => void
 ) => {
   try {
-    console.log(`🚀 Starting streaming generation for model: ${provider}/${modelId}`);
+    console.log(
+      `🚀 Starting streaming generation for model: ${provider}/${modelId}`
+    );
 
     // Provider correction logic (same as original)
     let finalProvider = provider;
@@ -296,9 +301,10 @@ const generateModelOutputStreaming = async (
     }
 
     const model = await getModelInstance(finalProvider, modelId);
-    
+
     const useCaseType = useCaseTypeOverride || testCase?.useCase || "";
-    const systemPrompt = systemPromptOverride || 
+    const systemPrompt =
+      systemPromptOverride ||
       "You are a helpful AI assistant. Please provide thoughtful, accurate, and helpful responses to the user's questions.";
 
     const prompt = await ChatPromptTemplate.fromMessages([
@@ -326,9 +332,11 @@ const generateModelOutputStreaming = async (
       // Use streaming for Anthropic if sendChunk is provided
       if (sendChunk) {
         try {
-          console.log(`🌊 Using native streaming for Anthropic ${model.modelName}`);
-          let accumulatedContent = '';
-          
+          console.log(
+            `🌊 Using native streaming for Anthropic ${model.modelName}`
+          );
+          let accumulatedContent = "";
+
           const stream = await anthropic.messages.create({
             model: model.modelName,
             max_tokens: 4096,
@@ -340,22 +348,27 @@ const generateModelOutputStreaming = async (
             ],
             stream: true,
           });
-          
+
           for await (const chunk of stream) {
-            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            if (
+              chunk.type === "content_block_delta" &&
+              chunk.delta.type === "text_delta"
+            ) {
               const chunkContent = chunk.delta.text;
               accumulatedContent += chunkContent;
               // Send each chunk as it arrives
               sendChunk(chunkContent, `${finalProvider}/${modelId}`, false);
             }
           }
-          
+
           // Send final marker
-          sendChunk('', `${finalProvider}/${modelId}`, true);
+          sendChunk("", `${finalProvider}/${modelId}`, true);
           output = accumulatedContent;
-          
         } catch (streamError) {
-          console.warn(`⚠️ Streaming failed for Anthropic, falling back to regular API:`, streamError);
+          console.warn(
+            `⚠️ Streaming failed for Anthropic, falling back to regular API:`,
+            streamError
+          );
           // Fallback to regular API call
           const response = await anthropic.messages.create({
             model: model.modelName,
@@ -373,10 +386,14 @@ const generateModelOutputStreaming = async (
             if (content && content.type === "text") {
               output = content.text;
             } else {
-              throw new Error("No valid text content received from Anthropic API");
+              throw new Error(
+                "No valid text content received from Anthropic API"
+              );
             }
           } else {
-            throw new Error("No valid text content received from Anthropic API");
+            throw new Error(
+              "No valid text content received from Anthropic API"
+            );
           }
         }
       } else {
@@ -397,7 +414,9 @@ const generateModelOutputStreaming = async (
           if (content && content.type === "text") {
             output = content.text;
           } else {
-            throw new Error("No valid text content received from Anthropic API");
+            throw new Error(
+              "No valid text content received from Anthropic API"
+            );
           }
         } else {
           throw new Error("No valid text content received from Anthropic API");
@@ -419,65 +438,77 @@ const generateModelOutputStreaming = async (
           system_prompt: systemPrompt,
         },
       });
-      
+
       // Try to use streaming if available
       if (sendChunk && chainWithConfig.stream) {
         try {
-          console.log(`🌊 Using native streaming for ${finalProvider}/${modelId}`);
-          let accumulatedContent = '';
-          
+          console.log(
+            `🌊 Using native streaming for ${finalProvider}/${modelId}`
+          );
+          let accumulatedContent = "";
+
           const stream = await chainWithConfig.stream({
             query: `${testCase.input}`,
           });
-          
+
           for await (const chunk of stream) {
-            const chunkContent = (chunk as any).content || '';
+            const chunkContent = (chunk as any).content || "";
             if (chunkContent) {
               accumulatedContent += chunkContent;
               // Send each chunk as it arrives from the model
               sendChunk(chunkContent, `${finalProvider}/${modelId}`, false);
             }
           }
-          
+
           // Send final marker
-          sendChunk('', `${finalProvider}/${modelId}`, true);
+          sendChunk("", `${finalProvider}/${modelId}`, true);
           output = accumulatedContent;
-          
         } catch (streamError) {
-          console.warn(`⚠️ Streaming failed for ${finalProvider}/${modelId}, falling back to regular invoke:`, streamError);
+          console.warn(
+            `⚠️ Streaming failed for ${finalProvider}/${modelId}, falling back to regular invoke:`,
+            streamError
+          );
           // Fallback to regular invoke if streaming fails
           try {
             const response = await chainWithConfig.invoke({
               query: `${testCase.input}`,
             });
-            
+
             // Handle different response structures
-            if (typeof response === 'string') {
+            if (typeof response === "string") {
               output = response;
-            } else if (response && typeof response === 'object') {
+            } else if (response && typeof response === "object") {
               // Try common response patterns
-              if ('content' in response) {
+              if ("content" in response) {
                 output = (response as any).content as string;
-              } else if ('text' in response) {
+              } else if ("text" in response) {
                 output = (response as any).text as string;
-              } else if ('output' in response) {
+              } else if ("output" in response) {
                 output = (response as any).output as string;
               } else {
                 // Log the response structure for debugging
-                console.error(`Unexpected response structure from ${finalProvider}/${modelId}:`, response);
-                throw new Error(`Unexpected response structure from model ${modelId}`);
+                console.error(
+                  `Unexpected response structure from ${finalProvider}/${modelId}:`,
+                  response
+                );
+                throw new Error(
+                  `Unexpected response structure from model ${modelId}`
+                );
               }
             } else {
               throw new Error(`Invalid response from model ${modelId}`);
             }
-            
+
             // Send the complete output when fallback succeeds (simulating chunks for UI consistency)
             if (sendChunk && output) {
               // Send the entire output as a single chunk since streaming failed
               sendChunk(output, `${finalProvider}/${modelId}`, true);
             }
           } catch (invokeError) {
-            console.error(`❌ Regular invoke also failed for ${finalProvider}/${modelId}:`, invokeError);
+            console.error(
+              `❌ Regular invoke also failed for ${finalProvider}/${modelId}:`,
+              invokeError
+            );
             throw invokeError;
           }
         }
@@ -486,22 +517,27 @@ const generateModelOutputStreaming = async (
         const response = await chainWithConfig.invoke({
           query: `${testCase.input}`,
         });
-        
+
         // Handle different response structures
-        if (typeof response === 'string') {
+        if (typeof response === "string") {
           output = response;
-        } else if (response && typeof response === 'object') {
+        } else if (response && typeof response === "object") {
           // Try common response patterns
-          if ('content' in response) {
+          if ("content" in response) {
             output = (response as any).content as string;
-          } else if ('text' in response) {
+          } else if ("text" in response) {
             output = (response as any).text as string;
-          } else if ('output' in response) {
+          } else if ("output" in response) {
             output = (response as any).output as string;
           } else {
             // Log the response structure for debugging
-            console.error(`Unexpected response structure from ${finalProvider}/${modelId}:`, response);
-            throw new Error(`Unexpected response structure from model ${modelId}`);
+            console.error(
+              `Unexpected response structure from ${finalProvider}/${modelId}:`,
+              response
+            );
+            throw new Error(
+              `Unexpected response structure from model ${modelId}`
+            );
           }
         } else {
           throw new Error(`Invalid response from model ${modelId}`);
@@ -524,26 +560,33 @@ const generateModelOutputStreaming = async (
       correctProvider: finalProvider,
     };
   } catch (error) {
-    console.error(`Error generating output for model ${provider}/${modelId}:`, error);
+    console.error(
+      `Error generating output for model ${provider}/${modelId}:`,
+      error
+    );
     throw error;
   }
 };
 
 export async function POST(request: NextRequest) {
   try {
-    const { testCase, groupId, idealResponse, criteriaSheetName } = await request.json();
+    const { testCase, groupId, idealResponse, criteriaSheetName } =
+      await request.json();
 
     console.log(`🚀 Streaming model evaluation request received`);
-    console.log("Test case:", testCase);
+    // console.log("Test case:", testCase);
     console.log("Group ID:", groupId);
-    
+
     // Log warning if criteria or ideal response are missing (but don't block)
     if (!criteriaSheetName || !idealResponse?.id) {
-      console.warn("⚠️ Session being created without complete evaluation data:", {
-        criteriaSheetName: criteriaSheetName || "missing",
-        idealResponseId: idealResponse?.id || "missing",
-        note: "Response scoring section will not be available for this session"
-      });
+      console.warn(
+        "⚠️ Session being created without complete evaluation data:",
+        {
+          criteriaSheetName: criteriaSheetName || "missing",
+          idealResponseId: idealResponse?.id || "missing",
+          note: "Response scoring section will not be available for this session",
+        }
+      );
     }
 
     // Fetch configuration from database (same logic as original)
@@ -566,13 +609,19 @@ export async function POST(request: NextRequest) {
         }
       });
     } catch (error) {
-      console.warn("Failed to fetch configuration from database, using defaults:", error);
+      console.warn(
+        "Failed to fetch configuration from database, using defaults:",
+        error
+      );
     }
 
     // Select assistants (same logic as original)
     const allOutputAssistantsWithModels = await getOutputGenerationAssistants();
-    const desiredOutputs = Math.min(numOutputsToRun, allOutputAssistantsWithModels.length);
-    
+    const desiredOutputs = Math.min(
+      numOutputsToRun,
+      allOutputAssistantsWithModels.length
+    );
+
     let selectedAssistants: OutputAssistant[] = [];
 
     if (assistantModelAlgorithm === "unique_model") {
@@ -588,7 +637,9 @@ export async function POST(request: NextRequest) {
           );
 
           if (availableModels.length > 0) {
-            const randomIndex = Math.floor(Math.random() * availableModels.length);
+            const randomIndex = Math.floor(
+              Math.random() * availableModels.length
+            );
             const selectedModel = availableModels[randomIndex];
 
             assignedModels.add(selectedModel);
@@ -612,20 +663,35 @@ export async function POST(request: NextRequest) {
       );
 
       const randomizedAssistants = [
-        ...validAssistants.filter((a) => a.requiredToShow).sort(() => Math.random() - 0.5),
-        ...validAssistants.filter((a) => !a.requiredToShow).sort(() => Math.random() - 0.5),
+        ...validAssistants
+          .filter((a) => a.requiredToShow)
+          .sort(() => Math.random() - 0.5),
+        ...validAssistants
+          .filter((a) => !a.requiredToShow)
+          .sort(() => Math.random() - 0.5),
       ];
 
       selectedAssistants = randomizedAssistants.slice(0, desiredOutputs);
     } else {
-      const requiredAssistants = allOutputAssistantsWithModels.filter((a) => a.requiredToShow);
-      const optionalAssistants = allOutputAssistantsWithModels.filter((a) => !a.requiredToShow);
+      const requiredAssistants = allOutputAssistantsWithModels.filter(
+        (a) => a.requiredToShow
+      );
+      const optionalAssistants = allOutputAssistantsWithModels.filter(
+        (a) => !a.requiredToShow
+      );
 
       const requiredCount = Math.min(desiredOutputs, requiredAssistants.length);
-      const optionalCount = Math.min(desiredOutputs - requiredCount, optionalAssistants.length);
+      const optionalCount = Math.min(
+        desiredOutputs - requiredCount,
+        optionalAssistants.length
+      );
 
-      const shuffledRequired = requiredAssistants.sort(() => Math.random() - 0.5);
-      const shuffledOptional = optionalAssistants.sort(() => Math.random() - 0.5);
+      const shuffledRequired = requiredAssistants.sort(
+        () => Math.random() - 0.5
+      );
+      const shuffledOptional = optionalAssistants.sort(
+        () => Math.random() - 0.5
+      );
 
       selectedAssistants = [
         ...shuffledRequired.slice(0, requiredCount),
@@ -635,7 +701,9 @@ export async function POST(request: NextRequest) {
 
     selectedAssistants = shuffleArray(selectedAssistants);
 
-    console.log(`🔧 Selected ${selectedAssistants.length} assistants for streaming`);
+    console.log(
+      `🔧 Selected ${selectedAssistants.length} assistants for streaming`
+    );
 
     // Create readable stream
     const stream = new ReadableStream({
@@ -653,75 +721,83 @@ export async function POST(request: NextRequest) {
           const errors: any[] = [];
 
           // Create promises for all model generations to run in parallel
-          const generationPromises = selectedAssistants.map(async (assistant, i) => {
-            try {
-              console.log(`🔄 Starting parallel streaming generation ${i + 1}/${selectedAssistants.length}: ${assistant.name}`);
-              
-              // Track accumulated chunks for this model
-              let accumulatedOutput = '';
-              
-              const result = await generateModelOutputStreaming(
-                assistant.provider,
-                assistant.model,
-                testCase,
-                testCase.useCase,
-                assistant.systemPrompt,
-                // Chunk sender callback
-                (chunk: string, modelId: string, isLastChunk: boolean) => {
-                  accumulatedOutput += chunk + (isLastChunk ? '' : ' ');
-                  
-                  // Send chunk message
-                  sendMessage({
-                    type: 'modelChunk',
-                    modelId: modelId,
-                    chunk: chunk,
-                    isLastChunk: isLastChunk,
-                    timestamp: new Date().toISOString(),
-                  });
-                }
-              );
+          const generationPromises = selectedAssistants.map(
+            async (assistant, i) => {
+              try {
+                console.log(
+                  `🔄 Starting parallel streaming generation ${i + 1}/${
+                    selectedAssistants.length
+                  }: ${assistant.name}`
+                );
 
-              // Send the complete output message after all chunks
-              sendMessage({
-                type: 'modelOutput',
-                modelId: result.modelId,
-                output: result.output,
-                timestamp: result.timestamp,
-              });
+                // Track accumulated chunks for this model
+                let accumulatedOutput = "";
 
-              console.log(`✅ Streamed result for: ${assistant.name}`);
-              return { success: true, result, assistant };
+                const result = await generateModelOutputStreaming(
+                  assistant.provider,
+                  assistant.model,
+                  testCase,
+                  testCase.useCase,
+                  assistant.systemPrompt,
+                  // Chunk sender callback
+                  (chunk: string, modelId: string, isLastChunk: boolean) => {
+                    accumulatedOutput += chunk + (isLastChunk ? "" : " ");
 
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : "Unknown error";
-              console.error(`❌ Assistant ${assistant.name} failed: ${errorMessage}`);
-              
-              // Stream the error
-              sendMessage({
-                type: 'error',
-                modelId: `${assistant.provider}/${assistant.model}`,
-                error: errorMessage,
-                timestamp: new Date().toISOString(),
-              });
+                    // Send chunk message
+                    sendMessage({
+                      type: "modelChunk",
+                      modelId: modelId,
+                      chunk: chunk,
+                      isLastChunk: isLastChunk,
+                      timestamp: new Date().toISOString(),
+                    });
+                  }
+                );
 
-              return { success: false, error: errorMessage, assistant };
+                // Send the complete output message after all chunks
+                sendMessage({
+                  type: "modelOutput",
+                  modelId: result.modelId,
+                  output: result.output,
+                  timestamp: result.timestamp,
+                });
+
+                console.log(`✅ Streamed result for: ${assistant.name}`);
+                return { success: true, result, assistant };
+              } catch (error) {
+                const errorMessage =
+                  error instanceof Error ? error.message : "Unknown error";
+                console.error(
+                  `❌ Assistant ${assistant.name} failed: ${errorMessage}`
+                );
+
+                // Stream the error
+                sendMessage({
+                  type: "error",
+                  modelId: `${assistant.provider}/${assistant.model}`,
+                  error: errorMessage,
+                  timestamp: new Date().toISOString(),
+                });
+
+                return { success: false, error: errorMessage, assistant };
+              }
             }
-          });
+          );
 
           // Wait for all generations to complete
           const results = await Promise.allSettled(generationPromises);
-          
+
           // Process results
           results.forEach((result) => {
-            if (result.status === 'fulfilled' && result.value.success) {
+            if (result.status === "fulfilled" && result.value.success) {
               outputs.push(result.value.result);
-            } else if (result.status === 'fulfilled' && !result.value.success) {
+            } else if (result.status === "fulfilled" && !result.value.success) {
               errors.push({
                 assistantId: result.value.assistant.assistantId,
                 error: result.value.error,
               });
-            } else if (result.status === 'rejected') {
-              console.error('Promise rejected:', result.reason);
+            } else if (result.status === "rejected") {
+              console.error("Promise rejected:", result.reason);
             }
           });
 
@@ -745,14 +821,19 @@ export async function POST(request: NextRequest) {
               assistantModelAlgorithm,
               groupId || null,
               idealResponse?.id || null,
-              idealResponse?.idealTestCase || idealResponse?.testCaseInput || null,
+              idealResponse?.idealTestCase ||
+                idealResponse?.testCaseInput ||
+                null,
               criteriaSheetName || null,
             ]);
 
             sessionId = sessionResult[0]?.id;
-            
+
             if (!sessionId) {
-              console.error(`❌ Failed to get session ID from database. Result:`, sessionResult);
+              console.error(
+                `❌ Failed to get session ID from database. Result:`,
+                sessionResult
+              );
               console.error(`❌ Session creation FAILED - No ID returned`);
               console.error(`   Query: ${sessionQuery}`);
               console.error(`   Parameters:`, [
@@ -762,14 +843,22 @@ export async function POST(request: NextRequest) {
                 assistantModelAlgorithm,
                 groupId || null,
               ]);
-              throw new Error("Failed to create session - no ID returned from database");
+              throw new Error(
+                "Failed to create session - no ID returned from database"
+              );
             }
-            
-            console.log(`✅ Session created SUCCESSFULLY with ID: ${sessionId}`);
+
+            console.log(
+              `✅ Session created SUCCESSFULLY with ID: ${sessionId}`
+            );
             console.log(`   📝 Session details:`);
             console.log(`      - ID: ${sessionId}`);
             console.log(`      - Response count: ${outputs.length}`);
-            console.log(`      - Test case category: ${testCase.scenarioCategory || testCase.context || "General"}`);
+            console.log(
+              `      - Test case category: ${
+                testCase.scenarioCategory || testCase.context || "General"
+              }`
+            );
             console.log(`      - Group ID: ${groupId || "null"}`);
             console.log(`      - Algorithm: ${assistantModelAlgorithm}`);
 
@@ -779,27 +868,36 @@ export async function POST(request: NextRequest) {
                 const [provider, model] = output.modelId.split("/");
                 const correctProvider = output.correctProvider || provider;
 
-                await sql.query(`
+                await sql.query(
+                  `
                   INSERT INTO partimeas_responses 
                   (session_id, display_order, provider, model, system_prompt, response_content)
                   VALUES ($1, $2, $3, $4, $5, $6)
-                `, [
-                  sessionId,
-                  i + 1,
-                  correctProvider,
-                  model,
-                  selectedAssistants[i]?.systemPrompt || "",
-                  output.output,
-                ]);
+                `,
+                  [
+                    sessionId,
+                    i + 1,
+                    correctProvider,
+                    model,
+                    selectedAssistants[i]?.systemPrompt || "",
+                    output.output,
+                  ]
+                );
               }
 
-              console.log(`✅ ${outputs.length} responses stored for session ${sessionId}`);
+              console.log(
+                `✅ ${outputs.length} responses stored for session ${sessionId}`
+              );
             }
           } catch (dbError) {
-            console.error("❌ Failed to upload session data to database:", dbError);
+            console.error(
+              "❌ Failed to upload session data to database:",
+              dbError
+            );
             console.error("❌ Session creation FAILED with error");
             console.error("Database error details:", {
-              message: dbError instanceof Error ? dbError.message : "Unknown error",
+              message:
+                dbError instanceof Error ? dbError.message : "Unknown error",
               stack: dbError instanceof Error ? dbError.stack : undefined,
             });
             // Set sessionId to null if database operation failed
@@ -808,24 +906,32 @@ export async function POST(request: NextRequest) {
 
           // Log final session ID status
           if (!sessionId) {
-            console.error("⚠️ WARNING: Sending completion WITHOUT session ID - evaluation upload will fail!");
-            console.error("   Database session creation failed or returned null");
+            console.error(
+              "⚠️ WARNING: Sending completion WITHOUT session ID - evaluation upload will fail!"
+            );
+            console.error(
+              "   Database session creation failed or returned null"
+            );
           } else {
-            console.log(`✅ Streaming completion will include session ID: ${sessionId}`);
+            console.log(
+              `✅ Streaming completion will include session ID: ${sessionId}`
+            );
           }
 
           // Send completion message with sessionId
           sendMessage({
-            type: 'complete',
+            type: "complete",
             sessionId: sessionId || undefined,
             timestamp: new Date().toISOString(),
           });
-
         } catch (error) {
           console.error("❌ Streaming error:", error);
           sendMessage({
-            type: 'error',
-            error: error instanceof Error ? error.message : "Unknown streaming error",
+            type: "error",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Unknown streaming error",
             timestamp: new Date().toISOString(),
           });
         } finally {
@@ -838,13 +944,12 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
+        Connection: "keep-alive",
       },
     });
-
   } catch (error) {
     console.error("Model evaluation streaming error:", error);
-    
+
     const errorResponse = {
       error: "Failed to start streaming evaluation",
       details: error instanceof Error ? error.message : "Unknown error",
