@@ -454,43 +454,8 @@ const generateModelOutput = async (
       `🔍 generateModelOutput debug - provider: ${provider}, modelId: ${modelId}`
     );
 
-    // Use the provider from database (which should be correct)
-    // Only override if there's a clear mismatch that needs fixing
-    finalProvider = provider;
-
-    // Add validation logging
-    console.log(`🔍 modelId: ${modelId}`);
-    console.log(`🔍 provider: ${provider}`);
-    if (modelId.startsWith("claude-") && provider !== "anthropic") {
-      console.warn(
-        `⚠️ Warning: Claude model ${modelId} has provider ${provider}, expected 'anthropic'`
-      );
-      finalProvider = "anthropic";
-    } else if (
-      (modelId.startsWith("gpt-") ||
-        modelId.startsWith("o1") ||
-        modelId.startsWith("o3") ||
-        modelId.startsWith("o4")) &&
-      provider !== "openai"
-    ) {
-      console.warn(
-        `⚠️ Warning: GPT/o-series model ${modelId} has provider ${provider}, expected 'openai'`
-      );
-      finalProvider = "openai";
-    } else if (modelId.startsWith("gemini-") && provider !== "google") {
-      console.warn(
-        `⚠️ Warning: Gemini model ${modelId} has provider ${provider}, expected 'google'`
-      );
-      finalProvider = "google";
-    } else if (modelId.startsWith("google/") && provider !== "openrouter") {
-      console.warn(
-        `⚠️ Warning: OpenRouter model ${modelId} has provider ${provider}, expected 'openrouter'`
-      );
-      finalProvider = "openrouter";
-    }
-
-    // Final processor update
-    console.log(`🔄 Final processor update for: ${finalProvider}/${modelId}`);
+    // The provider has already been validated and corrected above
+    // No need to reset and re-validate
 
     return {
       modelId: modelId, // Use original modelId without provider prefix
@@ -1432,20 +1397,19 @@ export async function POST(request: NextRequest) {
               );
             }
 
-            const [provider, model] = output.modelId.split("/");
+            // Use provider and modelId directly from the output object
+            const correctProvider = output.correctProvider || output.provider;
+            const model = output.modelId;
 
-            // Validate that we have both provider and model after splitting
-            if (!provider || !model) {
+            // Validate that we have both provider and model
+            if (!correctProvider || !model) {
               console.error(
-                `❌ Invalid modelId format for output ${index}: ${output.modelId}. Expected format: provider/modelId`
+                `❌ Missing provider or model for output ${index}: provider="${correctProvider}", model="${model}"`
               );
               throw new Error(
-                `Invalid modelId format for output ${index}: ${output.modelId}. Expected format: provider/modelId`
+                `Missing provider or model for output ${index}: provider="${correctProvider}", model="${model}"`
               );
             }
-
-            // Use the correct provider from the output if available, otherwise fall back to the split result
-            const correctProvider = output.correctProvider || provider;
             return {
               query: `
                 INSERT INTO partimeas_responses 
@@ -1536,7 +1500,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.log(outputs);
+      // Debug: Log evaluation phase outputs summary
+      console.log(`📊 Evaluating ${outputs.length} model outputs:`, 
+        outputs.map((o, i) => `  ${i+1}. ${o.provider}/${o.modelId}`).join('\n')
+      );
 
       if (!outputs || !Array.isArray(outputs) || outputs.length === 0) {
         return NextResponse.json(

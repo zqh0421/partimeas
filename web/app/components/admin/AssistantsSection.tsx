@@ -29,6 +29,7 @@ import {
   PromptConfig,
   ConfigValue,
 } from "../../types/admin";
+import { MAIN_SETTINGS_PRESETS, MainSettingsPreset } from "../../constants/presets";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -68,6 +69,7 @@ export function AssistantsSection({
   const [editingAssistant, setEditingAssistant] =
     useState<Partial<Assistant> | null>(null);
   const [form] = Form.useForm();
+  const [selectedPreset, setSelectedPreset] = useState<string>('custom');
 
   // Debug logging for props changes
   useEffect(() => {
@@ -263,6 +265,67 @@ export function AssistantsSection({
     return prompt ? prompt.name : "Unknown Prompt";
   };
 
+  const applyPreset = (presetId: string) => {
+    const preset = MAIN_SETTINGS_PRESETS.find(p => p.id === presetId);
+    if (!preset) return;
+
+    // Don't apply anything for custom preset
+    if (presetId === 'custom') {
+      message.info('Custom preset selected - no changes applied');
+      return;
+    }
+
+    // Apply configuration values
+    const updatedConfigs = [...configValues];
+    
+    // Update numOutputsToRun
+    const outputsToRunIndex = updatedConfigs.findIndex(c => c.name === 'numOutputsToRun');
+    if (outputsToRunIndex >= 0) {
+      updatedConfigs[outputsToRunIndex] = {
+        ...updatedConfigs[outputsToRunIndex],
+        value: preset.config.numOutputsToRun.toString()
+      };
+    }
+
+    // Update numOutputsToShow
+    const outputsToShowIndex = updatedConfigs.findIndex(c => c.name === 'numOutputsToShow');
+    if (outputsToShowIndex >= 0) {
+      updatedConfigs[outputsToShowIndex] = {
+        ...updatedConfigs[outputsToShowIndex],
+        value: preset.config.numOutputsToShow.toString()
+      };
+    }
+
+    // Update assistantModelAlgorithm
+    const algorithmIndex = updatedConfigs.findIndex(c => c.name === 'assistantModelAlgorithm');
+    if (algorithmIndex >= 0) {
+      updatedConfigs[algorithmIndex] = {
+        ...updatedConfigs[algorithmIndex],
+        value: preset.config.assistantModelAlgorithm
+      };
+    }
+
+    onConfigChange(updatedConfigs);
+
+    // Apply assistant settings for output generation assistants only
+    const outputGenAssistants = assistants.filter(a => a.type === 'output_generation');
+    outputGenAssistants.forEach(assistant => {
+      if (preset.assistantSettings.outputGenerationAssistants.requiredToShow === 'all') {
+        // Set all output generation assistants as required
+        onUpdateAssistant(assistant.id, { required_to_show: true });
+      } else if (preset.assistantSettings.outputGenerationAssistants.requiredToShow === 'none') {
+        // Set all as not required
+        onUpdateAssistant(assistant.id, { required_to_show: false });
+      } else if (preset.assistantSettings.outputGenerationAssistants.requiredToShow === 'better_ideal_only') {
+        // Only set assistants with "Ideal" in their name as required, all others not required
+        const isIdealAssistant = assistant.name.toLowerCase().includes('ideal');
+        onUpdateAssistant(assistant.id, { required_to_show: isIdealAssistant });
+      }
+    });
+
+    message.success(`Applied "${preset.name}" preset`);
+  };
+
   return (
     <div className="space-y-8">
       <div className="space-y-6">
@@ -279,9 +342,27 @@ export function AssistantsSection({
           title={
             <Row justify="space-between" align="middle">
               <Col>
-                <Title level={4} style={{ margin: 0 }}>
-                  Output Generation Assistants
-                </Title>
+                <Space align="center">
+                  <Title level={4} style={{ margin: 0 }}>
+                    Output Generation Assistants
+                  </Title>
+                  <Select
+                    style={{ width: 200 }}
+                    value={selectedPreset}
+                    onChange={(value) => {
+                      setSelectedPreset(value);
+                      applyPreset(value);
+                    }}
+                    placeholder="Select preset"
+                    size="small"
+                  >
+                    {MAIN_SETTINGS_PRESETS.map(preset => (
+                      <Option key={preset.id} value={preset.id}>
+                        {preset.name}
+                      </Option>
+                    ))}
+                  </Select>
+                </Space>
               </Col>
               <Col>
                 <Space>
@@ -303,6 +384,7 @@ export function AssistantsSection({
                     icon={<PlusOutlined />}
                     onClick={() => handleAddAssistant("output_generation")}
                     size="small"
+                    disabled={selectedPreset !== 'custom'}
                   >
                     Add Assistant
                   </Button>
@@ -329,6 +411,7 @@ export function AssistantsSection({
                       min={1}
                       max={10}
                       style={{ width: "100%" }}
+                      disabled={selectedPreset !== 'custom'}
                       value={parseInt(
                         configValues.find((c) => c.name === "numOutputsToRun")
                           ?.value || "3"
@@ -377,6 +460,7 @@ export function AssistantsSection({
                       min={1}
                       max={4}
                       style={{ width: "100%" }}
+                      disabled={selectedPreset !== 'custom'}
                       value={parseInt(
                         configValues.find((c) => c.name === "numOutputsToShow")
                           ?.value || "2"
@@ -421,6 +505,7 @@ export function AssistantsSection({
                   <div style={{ marginTop: 4 }}>
                     <Select
                       style={{ width: "100%" }}
+                      disabled={selectedPreset !== 'custom'}
                       value={
                         configValues.find(
                           (c) => c.name === "assistantModelAlgorithm"
@@ -489,6 +574,7 @@ export function AssistantsSection({
                 render: (requiredToShow: boolean, record: Assistant) => (
                   <Switch
                     checked={requiredToShow}
+                    disabled={selectedPreset !== 'custom'}
                     onChange={(checked) =>
                       handleUpdateAssistant(record.id, {
                         required_to_show: checked,
@@ -508,6 +594,7 @@ export function AssistantsSection({
                       icon={<EditOutlined />}
                       onClick={() => handleEditAssistant(record)}
                       size="small"
+                      disabled={selectedPreset !== 'custom'}
                     />
                     <Button
                       type="text"
@@ -515,6 +602,7 @@ export function AssistantsSection({
                       icon={<DeleteOutlined />}
                       onClick={() => onRemoveAssistant(record.id)}
                       size="small"
+                      disabled={selectedPreset !== 'custom'}
                     />
                   </Space>
                 ),

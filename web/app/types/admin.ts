@@ -67,4 +67,6 @@ export interface AdminState {
   deletedAssistantModels?: { id: number; assistant_id: number; model_id: string }[];
 }
 
-export type AdminSection = 'output-generation' | 'evaluation' | 'models' | 'assistants' | 'configuration'; 
+export type AdminSection = 'output-generation' | 'evaluation' | 'models' | 'assistants' | 'configuration';
+
+export { MainSettingsPreset } from '../constants/presets'; 
