@@ -1273,7 +1273,7 @@ const InputScoringTable = forwardRef<
                   {r.num}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-900 border-x border-gray-200">
-                  <p>{toTitleCase(r.name)}</p>
+                  <p>{r.name}</p>
                 </td>
                 {responses.map((resp) => (
                   <React.Fragment key={resp.id}>
