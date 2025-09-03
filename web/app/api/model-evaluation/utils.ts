@@ -98,7 +98,7 @@ export const getAssistantsWithLinkedModels = async (): Promise<
   }));
 };
 
-// Read active evaluation assistant with system prompt
+// Read active evaluation assistant with system prompt (kept for backward compatibility)
 export const getActiveEvaluationAssistant = async (): Promise<{
   provider: string;
   model: string;
@@ -139,6 +139,50 @@ export const getActiveEvaluationAssistant = async (): Promise<{
   } catch (e) {
     console.error("Failed to query active evaluation assistant from DB:", e);
     return null;
+  }
+};
+
+// Get all active evaluation assistants with weights for parallel evaluation
+export const getAllActiveEvaluationAssistants = async (): Promise<
+  Array<{
+    assistantId: number;
+    name: string;
+    provider: string;
+    model: string;
+    systemPrompt: string;
+    weight: number;
+  }>
+> => {
+  try {
+    const rows = await sql`
+      SELECT 
+        a.id as assistant_id,
+        a.name,
+        a.weight,
+        m.provider as provider, 
+        m.model_id as model,
+        sp.prompt as system_prompt
+      FROM partimeas_assistants a
+      JOIN partimeas_assistant_models am ON am.assistant_id = a.id
+      JOIN partimeas_models m ON m.id = am.model_id
+      LEFT JOIN partimeas_system_prompts sp ON sp.id = a.system_prompt_id
+      WHERE a.type = 'evaluation' AND a.required_to_show = true
+      ORDER BY a.updated_at DESC
+    `;
+
+    return rows.map((row: any) => ({
+      assistantId: row.assistant_id as number,
+      name: row.name as string,
+      provider: row.provider as string,
+      model: row.model as string,
+      systemPrompt:
+        (row.system_prompt as string) ||
+        "You are an expert evaluator of AI responses. Provide thorough, fair, and constructive evaluations based on the given criteria.",
+      weight: row.weight || 1, // Default weight to 1 if not set
+    }));
+  } catch (e) {
+    console.error("Failed to query active evaluation assistants from DB:", e);
+    return [];
   }
 };
 

@@ -346,7 +346,7 @@ export interface NewAssistantModel {
 // Evaluation Records types
 export interface EvaluationScore {
   score: number;
-  rationale: string;
+  rationale?: string; // Optional - not included for aggregated scores with subscores
 }
 
 export interface EvaluationCriterion {
@@ -385,6 +385,8 @@ export interface EvaluationRecord {
   ideal_response: string;
   ideal_test_case: string;
   rubric_with_scoring: RubricWithScoring;
+  evaluation_duration_ms?: number;
+  judgment_strategy?: string;
 }
 
 export interface NewEvaluationRecord {
@@ -396,6 +398,8 @@ export interface NewEvaluationRecord {
   ideal_response: string;
   ideal_test_case: string;
   rubric_with_scoring: RubricWithScoring;
+  evaluation_duration_ms?: number;
+  judgment_strategy?: string;
 }
 
 export interface EvaluationRecordFilters {

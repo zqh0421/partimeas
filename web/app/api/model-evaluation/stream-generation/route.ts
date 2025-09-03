@@ -217,12 +217,13 @@ export async function POST(request: NextRequest) {
     // Fetch configuration from database (same logic as original)
     let numOutputsToRun = 2;
     let assistantModelAlgorithm = "random_selection";
+    let useCacheSession = false;
 
     try {
       const configQuery = `
         SELECT name, value 
         FROM partimeas_configs 
-        WHERE name IN ('numOutputsToRun', 'assistantModelAlgorithm')
+        WHERE name IN ('numOutputsToRun', 'assistantModelAlgorithm', 'useCacheSession')
       `;
       const configResult = await sql.query(configQuery);
 
@@ -231,6 +232,8 @@ export async function POST(request: NextRequest) {
           numOutputsToRun = parseInt(row.value) || 2;
         } else if (row.name === "assistantModelAlgorithm") {
           assistantModelAlgorithm = row.value || "unique_model";
+        } else if (row.name === "useCacheSession") {
+          useCacheSession = row.value === "true";
         }
       });
     } catch (error) {
@@ -238,6 +241,98 @@ export async function POST(request: NextRequest) {
         "Failed to fetch configuration from database, using defaults:",
         error
       );
+    }
+
+    // Check if we should use cached session
+    let referenceSessionId: string | null = null;
+    let cachedResponses: any[] = [];
+    let referenceSessionIds: string[] = [];
+    
+    if (useCacheSession) {
+      console.log("🔄 Cache session enabled, looking for recent session to reuse...");
+      
+      try {
+        // Get reference session IDs from config
+        const refSessionsConfig = await sql`
+          SELECT value FROM partimeas_configs 
+          WHERE name = 'referenceSessionIds'
+          LIMIT 1
+        `;
+        
+        if (refSessionsConfig && refSessionsConfig.length > 0 && refSessionsConfig[0].value) {
+          // Parse the reference session IDs (comma-separated)
+          referenceSessionIds = refSessionsConfig[0].value.split(',').map((id: string) => id.trim()).filter((id: string) => id);
+          console.log(`📋 Reference session IDs configured: ${referenceSessionIds.join(', ')}`);
+        }
+        
+        // If specific reference sessions are provided, try them first
+        if (referenceSessionIds.length > 0) {
+          for (const sessionId of referenceSessionIds) {
+            const sessionCheck = await sql.query(
+              `SELECT id FROM partimeas_sessions WHERE id = $1 LIMIT 1`,
+              [sessionId]
+            );
+            
+            if (sessionCheck && sessionCheck.length > 0) {
+              referenceSessionId = sessionId;
+              console.log(`✅ Using configured reference session: ${referenceSessionId}`);
+              break;
+            }
+          }
+        }
+        
+        // If no configured session found, get the most recent session with same test case
+        if (!referenceSessionId) {
+          const recentSessionQuery = `
+            SELECT id, response_count, test_case_prompt
+            FROM partimeas_sessions
+            WHERE test_case_prompt = $1
+            AND reference_session_id IS NULL
+            AND response_count > 0
+            ORDER BY created_at DESC
+            LIMIT 1
+          `;
+          
+          const recentSession = await sql.query(recentSessionQuery, [testCase.input]);
+          
+          if (recentSession && recentSession.length > 0) {
+            referenceSessionId = recentSession[0].id;
+            console.log(`✅ Found recent reference session: ${referenceSessionId}`);
+          }
+        }
+        
+        // Fetch cached responses if we have a reference session
+        if (referenceSessionId) {
+          const cachedResponsesQuery = `
+            SELECT provider, model, system_prompt, response_content, display_order
+            FROM partimeas_responses
+            WHERE session_id = $1
+            ORDER BY display_order
+          `;
+          
+          const cachedResponsesResult = await sql.query(cachedResponsesQuery, [referenceSessionId]);
+          
+          if (cachedResponsesResult && cachedResponsesResult.length > 0) {
+            cachedResponses = cachedResponsesResult.map((row: any) => ({
+              modelId: `${row.provider}/${row.model}`,
+              output: row.response_content,
+              systemPrompt: row.system_prompt,
+              provider: row.provider,
+              model: row.model,
+              displayOrder: row.display_order,
+              timestamp: new Date().toISOString(),
+              cached: true
+            }));
+            
+            console.log(`📦 Loaded ${cachedResponses.length} cached responses from session ${referenceSessionId}`);
+          }
+        } else {
+          console.log("⚠️ No reference session found, will generate new responses");
+        }
+      } catch (error) {
+        console.error("Error fetching cached session:", error);
+        // Continue with normal flow if cache lookup fails
+      }
     }
 
     // Select assistants (same logic as original)
@@ -345,8 +440,54 @@ export async function POST(request: NextRequest) {
           const outputs: any[] = [];
           const errors: any[] = [];
 
-          // Create promises for all model generations to run in parallel
-          const generationPromises = selectedAssistants.map(
+          // Use cached responses if available
+          if (cachedResponses.length > 0 && useCacheSession) {
+            console.log("📦 Using cached responses, streaming them to client...");
+            
+            // Stream cached responses
+            for (const cachedResponse of cachedResponses) {
+              // Send model chunks (simulate streaming for cached data)
+              const chunks = cachedResponse.output.match(/.{1,100}/g) || [cachedResponse.output];
+              
+              for (let i = 0; i < chunks.length; i++) {
+                sendMessage({
+                  type: "modelChunk",
+                  modelId: cachedResponse.modelId,
+                  chunk: chunks[i],
+                  isLastChunk: i === chunks.length - 1,
+                  timestamp: new Date().toISOString(),
+                });
+                
+                // Add small delay to simulate streaming
+                await new Promise(resolve => setTimeout(resolve, 10));
+              }
+              
+              // Send complete model output
+              sendMessage({
+                type: "modelOutput",
+                modelId: cachedResponse.modelId,
+                output: cachedResponse.output,
+                timestamp: cachedResponse.timestamp,
+              });
+              
+              outputs.push(cachedResponse);
+            }
+            
+            // Set selectedAssistants for session storage
+            selectedAssistants = cachedResponses.map(cr => ({
+              assistantId: 0,
+              name: cr.model,
+              provider: cr.provider,
+              model: cr.model.split('/').pop() || cr.model,
+              systemPrompt: cr.systemPrompt,
+              requiredToShow: false,
+              linkedModels: [],
+              updatedAt: new Date().toISOString()
+            }));
+          } else {
+            // Original generation logic
+            // Create promises for all model generations to run in parallel
+            const generationPromises = selectedAssistants.map(
             async (assistant, i) => {
               try {
                 console.log(
@@ -407,24 +548,25 @@ export async function POST(request: NextRequest) {
                 return { success: false, error: errorMessage, assistant };
               }
             }
-          );
+            );
 
-          // Wait for all generations to complete
-          const results = await Promise.allSettled(generationPromises);
+            // Wait for all generations to complete
+            const results = await Promise.allSettled(generationPromises);
 
-          // Process results
-          results.forEach((result) => {
-            if (result.status === "fulfilled" && result.value.success) {
-              outputs.push(result.value.result);
-            } else if (result.status === "fulfilled" && !result.value.success) {
-              errors.push({
-                assistantId: result.value.assistant.assistantId,
-                error: result.value.error,
-              });
-            } else if (result.status === "rejected") {
-              console.error("Promise rejected:", result.reason);
-            }
-          });
+            // Process results
+            results.forEach((result) => {
+              if (result.status === "fulfilled" && result.value.success) {
+                outputs.push(result.value.result);
+              } else if (result.status === "fulfilled" && !result.value.success) {
+                errors.push({
+                  assistantId: result.value.assistant.assistantId,
+                  error: result.value.error,
+                });
+              } else if (result.status === "rejected") {
+                console.error("Promise rejected:", result.reason);
+              }
+            });
+          } // End of else block for cached responses
 
           // Store session data in database BEFORE sending completion
           let sessionId: string | null = null;
@@ -434,8 +576,8 @@ export async function POST(request: NextRequest) {
             const sessionQuery = `
               INSERT INTO partimeas_sessions 
               (response_count, test_case_scenario_category, test_case_prompt, random_algorithm_used, group_id,
-               linked_ideal_response, linked_ideal_test_case, linked_criterion_sheet_name)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               linked_ideal_response, linked_ideal_test_case, linked_criterion_sheet_name, reference_session_id)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
               RETURNING id
             `;
 
@@ -450,6 +592,7 @@ export async function POST(request: NextRequest) {
                 idealResponse?.testCaseInput ||
                 null,
               criteriaSheetName || null,
+              referenceSessionId || null,
             ]);
 
             sessionId = sessionResult[0]?.id;

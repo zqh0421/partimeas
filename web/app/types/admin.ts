@@ -22,6 +22,7 @@ export interface Assistant {
   system_prompt_id: string;
   required_to_show: boolean;
   type: 'output_generation' | 'evaluation';
+  weight?: number; // Weight for evaluation runs (1-10)
   created_at?: string;
   updated_at?: string;
 }

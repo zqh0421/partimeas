@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
         a.system_prompt_id,
         a.required_to_show,
         a.type,
+        a.weight,
         a.created_at,
         a.updated_at
       FROM partimeas_assistants a
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
         system_prompt_id: row.system_prompt_id,
         required_to_show: row.required_to_show,
         type: row.type,
+        weight: row.weight || 1, // Default weight to 1 if not set
         created_at: row.created_at,
         updated_at: row.updated_at
       });
@@ -106,7 +108,7 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/assistants
 export async function POST(request: NextRequest) {
   try {
-    const { name, model_ids, system_prompt_id, required_to_show, type }: any = await request.json();
+    const { name, model_ids, system_prompt_id, required_to_show, type, weight }: any = await request.json();
 
     if (!name || !model_ids || !system_prompt_id || !type) {
       return NextResponse.json(
@@ -180,9 +182,9 @@ export async function POST(request: NextRequest) {
 
     // Create the assistant first
     const result = await sql`
-      INSERT INTO partimeas_assistants (name, system_prompt_id, required_to_show, type)
-      VALUES (${name}, ${system_prompt_id}, ${required_to_show || false}, ${type})
-      RETURNING id, name, system_prompt_id, required_to_show, type, created_at, updated_at
+      INSERT INTO partimeas_assistants (name, system_prompt_id, required_to_show, type, weight)
+      VALUES (${name}, ${system_prompt_id}, ${required_to_show || false}, ${type}, ${weight || 1})
+      RETURNING id, name, system_prompt_id, required_to_show, type, weight, created_at, updated_at
     `;
 
     const newAssistantId = result[0].id;
@@ -211,6 +213,7 @@ export async function POST(request: NextRequest) {
       system_prompt_id: result[0].system_prompt_id,
       required_to_show: result[0].required_to_show,
       type: result[0].type,
+      weight: result[0].weight || 1,
       created_at: result[0].created_at,
       updated_at: result[0].updated_at
     };
@@ -232,7 +235,7 @@ export async function POST(request: NextRequest) {
 // PUT /api/admin/assistants/[id]
 export async function PUT(request: NextRequest) {
   try {
-    const { id, name, model_ids, system_prompt_id, required_to_show, type }: any = await request.json();
+    const { id, name, model_ids, system_prompt_id, required_to_show, type, weight }: any = await request.json();
 
     if (!id) {
       return NextResponse.json(
@@ -243,6 +246,16 @@ export async function PUT(request: NextRequest) {
 
     const updateFields: any = {};
     if (name !== undefined) updateFields.name = name;
+    if (weight !== undefined) {
+      // Validate weight is between 1 and 10
+      if (weight < 1 || weight > 10) {
+        return NextResponse.json(
+          { error: 'Weight must be between 1 and 10' },
+          { status: 400 }
+        );
+      }
+      updateFields.weight = weight;
+    }
     if (system_prompt_id !== undefined) {
       if (!isValidUuid(system_prompt_id)) {
         return NextResponse.json(
@@ -349,7 +362,7 @@ export async function PUT(request: NextRequest) {
 
     // Get the updated assistant with models
     const [assistantRow] = await sql`
-      SELECT id, name, system_prompt_id, required_to_show, type, created_at, updated_at
+      SELECT id, name, system_prompt_id, required_to_show, type, weight, created_at, updated_at
       FROM partimeas_assistants
       WHERE id = ${id}
     `;
@@ -377,6 +390,7 @@ export async function PUT(request: NextRequest) {
       system_prompt_id: assistantRow.system_prompt_id,
       required_to_show: assistantRow.required_to_show,
       type: assistantRow.type,
+      weight: assistantRow.weight || 1,
       created_at: assistantRow.created_at,
       updated_at: assistantRow.updated_at
     };

@@ -660,9 +660,10 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     const query = `
       INSERT INTO partimeas_evaluation_records (
         group_id, session_id, test_case_prompt, evaluator_model, 
-        evaluator_system_prompt, ideal_response, ideal_test_case, rubric_with_scoring
+        evaluator_system_prompt, ideal_response, ideal_test_case, rubric_with_scoring,
+        evaluation_duration_ms, judgment_strategy
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
     const params = [
@@ -674,9 +675,29 @@ export class SQLDatabaseOperations implements DatabaseOperations {
       data.ideal_response,
       data.ideal_test_case,
       JSON.stringify(data.rubric_with_scoring),
+      data.evaluation_duration_ms || null,
+      data.judgment_strategy || null,
     ];
 
+    // Log what we're saving
+    console.log('[SQLDatabaseOperations] 💾 Saving evaluation record with:', {
+      evaluation_duration_ms: data.evaluation_duration_ms,
+      judgment_strategy: data.judgment_strategy,
+      has_subscores: data.rubric_with_scoring?.criteria?.some((c: any) => 
+        Object.values(c.scores || {}).some((s: any) => 
+          s.ai_score?.subscores && s.ai_score.subscores?.length > 0
+        )
+      ) || false
+    });
+
     const result = await executeQuery(query, params);
+    
+    console.log('[SQLDatabaseOperations] ✅ Evaluation record saved:', {
+      id: result[0]?.id,
+      evaluation_duration_ms: result[0]?.evaluation_duration_ms,
+      judgment_strategy: result[0]?.judgment_strategy
+    });
+    
     return this.mapEvaluationRecordFromDB(result[0]);
   }
 
@@ -775,6 +796,14 @@ export class SQLDatabaseOperations implements DatabaseOperations {
     if (data.rubric_with_scoring !== undefined) {
       updates.push(`rubric_with_scoring = $${paramIndex++}`);
       params.push(JSON.stringify(data.rubric_with_scoring));
+    }
+    if (data.evaluation_duration_ms !== undefined) {
+      updates.push(`evaluation_duration_ms = $${paramIndex++}`);
+      params.push(data.evaluation_duration_ms);
+    }
+    if (data.judgment_strategy !== undefined) {
+      updates.push(`judgment_strategy = $${paramIndex++}`);
+      params.push(data.judgment_strategy);
     }
 
     if (updates.length === 0) {

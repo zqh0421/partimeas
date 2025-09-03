@@ -92,7 +92,12 @@ export interface EvaluationDataSnapshot {
   // AI scores
   aiScores: Record<
     string,
-    Record<string, { score: number; rationale: string }>
+    Record<string, { 
+      score: number; 
+      rationale: string;
+      subscores?: any[];
+      aggregation_method?: string;
+    }>
   >;
 
   // Evaluation model information
@@ -235,9 +240,19 @@ export async function collectEvaluationData(
         );
       }
 
-      const ai_score: EvaluationScore = aiRaw
-        ? { score: aiRaw.score ?? 0, rationale: (aiRaw.rationale || "").trim() }
-        : { score: -1, rationale: "Not evaluated by AI" };
+      // Include subscores and aggregation method if available
+      // Note: For aggregated scores, we don't include rationale at the top level
+      const ai_score: EvaluationScore & { subscores?: any[]; aggregation_method?: string } = aiRaw
+        ? { 
+            score: aiRaw.score ?? 0,
+            // Only include rationale if there are no subscores (single evaluation)
+            ...((!aiRaw.subscores || aiRaw.subscores.length === 0) && aiRaw.rationale 
+              ? { rationale: (aiRaw.rationale || "").trim() } 
+              : {}),
+            subscores: aiRaw.subscores || undefined,
+            aggregation_method: aiRaw.aggregation_method || undefined
+          }
+        : { score: -1 };
 
       // Always add the score entry, even if both are defaults
       // Use the normalized ID for storage in the database
@@ -344,7 +359,30 @@ export async function collectEvaluationData(
     );
   }
 
-  return {
+  // Retrieve evaluation metadata from session storage
+  let evaluationMetadata: { evaluationDurationMs?: number; judgmentStrategy?: string } = {};
+  try {
+    const storedMetadata = window.sessionStorage.getItem('lastEvaluationMetadata');
+    if (storedMetadata) {
+      const parsed = JSON.parse(storedMetadata);
+      evaluationMetadata = {
+        evaluationDurationMs: parsed.evaluationDurationMs,
+        judgmentStrategy: parsed.judgmentStrategy
+      };
+      console.log('[EvaluationDataCollector] ✅ Retrieved evaluation metadata:', {
+        duration: `${evaluationMetadata.evaluationDurationMs}ms`,
+        strategy: evaluationMetadata.judgmentStrategy,
+        totalRuns: parsed.totalRuns,
+        assistants: parsed.assistantsUsed?.length || 0
+      });
+    } else {
+      console.warn('[EvaluationDataCollector] ⚠️ No evaluation metadata found in session storage');
+    }
+  } catch (e) {
+    console.warn('[EvaluationDataCollector] ❌ Could not retrieve evaluation metadata:', e);
+  }
+
+  const record = {
     group_id: groupId,
     session_id: sessionId,
     test_case_prompt:
@@ -358,7 +396,25 @@ export async function collectEvaluationData(
     ideal_response: snapshot.idealResponse || "No ideal response available",
     ideal_test_case: snapshot.idealTestCase || "No ideal test case available",
     rubric_with_scoring: rubricWithScoring,
+    evaluation_duration_ms: evaluationMetadata.evaluationDurationMs,
+    judgment_strategy: evaluationMetadata.judgmentStrategy,
   };
+  
+  // Log the complete record to verify metadata is included
+  console.log('[EvaluationDataCollector] 📦 Final evaluation record:', {
+    group_id: record.group_id,
+    session_id: record.session_id,
+    evaluation_duration_ms: record.evaluation_duration_ms,
+    judgment_strategy: record.judgment_strategy,
+    has_subscores: rubricWithScoring.criteria.some(c => 
+      Object.values(c.scores || {}).some((s: any) => 
+        s.ai_score?.subscores && s.ai_score.subscores.length > 0
+      )
+    ),
+    criteria_count: rubricWithScoring.criteria.length
+  });
+  
+  return record;
 }
 
 /**
@@ -423,7 +479,12 @@ export function createEvaluationSnapshot(params: {
   humanRationales: Record<string, Record<string, string>>;
   aiScores: Record<
     string,
-    Record<string, { score: number; rationale: string }>
+    Record<string, { 
+      score: number; 
+      rationale: string;
+      subscores?: any[];
+      aggregation_method?: string;
+    }>
   >;
   evaluatorModel?: string;
   evaluatorSystemPrompt?: string;
@@ -514,7 +575,12 @@ export async function collectAndUploadEvaluationData(params: {
   humanRationales: Record<string, Record<string, string>>;
   aiScores: Record<
     string,
-    Record<string, { score: number; rationale: string }>
+    Record<string, { 
+      score: number; 
+      rationale: string;
+      subscores?: any[];
+      aggregation_method?: string;
+    }>
   >;
   evaluatorModel?: string;
   evaluatorSystemPrompt?: string;

@@ -850,11 +850,39 @@ const InputScoringTable = forwardRef<
 
       const data = await response.json();
 
+      // Store evaluation metadata for later use
+      if (data.metadata) {
+        // Store in window or session storage for later retrieval by evaluation data collector
+        const metadataToStore = {
+          evaluationDurationMs: data.metadata.evaluationDurationMs,
+          judgmentStrategy: data.metadata.judgmentStrategy,
+          totalRuns: data.metadata.totalRuns,
+          assistantsUsed: data.metadata.assistantsUsed,
+          timestamp: new Date().toISOString()
+        };
+        window.sessionStorage.setItem('lastEvaluationMetadata', JSON.stringify(metadataToStore));
+        console.log('✅ Stored evaluation metadata:', {
+          duration: `${data.metadata.evaluationDurationMs}ms`,
+          strategy: data.metadata.judgmentStrategy,
+          totalRuns: data.metadata.totalRuns,
+          assistants: data.metadata.assistantsUsed?.length || 0
+        });
+      } else {
+        console.warn('⚠️ No metadata in evaluation response');
+      }
+
       if (data.success && data.evaluations) {
+        // Store raw evaluations with subscores for data collector
+        window.sessionStorage.setItem('lastEvaluationRawData', JSON.stringify({
+          evaluations: data.evaluations,
+          timestamp: new Date().toISOString()
+        }));
+        console.log('✅ Stored raw evaluation data with subscores');
+        
         // Transform evaluation results to match our aiScores format
         let transformedScores: Record<
           string,
-          Record<string, { score: number; rationale: string }>
+          Record<string, { score: number; rationale: string; subscores?: any[]; aggregation_method?: string }>
         > = {};
 
         data.evaluations.forEach((evaluation: any, evalIndex: number) => {
@@ -894,7 +922,7 @@ const InputScoringTable = forwardRef<
             }
           }
 
-          // Map criteria scores to rubric items
+          // Map criteria scores to rubric items (including subscores)
           Object.entries(evaluation.criteriaScores || {}).forEach(
             ([criteriaId, scoreData]: [string, any]) => {
               if (!transformedScores[criteriaId]) {
@@ -906,6 +934,8 @@ const InputScoringTable = forwardRef<
                   scoreData.reasoning ||
                   scoreData.rationale ||
                   "No rationale provided",
+                subscores: scoreData.subscores || [],
+                aggregation_method: scoreData.aggregation_method || undefined
               };
             }
           );
@@ -930,7 +960,7 @@ const InputScoringTable = forwardRef<
           // Transform the scores to use actual response IDs
           const correctedScores: Record<
             string,
-            Record<string, { score: number; rationale: string }>
+            Record<string, { score: number; rationale: string; subscores?: any[]; aggregation_method?: string }>
           > = {};
 
           Object.entries(transformedScores).forEach(

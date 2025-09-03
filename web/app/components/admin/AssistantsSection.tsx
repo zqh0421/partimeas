@@ -14,7 +14,6 @@ import {
   Form,
   Table,
   InputNumber,
-  Alert,
   App,
 } from "antd";
 import {
@@ -29,7 +28,7 @@ import {
   PromptConfig,
   ConfigValue,
 } from "../../types/admin";
-import { MAIN_SETTINGS_PRESETS, MainSettingsPreset } from "../../constants/presets";
+import { MAIN_SETTINGS_PRESETS } from "../../constants/presets";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -47,7 +46,6 @@ interface AssistantsSectionProps {
   onSaveAssistants: () => void;
   onConfigChange: (configs: ConfigValue[]) => void;
   hasAssistantChanges?: boolean;
-  hasConfigChanges?: boolean;
 }
 
 export function AssistantsSection({
@@ -61,7 +59,6 @@ export function AssistantsSection({
   onSaveAssistants,
   onConfigChange,
   hasAssistantChanges = false,
-  hasConfigChanges = false,
 }: AssistantsSectionProps) {
   const { message } = App.useApp();
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -69,7 +66,7 @@ export function AssistantsSection({
   const [editingAssistant, setEditingAssistant] =
     useState<Partial<Assistant> | null>(null);
   const [form] = Form.useForm();
-  const [selectedPreset, setSelectedPreset] = useState<string>('custom');
+  const [selectedPreset, setSelectedPreset] = useState<string>("custom");
 
   // Debug logging for props changes
   useEffect(() => {
@@ -98,6 +95,7 @@ export function AssistantsSection({
       system_prompt_id: "",
       required_to_show: false,
       type: type,
+      weight: type === "evaluation" ? 1 : undefined,
     };
     console.log(
       "handleAddAssistant called with type:",
@@ -147,42 +145,20 @@ export function AssistantsSection({
     }
   };
 
-  // Validate that at most one evaluation assistant is activated
+  // Validate evaluation assistants (now allows multiple)
   const validateEvaluationAssistants = () => {
-    const activeEvaluations = assistants.filter(
-      (a) => a.type === "evaluation" && a.required_to_show
-    ).length;
-    if (activeEvaluations > 1) {
-      message.error("At most one evaluation assistant can be activated");
-      return false;
-    }
+    // Multiple evaluation assistants are now allowed
     return true;
   };
 
-  // Wrapper function to update assistant with single-activation behavior for evaluation assistants
+  // Wrapper function to update assistant
   const handleUpdateAssistant = (id: number, updates: Partial<Assistant>) => {
     const target = assistants.find((a) => a.id === id);
     if (!target) {
       return;
     }
 
-    // For evaluation assistants: turning one on should turn others off. Turning off is allowed.
-    if (
-      target.type === "evaluation" &&
-      updates.required_to_show !== undefined
-    ) {
-      if (updates.required_to_show === true) {
-        // Deactivate all other evaluation assistants
-        assistants
-          .filter(
-            (a) => a.type === "evaluation" && a.id !== id && a.required_to_show
-          )
-          .forEach((other) =>
-            onUpdateAssistant(other.id, { required_to_show: false })
-          );
-      }
-    }
-
+    // Multiple evaluation assistants are now allowed
     onUpdateAssistant(id, updates);
   };
 
@@ -201,11 +177,6 @@ export function AssistantsSection({
     // TODO: Restore strict UUID validation once we confirm models are working
     return value.length > 0;
     // return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(value);
-  };
-
-  const getModelName = (modelId: string) => {
-    const model = modelConfigs.find((m) => m.id === modelId);
-    return model ? `${model.provider}/${model.model}` : "Unknown Model";
   };
 
   const getModelNames = (modelIds: string[]) => {
@@ -266,59 +237,76 @@ export function AssistantsSection({
   };
 
   const applyPreset = (presetId: string) => {
-    const preset = MAIN_SETTINGS_PRESETS.find(p => p.id === presetId);
+    const preset = MAIN_SETTINGS_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
 
     // Don't apply anything for custom preset
-    if (presetId === 'custom') {
-      message.info('Custom preset selected - no changes applied');
+    if (presetId === "custom") {
+      message.info("Custom preset selected - no changes applied");
       return;
     }
 
     // Apply configuration values
     const updatedConfigs = [...configValues];
-    
+
     // Update numOutputsToRun
-    const outputsToRunIndex = updatedConfigs.findIndex(c => c.name === 'numOutputsToRun');
+    const outputsToRunIndex = updatedConfigs.findIndex(
+      (c) => c.name === "numOutputsToRun"
+    );
     if (outputsToRunIndex >= 0) {
       updatedConfigs[outputsToRunIndex] = {
         ...updatedConfigs[outputsToRunIndex],
-        value: preset.config.numOutputsToRun.toString()
+        value: preset.config.numOutputsToRun.toString(),
       };
     }
 
     // Update numOutputsToShow
-    const outputsToShowIndex = updatedConfigs.findIndex(c => c.name === 'numOutputsToShow');
+    const outputsToShowIndex = updatedConfigs.findIndex(
+      (c) => c.name === "numOutputsToShow"
+    );
     if (outputsToShowIndex >= 0) {
       updatedConfigs[outputsToShowIndex] = {
         ...updatedConfigs[outputsToShowIndex],
-        value: preset.config.numOutputsToShow.toString()
+        value: preset.config.numOutputsToShow.toString(),
       };
     }
 
     // Update assistantModelAlgorithm
-    const algorithmIndex = updatedConfigs.findIndex(c => c.name === 'assistantModelAlgorithm');
+    const algorithmIndex = updatedConfigs.findIndex(
+      (c) => c.name === "assistantModelAlgorithm"
+    );
     if (algorithmIndex >= 0) {
       updatedConfigs[algorithmIndex] = {
         ...updatedConfigs[algorithmIndex],
-        value: preset.config.assistantModelAlgorithm
+        value: preset.config.assistantModelAlgorithm,
       };
     }
 
     onConfigChange(updatedConfigs);
 
     // Apply assistant settings for output generation assistants only
-    const outputGenAssistants = assistants.filter(a => a.type === 'output_generation');
-    outputGenAssistants.forEach(assistant => {
-      if (preset.assistantSettings.outputGenerationAssistants.requiredToShow === 'all') {
+    const outputGenAssistants = assistants.filter(
+      (a) => a.type === "output_generation"
+    );
+    outputGenAssistants.forEach((assistant) => {
+      if (
+        preset.assistantSettings.outputGenerationAssistants.requiredToShow ===
+        "all"
+      ) {
         // Set all output generation assistants as required
         onUpdateAssistant(assistant.id, { required_to_show: true });
-      } else if (preset.assistantSettings.outputGenerationAssistants.requiredToShow === 'none') {
+      } else if (
+        preset.assistantSettings.outputGenerationAssistants.requiredToShow ===
+        "none"
+      ) {
         // Set all as not required
         onUpdateAssistant(assistant.id, { required_to_show: false });
-      } else if (preset.assistantSettings.outputGenerationAssistants.requiredToShow === 'better_ideal_only') {
+      } else if (
+        preset.assistantSettings.outputGenerationAssistants.requiredToShow ===
+        "better_ideal_only"
+      ) {
         // Only set assistants with "Ideal" in their name as required, all others not required
-        const isIdealAssistant = assistant.name.toLowerCase().includes('ideal');
+        const isIdealAssistant = assistant.name.toLowerCase().includes("ideal");
         onUpdateAssistant(assistant.id, { required_to_show: isIdealAssistant });
       }
     });
@@ -356,7 +344,7 @@ export function AssistantsSection({
                     placeholder="Select preset"
                     size="small"
                   >
-                    {MAIN_SETTINGS_PRESETS.map(preset => (
+                    {MAIN_SETTINGS_PRESETS.map((preset) => (
                       <Option key={preset.id} value={preset.id}>
                         {preset.name}
                       </Option>
@@ -384,7 +372,7 @@ export function AssistantsSection({
                     icon={<PlusOutlined />}
                     onClick={() => handleAddAssistant("output_generation")}
                     size="small"
-                    disabled={selectedPreset !== 'custom'}
+                    disabled={selectedPreset !== "custom"}
                   >
                     Add Assistant
                   </Button>
@@ -411,7 +399,7 @@ export function AssistantsSection({
                       min={1}
                       max={10}
                       style={{ width: "100%" }}
-                      disabled={selectedPreset !== 'custom'}
+                      disabled={selectedPreset !== "custom"}
                       value={parseInt(
                         configValues.find((c) => c.name === "numOutputsToRun")
                           ?.value || "3"
@@ -460,7 +448,7 @@ export function AssistantsSection({
                       min={1}
                       max={4}
                       style={{ width: "100%" }}
-                      disabled={selectedPreset !== 'custom'}
+                      disabled={selectedPreset !== "custom"}
                       value={parseInt(
                         configValues.find((c) => c.name === "numOutputsToShow")
                           ?.value || "2"
@@ -505,7 +493,7 @@ export function AssistantsSection({
                   <div style={{ marginTop: 4 }}>
                     <Select
                       style={{ width: "100%" }}
-                      disabled={selectedPreset !== 'custom'}
+                      disabled={selectedPreset !== "custom"}
                       value={
                         configValues.find(
                           (c) => c.name === "assistantModelAlgorithm"
@@ -536,6 +524,119 @@ export function AssistantsSection({
                     generation. Random Selection allows each assistant to
                     independently choose models, while Unique Model ensures all
                     assistants use different models for variety.
+                  </Text>
+                </div>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+              <Col span={12}>
+                <div>
+                  <Text strong>Use Cached Session</Text>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <Switch
+                      checked={
+                        configValues.find((c) => c.name === "useCacheSession")
+                          ?.value === "true"
+                      }
+                      onChange={(checked) => {
+                        console.log("Toggle changed to:", checked);
+                        const updatedConfigs = [...configValues];
+                        const existingIndex = updatedConfigs.findIndex(
+                          (c) => c.name === "useCacheSession"
+                        );
+                        
+                        if (existingIndex >= 0) {
+                          updatedConfigs[existingIndex] = {
+                            ...updatedConfigs[existingIndex],
+                            value: checked ? "true" : "false"
+                          };
+                        } else {
+                          updatedConfigs.push({
+                            name: "useCacheSession",
+                            value: checked ? "true" : "false",
+                            scope: "global",
+                          });
+                        }
+                        
+                        // Also ensure referenceSessionIds exists
+                        if (!updatedConfigs.find(c => c.name === "referenceSessionIds")) {
+                          updatedConfigs.push({
+                            name: "referenceSessionIds",
+                            value: "95533a6c-00e5-4ffc-9135-772b3e98ddde,a7e53502-73cd-480c-95e7-0e8eab98fa82,1796c058-e0f9-4286-afde-efa606473956,3b741acf-9d1b-4e27-aa14-89645fc413cc,a86c108d-9f15-4c6f-ba75-97cb0bdc7cf8,b2981e3b-1038-43e9-8ce7-e3c9325903b8,6f7fb887-9be9-4a86-850a-825bee8d9a64,f950b796-fae4-410e-9dd8-7bdc117dffc2,ae588e80-4715-4523-a923-277009cb580a,b07909cb-086b-44c8-a13a-132e3b9c8610,3070692e-bf47-4c22-a62b-b476130c2562,56b24acf-8776-42ed-904e-0a848ed06b05,73fd0fb8-2c4f-495c-9c43-49b0a9875266,73d25944-9895-4d7e-b723-528cd756fb5f,b908e48f-4348-44c7-b37d-83c1f4742da9,4a64b32e-c315-44fa-a414-d10a76034c28",
+                            scope: "global",
+                          });
+                        }
+                        
+                        console.log("Updated configs:", updatedConfigs);
+                        onConfigChange(updatedConfigs);
+                      }}
+                    />
+                    <Text type="secondary">
+                      {configValues.find((c) => c.name === "useCacheSession")
+                        ?.value === "true"
+                        ? "Enabled"
+                        : "Disabled"}
+                    </Text>
+                  </div>
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: "12px", marginTop: 4, display: "block" }}
+                  >
+                    When enabled, reuses model responses from reference sessions.
+                  </Text>
+                </div>
+              </Col>
+              
+              <Col span={12}>
+                <div>
+                  <Text strong>Reference Session IDs</Text>
+                  <Input.TextArea
+                    style={{ marginTop: 8 }}
+                    rows={2}
+                    placeholder="Enter session IDs (comma-separated or range with dash)&#10;e.g., session1,session2 or session1-session10"
+                    value={
+                      configValues.find((c) => c.name === "referenceSessionIds")
+                        ?.value || "95533a6c-00e5-4ffc-9135-772b3e98ddde,a7e53502-73cd-480c-95e7-0e8eab98fa82,1796c058-e0f9-4286-afde-efa606473956,3b741acf-9d1b-4e27-aa14-89645fc413cc,a86c108d-9f15-4c6f-ba75-97cb0bdc7cf8,b2981e3b-1038-43e9-8ce7-e3c9325903b8,6f7fb887-9be9-4a86-850a-825bee8d9a64,f950b796-fae4-410e-9dd8-7bdc117dffc2,ae588e80-4715-4523-a923-277009cb580a,b07909cb-086b-44c8-a13a-132e3b9c8610,3070692e-bf47-4c22-a62b-b476130c2562,56b24acf-8776-42ed-904e-0a848ed06b05,73fd0fb8-2c4f-495c-9c43-49b0a9875266,73d25944-9895-4d7e-b723-528cd756fb5f,b908e48f-4348-44c7-b37d-83c1f4742da9,4a64b32e-c315-44fa-a414-d10a76034c28"
+                    }
+                    onChange={(e) => {
+                      const updatedConfigs = [...configValues];
+                      const existingIndex = updatedConfigs.findIndex(
+                        (c) => c.name === "referenceSessionIds"
+                      );
+                      
+                      if (existingIndex >= 0) {
+                        updatedConfigs[existingIndex] = {
+                          ...updatedConfigs[existingIndex],
+                          value: e.target.value
+                        };
+                      } else {
+                        updatedConfigs.push({
+                          name: "referenceSessionIds",
+                          value: e.target.value,
+                          scope: "global",
+                        });
+                      }
+                      onConfigChange(updatedConfigs);
+                    }}
+                    disabled={
+                      configValues.find((c) => c.name === "useCacheSession")
+                        ?.value !== "true"
+                    }
+                  />
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: "12px", marginTop: 4, display: "block" }}
+                  >
+                    Specify session IDs to use as reference for cached responses.
+                    Leave empty to use the most recent matching session.
                   </Text>
                 </div>
               </Col>
@@ -574,7 +675,7 @@ export function AssistantsSection({
                 render: (requiredToShow: boolean, record: Assistant) => (
                   <Switch
                     checked={requiredToShow}
-                    disabled={selectedPreset !== 'custom'}
+                    disabled={selectedPreset !== "custom"}
                     onChange={(checked) =>
                       handleUpdateAssistant(record.id, {
                         required_to_show: checked,
@@ -594,7 +695,7 @@ export function AssistantsSection({
                       icon={<EditOutlined />}
                       onClick={() => handleEditAssistant(record)}
                       size="small"
-                      disabled={selectedPreset !== 'custom'}
+                      disabled={selectedPreset !== "custom"}
                     />
                     <Button
                       type="text"
@@ -602,7 +703,7 @@ export function AssistantsSection({
                       icon={<DeleteOutlined />}
                       onClick={() => onRemoveAssistant(record.id)}
                       size="small"
-                      disabled={selectedPreset !== 'custom'}
+                      disabled={selectedPreset !== "custom"}
                     />
                   </Space>
                 ),
@@ -675,6 +776,25 @@ export function AssistantsSection({
                   getPromptName(systemPromptId),
               },
               {
+                title: "Weight",
+                dataIndex: "weight",
+                key: "weight",
+                render: (weight: number | undefined, record: Assistant) => (
+                  <InputNumber
+                    min={1}
+                    max={10}
+                    value={weight || 1}
+                    onChange={(value) =>
+                      handleUpdateAssistant(record.id, {
+                        weight: value || 1,
+                      })
+                    }
+                    size="small"
+                    style={{ width: 60 }}
+                  />
+                ),
+              },
+              {
                 title: "Activate",
                 dataIndex: "required_to_show",
                 key: "required_to_show",
@@ -714,11 +834,59 @@ export function AssistantsSection({
             ]}
           />
           <div style={{ marginTop: 12 }}>
-            <Text type="secondary">
-              For evaluation, at most one assistant can be activated. The
-              activated one will be used as evaluator. If none is activated,
-              evaluation results will be hidden in the workshop assistant.
-            </Text>
+            <Row gutter={[16, 16]}>
+              <Col span={12}>
+                <Text type="secondary">
+                  Multiple evaluation assistants can now be activated
+                  simultaneously. Each assistant will run according to its
+                  weight (1-10) and results will be aggregated using the
+                  selected judgment strategy.
+                </Text>
+              </Col>
+              <Col span={12}>
+                <div>
+                  <Text strong>Judgment Strategy</Text>
+                  <Select
+                    style={{ width: "100%", marginTop: 8 }}
+                    value={
+                      configValues.find((c) => c.name === "judgmentStrategy")
+                        ?.value || "majority_voting"
+                    }
+                    onChange={(value) => {
+                      const updatedConfigs = configValues.map((config) =>
+                        config.name === "judgmentStrategy"
+                          ? { ...config, value }
+                          : config
+                      );
+                      // Check if config exists, if not add it
+                      if (
+                        !configValues.find((c) => c.name === "judgmentStrategy")
+                      ) {
+                        updatedConfigs.push({
+                          name: "judgmentStrategy",
+                          value,
+                          scope: "evaluation",
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString(),
+                        });
+                      }
+                      onConfigChange(updatedConfigs);
+                    }}
+                  >
+                    <Option value="majority_voting">Majority Voting</Option>
+                    <Option value="highest_score">Highest Score</Option>
+                    <Option value="lowest_score">Lowest Score</Option>
+                  </Select>
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: "12px", display: "block", marginTop: 4 }}
+                  >
+                    How to aggregate scores when multiple evaluation runs are
+                    performed
+                  </Text>
+                </div>
+              </Col>
+            </Row>
           </div>
         </Card>
       </div>
@@ -856,6 +1024,30 @@ export function AssistantsSection({
           >
             <Switch />
           </Form.Item>
+
+          {editingAssistant?.type === "evaluation" && (
+            <Form.Item
+              name="weight"
+              label="Weight (Number of evaluation runs)"
+              rules={[
+                { required: true, message: "Please set weight" },
+                {
+                  type: "number",
+                  min: 1,
+                  max: 10,
+                  message: "Weight must be between 1 and 10",
+                },
+              ]}
+              initialValue={1}
+            >
+              <InputNumber
+                min={1}
+                max={10}
+                style={{ width: "100%" }}
+                placeholder="Enter weight (1-10)"
+              />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </div>
