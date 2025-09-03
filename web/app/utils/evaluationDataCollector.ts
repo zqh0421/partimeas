@@ -241,18 +241,18 @@ export async function collectEvaluationData(
       }
 
       // Include subscores and aggregation method if available
-      // Note: For aggregated scores, we don't include rationale at the top level
+      // Note: For aggregated scores, we use empty string for rationale at the top level
       const ai_score: EvaluationScore & { subscores?: any[]; aggregation_method?: string } = aiRaw
         ? { 
             score: aiRaw.score ?? 0,
-            // Only include rationale if there are no subscores (single evaluation)
-            ...((!aiRaw.subscores || aiRaw.subscores.length === 0) && aiRaw.rationale 
-              ? { rationale: (aiRaw.rationale || "").trim() } 
-              : {}),
+            // Always include rationale as a string (empty string for aggregated scores)
+            rationale: (!aiRaw.subscores || aiRaw.subscores.length === 0) && aiRaw.rationale 
+              ? (aiRaw.rationale || "").trim()
+              : "",
             subscores: aiRaw.subscores || undefined,
             aggregation_method: aiRaw.aggregation_method || undefined
           }
-        : { score: -1 };
+        : { score: -1, rationale: "" };
 
       // Always add the score entry, even if both are defaults
       // Use the normalized ID for storage in the database
