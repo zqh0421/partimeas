@@ -191,6 +191,9 @@ export interface EvaluationResult {
   scores: {
     [criteriaId: string]: number;
   };
+  criteriaScores?: {
+    [criteriaId: string]: number;
+  };
   feedback: string;
   overallScore: number;
   modelName: string;

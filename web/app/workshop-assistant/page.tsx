@@ -124,10 +124,12 @@ function OutputAnalysisFullPageContent() {
 
   // Track if we're using streaming for this session
   const [isUsingStreaming, setIsUsingStreaming] = useState(false);
-  
+
   // Create shareable link when session is created
-  const shareableLink = streamingSessionId 
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/workshop-assistant/session/${streamingSessionId}`
+  const shareableLink = streamingSessionId
+    ? `${
+        typeof window !== "undefined" ? window.location.origin : ""
+      }/workshop-assistant/session/${streamingSessionId}`
     : null;
 
   // Handle streaming completion - update testCasesWithModelOutputs when streaming finishes
@@ -144,15 +146,17 @@ function OutputAnalysisFullPageContent() {
       );
 
       // Convert streaming outputs to model outputs format
-      const modelOutputsFromStream: ModelOutput[] = streamingOutputs.map((output) => ({
-        modelId: output.modelId,
-        modelName: output.modelId, // Use modelId as modelName for now
-        output: output.output,
-        rubricScores: {},
-        feedback: '',
-        suggestions: [],
-        timestamp: new Date().toISOString(),
-      }));
+      const modelOutputsFromStream: ModelOutput[] = streamingOutputs.map(
+        (output) => ({
+          modelId: output.modelId,
+          modelName: output.modelId, // Use modelId as modelName for now
+          output: output.output,
+          rubricScores: {},
+          feedback: "",
+          suggestions: [],
+          timestamp: new Date().toISOString(),
+        })
+      );
 
       // Update the first test case with streamed outputs
       if (testCases.length > 0) {
@@ -442,238 +446,34 @@ function OutputAnalysisFullPageContent() {
       );
 
       // Use streaming for single test case
-      if (testCases.length === 1) {
-        console.log("🌊 Using streaming generation for single test case");
 
-        // Set flag to track streaming usage
-        setIsUsingStreaming(true);
+      console.log("🌊 Using streaming generation for single test case");
 
-        // Reset stream before starting
-        resetStream();
+      // Set flag to track streaming usage
+      setIsUsingStreaming(true);
 
-        // Find the selected ideal response object
-        const selectedIdealResponse = idealResponses.find(ir => ir.id === selectedIdealResponseId);
-        
-        // Start streaming - this will update streamingOutputs as responses arrive
-        // The useEffect hook will handle updating testCasesWithModelOutputs when streaming completes
-        await startStreaming(
-          testCases[0], 
-          currentGroupId || undefined,
-          selectedIdealResponse ? { 
-            id: selectedIdealResponse.id,
-            idealTestCase: selectedIdealResponse.testCaseInput,
-            testCaseInput: selectedIdealResponse.testCaseInput
-          } : null,
-          selectedCriteriaId
-        );
+      // Reset stream before starting
+      resetStream();
 
-        console.log("✅ Streaming started - outputs will appear in real-time");
-      } else {
-        // Use batch processing for multiple test cases
-        // Generate outputs for all test cases in parallel
-        const outputPromises = testCases.map(async (testCase, index) => {
-          try {
-            console.log(
-              `📤 Sending API request for test case ${index + 1}/${
-                testCases.length
-              }:`,
-              {
-                testCaseId: testCase.id,
-                useCase: testCase.useCase,
-                scenarioCategory: testCase.scenarioCategory,
-              }
-            );
+      // Find the selected ideal response object
+      const selectedIdealResponse = idealResponses.find(
+        (ir) => ir.id === selectedIdealResponseId
+      );
 
-            // Find the selected ideal response object
-            const selectedIdealResponse = idealResponses.find(ir => ir.id === selectedIdealResponseId);
-            
-            const response = await fetch("/api/model-evaluation", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                testCase,
-                phase: "generate",
-                currentUseCaseType: "original_system123_instructions",
-                groupId: currentGroupId, // Include group ID in the request
-                criteriaSheetName: selectedCriteriaId, // Include criteria sheet name
-                idealResponse: selectedIdealResponse ? { 
-                  id: selectedIdealResponse.id,
-                  idealTestCase: selectedIdealResponse.testCaseInput,
-                  testCaseInput: selectedIdealResponse.testCaseInput
-                } : null, // Include ideal response with test case
-              }),
-            });
-
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
+      // Start streaming - this will update streamingOutputs as responses arrive
+      // The useEffect hook will handle updating testCasesWithModelOutputs when streaming completes
+      await startStreaming(
+        testCases[0],
+        currentGroupId || undefined,
+        selectedIdealResponse
+          ? {
+              id: selectedIdealResponse.id,
+              idealTestCase: selectedIdealResponse.testCaseInput,
+              testCaseInput: selectedIdealResponse.testCaseInput,
             }
-
-            const data = await response.json();
-            console.log(
-              `📦 Full API response for test case ${index + 1}:`,
-              JSON.stringify(data, null, 2)
-            );
-            console.log(
-              `✅ Completed test case ${index + 1}/${testCases.length}:`,
-              {
-                testCaseId: testCase.id,
-                responseStatus: response.status,
-                hasOutputs: Array.isArray(data?.outputs),
-                outputsCount: data?.outputs?.length || 0,
-                sessionId: data?.sessionId,
-              }
-            );
-
-            // Capture the selected assistant models as soon as we get the first successful response
-            if (
-              Array.isArray(data?.selectedAssistantsModels) &&
-              data.selectedAssistantsModels.length > 0
-            ) {
-              console.log(
-                "🎯 Captured selected assistant models:",
-                data.selectedAssistantsModels
-              );
-              setSelectedOutputModelIds((prev) =>
-                prev && prev.length > 0 ? prev : data.selectedAssistantsModels
-              );
-            }
-
-            // Capture session ID if available - store per test case
-            if (data?.sessionId) {
-              setTestCaseSessionIds((prev) =>
-                new Map(prev).set(index, data.sessionId)
-              );
-              console.log(
-                `📋 Captured session ID for test case ${index + 1}: ${
-                  data.sessionId
-                }`
-              );
-
-              // Also set currentSessionId for backward compatibility (first test case)
-              if (index === 0) {
-                setCurrentSessionId(data.sessionId);
-                console.log(
-                  `🔗 Copy Link button will now appear for session: ${data.sessionId}`
-                );
-              }
-            }
-
-            // Update progress
-            handlers.handleEvaluationProgress(
-              index,
-              ((index + 1) / testCases.length) * 50
-            ); // 50% for generation
-
-            return data;
-          } catch (error) {
-            console.error(`❌ Failed test case ${index + 1}:`, error);
-            throw error;
-          }
-        });
-
-        console.log(
-          "⏳ Waiting for all output generation promises to settle..."
-        );
-        const results = await Promise.allSettled(outputPromises);
-        console.log(
-          "📊 Output generation results:",
-          results.map((r, i) => ({
-            index: i,
-            status: r.status,
-            testCaseId: testCases[i]?.id,
-          }))
-        );
-
-        // Process results and create TestCasesWithModelOutputs
-        const processedTestCases: TestCaseWithModelOutputs[] = [];
-
-        for (let i = 0; i < testCases.length; i++) {
-          const originalTestCase = testCases[i];
-          const result = results[i];
-
-          if (result.status === "fulfilled") {
-            const apiResponse = result.value as any;
-
-            if (apiResponse?.success) {
-              const modelOutputs = apiResponse.outputs || [];
-
-              // Debug: Log the modelId values from the API response
-              console.log(`🔍 Test case ${i + 1} API response outputs:`, {
-                count: modelOutputs.length,
-                modelIds: modelOutputs.map((mo: any) => mo.modelId),
-                fullOutputs: modelOutputs,
-              });
-
-              const testCaseWithOutputs = {
-                id: originalTestCase.id,
-                input: originalTestCase.input,
-                context: originalTestCase.context,
-                modelOutputs: modelOutputs,
-                sessionId: apiResponse.sessionId, // Include session ID from API response
-                useCase: originalTestCase.useCase,
-                scenarioCategory: originalTestCase.scenarioCategory,
-              };
-              processedTestCases.push(testCaseWithOutputs);
-              console.log(
-                `✅ Processed test case ${i + 1} with ${
-                  modelOutputs.length
-                } outputs and sessionId: ${apiResponse.sessionId}`
-              );
-            } else {
-              console.log(
-                `⚠️ Test case ${i + 1} API response not successful:`,
-                apiResponse
-              );
-              processedTestCases.push({
-                id: originalTestCase.id,
-                input: originalTestCase.input,
-                context: originalTestCase.context,
-                modelOutputs: [],
-                sessionId: apiResponse?.sessionId, // Include session ID even if no outputs
-                useCase: originalTestCase.useCase,
-                scenarioCategory: originalTestCase.scenarioCategory,
-              });
-            }
-          } else {
-            console.log(`❌ Test case ${i + 1} failed:`, result.reason);
-            // Create empty structure for failed test cases
-            processedTestCases.push({
-              id: originalTestCase.id,
-              input: originalTestCase.input,
-              context: originalTestCase.context,
-              modelOutputs: [],
-              sessionId: undefined, // No session ID for failed test cases
-              useCase: originalTestCase.useCase,
-              scenarioCategory: originalTestCase.scenarioCategory,
-            });
-          }
-        }
-
-        console.log("📋 Created testCasesWithModelOutputs:", {
-          total: processedTestCases.length,
-          withOutputs: processedTestCases.filter(
-            (tc) => tc.modelOutputs.length > 0
-          ).length,
-          withoutOutputs: processedTestCases.filter(
-            (tc) => tc.modelOutputs.length === 0
-          ).length,
-        });
-
-        // Update both local and main state with the processed test cases
-        setTestCasesWithModelOutputs(processedTestCases);
-        setLocalTestCasesWithModelOutputs(processedTestCases);
-        setCurrentPhase("evaluating");
-
-        console.log(
-          "🔄 About to call startEvaluationPhase with",
-          processedTestCases.length,
-          "test cases"
-        );
-        // Now start the evaluation phase with the generated outputs
-        startEvaluationPhase(processedTestCases);
-      } // End of else block for batch processing
+          : null,
+        selectedCriteriaId
+      );
     } catch (error) {
       console.error("❌ Error during model output generation:", error);
       handlers.handleEvaluationError(
@@ -795,8 +595,10 @@ function OutputAnalysisFullPageContent() {
             console.log("📤 Evaluation payload:", evaluationPayload);
 
             // Find the selected ideal response object
-            const selectedIdealResponse = idealResponses.find(ir => ir.id === selectedIdealResponseId);
-            
+            const selectedIdealResponse = idealResponses.find(
+              (ir) => ir.id === selectedIdealResponseId
+            );
+
             const response = await fetch("/api/model-evaluation", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -806,11 +608,13 @@ function OutputAnalysisFullPageContent() {
                 criteria: evaluationPayload.criteria,
                 outputs: evaluationPayload.modelOutputs,
                 criteriaSheetName: selectedCriteriaId, // Include criteria sheet name
-                idealResponse: selectedIdealResponse ? { 
-                  id: selectedIdealResponse.id,
-                  idealTestCase: selectedIdealResponse.testCaseInput,
-                  testCaseInput: selectedIdealResponse.testCaseInput
-                } : null, // Include ideal response with test case
+                idealResponse: selectedIdealResponse
+                  ? {
+                      id: selectedIdealResponse.id,
+                      idealTestCase: selectedIdealResponse.testCaseInput,
+                      testCaseInput: selectedIdealResponse.testCaseInput,
+                    }
+                  : null, // Include ideal response with test case
               }),
             });
 
