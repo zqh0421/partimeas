@@ -1,5 +1,6 @@
 import { collectAndUploadEvaluationData } from "@/app/utils/evaluationDataCollector";
 import { IdealModelResponse } from "@/app/types";
+import { PointOption } from "./sessionScoreCache";
 
 interface RubricItem {
   id: string;
@@ -14,7 +15,7 @@ interface EvaluationUploadParams {
   modelOutputs?: any[];
   rubricItems: RubricItem[];
   rubricPoints: number[];
-  humanScores: Record<string, Record<string, number | "">>;
+  humanScores: PointOption;
   humanRationales: Record<string, Record<string, string>>;
   aiScores: Record<
     string,

@@ -23,6 +23,8 @@ import { EvaluationRecord } from "@/app/types/database";
 import {
   cacheSessionScore,
   restoreSessionScores,
+  PointOption,
+  PointValue,
 } from "@/app/utils/sessionScoreCache";
 import {
   ChevronDownIcon,
@@ -198,9 +200,7 @@ const InputScoringTable = forwardRef<
     return testCase?.sessionId || sessionId;
   }, [testCase?.sessionId, sessionId]);
 
-  const [scores, setScores] = useState<
-    Record<string, Record<string, number | "">>
-  >(() => {
+  const [scores, setScores] = useState<PointOption>(() => {
     // Try to restore from session cache first
     if (effectiveSessionId && derived.items.length > 0) {
       const { scores: cachedScores } = restoreSessionScores(
@@ -210,7 +210,7 @@ const InputScoringTable = forwardRef<
       );
 
       // Map criterion nums back to rubric item IDs
-      const mapped: Record<string, Record<string, number | "">> = {};
+      const mapped: PointOption = {};
       derived.items.forEach((item) => {
         const rowData = cachedScores[`criterion-${item.num}`];
         if (rowData) {
@@ -218,7 +218,7 @@ const InputScoringTable = forwardRef<
         } else {
           mapped[item.id] = {};
           for (const resp of responses) {
-            mapped[item.id][resp.id] = "";
+            mapped[item.id][resp.id] = 0;
           }
         }
       });
@@ -227,13 +227,15 @@ const InputScoringTable = forwardRef<
     }
 
     // Initialize empty if no cache
-    const initial: Record<string, Record<string, number | "">> = {};
+    const initial: PointOption = {};
     for (const r of derived.items) {
       initial[r.id] = {};
       for (const resp of responses) {
-        initial[r.id][resp.id] = "";
+        initial[r.id][resp.id] = 0;
       }
     }
+    console.log("Initial");
+    console.log(initial);
     return initial;
   });
 
@@ -283,13 +285,13 @@ const InputScoringTable = forwardRef<
   }, [selectedIdealResponseId]);
 
   // State for ideal response expected scores
-  const [idealScores, setIdealScores] = useState<Record<string, number>>({});
+  const [idealScores, setIdealScores] = useState<PointValue>({});
 
   // Load ideal scores when ideal response changes
   useEffect(() => {
     if (currentIdealResponseId && derived.items.length > 0) {
       try {
-        const scores: Record<string, number> = {};
+        const scores: PointValue = {};
 
         // For each rubric item, initialize or get from cache
         derived.items.forEach((item, index) => {
@@ -323,7 +325,7 @@ const InputScoringTable = forwardRef<
       } catch (error) {
         console.error("[InputScoringTable] Error loading ideal scores:", error);
         // Fallback to default points on error
-        const fallbackScores: Record<string, number> = {};
+        const fallbackScores: PointValue = {};
         derived.items.forEach((item, index) => {
           const defaultScore = derived.points[index] || 2;
           fallbackScores[item.id] = defaultScore;
@@ -364,8 +366,6 @@ const InputScoringTable = forwardRef<
     return derived.points;
   }, [currentIdealResponseId, idealScores, derived.points, derived.items]);
 
-  // State declarations have been moved to the top of the component
-
   // Initialize/merge state when items or responses change
   React.useEffect(() => {
     // Skip this if we're in comparing mode and have versions loaded
@@ -383,7 +383,7 @@ const InputScoringTable = forwardRef<
         );
 
       setScores((prev) => {
-        const next: Record<string, Record<string, number | "">> = {};
+        const next: PointOption = {};
 
         derived.items.forEach((item) => {
           const rowData = cachedScores[`criterion-${item.num}`];
@@ -393,10 +393,10 @@ const InputScoringTable = forwardRef<
           } else {
             // No cached data, try to preserve existing data if available
             const prevRow = prev[item.id] || {};
-            const row: Record<string, number | ""> = {};
+            const row: PointValue = {};
             for (const resp of responses) {
               row[resp.id] =
-                prevRow[resp.id] !== undefined ? prevRow[resp.id] : "";
+                prevRow[resp.id] !== undefined ? prevRow[resp.id] : 0;
             }
             next[item.id] = row;
           }
@@ -431,13 +431,13 @@ const InputScoringTable = forwardRef<
       // No session ID, initialize normally
       setScores((prev) => {
         let changed = false;
-        const next: Record<string, Record<string, number | "">> = {};
+        const next: PointOption = {};
         for (const r of derived.items) {
           const prevRow = prev[r.id] || {};
-          const row: Record<string, number | ""> = {};
+          const row: PointValue = {};
           for (const resp of responses) {
             const before = prevRow[resp.id];
-            const after = before !== undefined ? before : "";
+            const after = before !== undefined ? before : 0;
             row[resp.id] = after;
             if (after !== before) changed = true;
           }
@@ -662,13 +662,13 @@ const InputScoringTable = forwardRef<
     }
 
     // Update human and AI scores from the selected version
-    const newHumanScores: Record<string, Record<string, number | "">> = {};
+    const newHumanScores: PointOption = {};
     const newHumanRationales: Record<string, Record<string, string>> = {};
     const newAiScores: Record<
       string,
       Record<string, { score: number; rationale: string }>
     > = {};
-    const newIdealScores: Record<string, number> = {};
+    const newIdealScores: PointValue = {};
 
     rubricData.criteria.forEach((criterion, idx) => {
       // When viewing archived versions, use the original criterion ID if available
@@ -858,31 +858,45 @@ const InputScoringTable = forwardRef<
           judgmentStrategy: data.metadata.judgmentStrategy,
           totalRuns: data.metadata.totalRuns,
           assistantsUsed: data.metadata.assistantsUsed,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
-        window.sessionStorage.setItem('lastEvaluationMetadata', JSON.stringify(metadataToStore));
-        console.log('✅ Stored evaluation metadata:', {
+        window.sessionStorage.setItem(
+          "lastEvaluationMetadata",
+          JSON.stringify(metadataToStore)
+        );
+        console.log("✅ Stored evaluation metadata:", {
           duration: `${data.metadata.evaluationDurationMs}ms`,
           strategy: data.metadata.judgmentStrategy,
           totalRuns: data.metadata.totalRuns,
-          assistants: data.metadata.assistantsUsed?.length || 0
+          assistants: data.metadata.assistantsUsed?.length || 0,
         });
       } else {
-        console.warn('⚠️ No metadata in evaluation response');
+        console.warn("⚠️ No metadata in evaluation response");
       }
 
       if (data.success && data.evaluations) {
         // Store raw evaluations with subscores for data collector
-        window.sessionStorage.setItem('lastEvaluationRawData', JSON.stringify({
-          evaluations: data.evaluations,
-          timestamp: new Date().toISOString()
-        }));
-        console.log('✅ Stored raw evaluation data with subscores');
-        
+        window.sessionStorage.setItem(
+          "lastEvaluationRawData",
+          JSON.stringify({
+            evaluations: data.evaluations,
+            timestamp: new Date().toISOString(),
+          })
+        );
+        console.log("✅ Stored raw evaluation data with subscores");
+
         // Transform evaluation results to match our aiScores format
         let transformedScores: Record<
           string,
-          Record<string, { score: number; rationale: string; subscores?: any[]; aggregation_method?: string }>
+          Record<
+            string,
+            {
+              score: number;
+              rationale: string;
+              subscores?: any[];
+              aggregation_method?: string;
+            }
+          >
         > = {};
 
         data.evaluations.forEach((evaluation: any, evalIndex: number) => {
@@ -935,7 +949,7 @@ const InputScoringTable = forwardRef<
                   scoreData.rationale ||
                   "No rationale provided",
                 subscores: scoreData.subscores || [],
-                aggregation_method: scoreData.aggregation_method || undefined
+                aggregation_method: scoreData.aggregation_method || undefined,
               };
             }
           );
@@ -960,7 +974,15 @@ const InputScoringTable = forwardRef<
           // Transform the scores to use actual response IDs
           const correctedScores: Record<
             string,
-            Record<string, { score: number; rationale: string; subscores?: any[]; aggregation_method?: string }>
+            Record<
+              string,
+              {
+                score: number;
+                rationale: string;
+                subscores?: any[];
+                aggregation_method?: string;
+              }
+            >
           > = {};
 
           Object.entries(transformedScores).forEach(
@@ -1086,7 +1108,7 @@ const InputScoringTable = forwardRef<
   const handleScoreChange = (
     rubricId: string,
     responseId: string,
-    value: number | ""
+    value: number
   ) => {
     setScores((prev) => ({
       ...prev,
@@ -1123,7 +1145,7 @@ const InputScoringTable = forwardRef<
     if (effectiveSessionId && !isComparingMode) {
       const item = derived.items.find((item) => item.id === rubricId);
       if (item) {
-        const currentScore = scores[rubricId]?.[responseId] || "";
+        const currentScore = scores[rubricId]?.[responseId] || 0;
         cacheSessionScore(
           effectiveSessionId,
           item.num,
@@ -1135,16 +1157,8 @@ const InputScoringTable = forwardRef<
     }
   };
 
-  const handleIdealScoreChange = (
-    criteriaId: string,
-    newScore: number | ""
-  ) => {
+  const handleIdealScoreChange = (criteriaId: string, newScore: number) => {
     if (!currentIdealResponseId) {
-      return;
-    }
-
-    // Don't update if empty string
-    if (newScore === "") {
       return;
     }
 
@@ -1191,7 +1205,7 @@ const InputScoringTable = forwardRef<
     for (const item of derived.items) {
       for (const response of responses) {
         const score = scores[item.id]?.[response.id];
-        if (score === "" || score === undefined) {
+        if (score === undefined) {
           return false;
         }
       }
@@ -1270,7 +1284,6 @@ const InputScoringTable = forwardRef<
                             isComparingMode
                               ? `cursor-not-allowed ${
                                   aiScores[r.id]?.[resp.id] !== undefined &&
-                                  scores[r.id]?.[resp.id] !== "" &&
                                   scores[r.id]?.[resp.id] !== undefined &&
                                   Number(scores[r.id][resp.id]) !==
                                     Number(aiScores[r.id][resp.id].score)
@@ -1279,19 +1292,13 @@ const InputScoringTable = forwardRef<
                                 }`
                               : "shadow-sm bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer border-gray-300 text-gray-700"
                           }`}
-                          value={(scores[r.id] && scores[r.id][resp.id]) ?? ""}
+                          value={(scores[r.id] && scores[r.id][resp.id]) ?? 0}
                           disabled={isComparingMode}
                           onChange={(e) => {
-                            const v =
-                              e.target.value === ""
-                                ? ""
-                                : Number(e.target.value);
-                            handleScoreChange(r.id, resp.id, v as number | "");
+                            const v = Number(e.target.value);
+                            handleScoreChange(r.id, resp.id, v as number);
                           }}
                         >
-                          <option value="" disabled className="text-gray-400">
-                            —
-                          </option>
                           {Array.from(
                             {
                               length:
@@ -1367,18 +1374,14 @@ const InputScoringTable = forwardRef<
                           ? idealScores[r.id]
                           : idealPoints[rowIdx] !== undefined
                           ? idealPoints[rowIdx]
-                          : ""
+                          : 0
                       }
                       disabled={isComparingMode}
                       onChange={(e) => {
-                        const v =
-                          e.target.value === "" ? "" : Number(e.target.value);
+                        const v = Number(e.target.value);
                         handleIdealScoreChange(r.id, v);
                       }}
                     >
-                      <option value="" disabled className="text-gray-400">
-                        —
-                      </option>
                       {Array.from(
                         {
                           length:

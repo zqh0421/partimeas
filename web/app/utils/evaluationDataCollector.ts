@@ -10,6 +10,7 @@ import {
   restoreIdealResponseSelection,
 } from "@/app/utils/selectionCache";
 import { getCachedGroupId } from "@/app/utils/groupIdCache";
+import { PointOption } from "./sessionScoreCache";
 
 /**
  * Get active evaluation assistant information from the API
@@ -92,12 +93,15 @@ export interface EvaluationDataSnapshot {
   // AI scores
   aiScores: Record<
     string,
-    Record<string, { 
-      score: number; 
-      rationale: string;
-      subscores?: any[];
-      aggregation_method?: string;
-    }>
+    Record<
+      string,
+      {
+        score: number;
+        rationale: string;
+        subscores?: any[];
+        aggregation_method?: string;
+      }
+    >
   >;
 
   // Evaluation model information
@@ -156,17 +160,14 @@ export async function collectEvaluationData(
 
     // For regular response IDs, extract the number and format as "Response N"
     // Handle various formats: "resp-1", "model-1", "Response 1", etc.
-    const patterns = [
-      /^resp-(\d+)$/i,
-      /^response\s*(\d+)$/i,
-      /^model-(\d+)$/i,
-    ];
+    const patterns = [/^resp-(\d+)$/i, /^response\s*(\d+)$/i, /^model-(\d+)$/i];
 
     for (const pattern of patterns) {
       const match = pattern.exec(responseId?.trim() || "");
       if (match) {
         const num = parseInt(match[1], 10);
-        if (!Number.isNaN(num) && num < 100) { // Reasonable response number limit
+        if (!Number.isNaN(num) && num < 100) {
+          // Reasonable response number limit
           return `Response ${num}`;
         }
       }
@@ -242,15 +243,20 @@ export async function collectEvaluationData(
 
       // Include subscores and aggregation method if available
       // Note: For aggregated scores, we use empty string for rationale at the top level
-      const ai_score: EvaluationScore & { subscores?: any[]; aggregation_method?: string } = aiRaw
-        ? { 
+      const ai_score: EvaluationScore & {
+        subscores?: any[];
+        aggregation_method?: string;
+      } = aiRaw
+        ? {
             score: aiRaw.score ?? 0,
             // Always include rationale as a string (empty string for aggregated scores)
-            rationale: (!aiRaw.subscores || aiRaw.subscores.length === 0) && aiRaw.rationale 
-              ? (aiRaw.rationale || "").trim()
-              : "",
+            rationale:
+              (!aiRaw.subscores || aiRaw.subscores.length === 0) &&
+              aiRaw.rationale
+                ? (aiRaw.rationale || "").trim()
+                : "",
             subscores: aiRaw.subscores || undefined,
-            aggregation_method: aiRaw.aggregation_method || undefined
+            aggregation_method: aiRaw.aggregation_method || undefined,
           }
         : { score: -1, rationale: "" };
 
@@ -360,26 +366,39 @@ export async function collectEvaluationData(
   }
 
   // Retrieve evaluation metadata from session storage
-  let evaluationMetadata: { evaluationDurationMs?: number; judgmentStrategy?: string } = {};
+  let evaluationMetadata: {
+    evaluationDurationMs?: number;
+    judgmentStrategy?: string;
+  } = {};
   try {
-    const storedMetadata = window.sessionStorage.getItem('lastEvaluationMetadata');
+    const storedMetadata = window.sessionStorage.getItem(
+      "lastEvaluationMetadata"
+    );
     if (storedMetadata) {
       const parsed = JSON.parse(storedMetadata);
       evaluationMetadata = {
         evaluationDurationMs: parsed.evaluationDurationMs,
-        judgmentStrategy: parsed.judgmentStrategy
+        judgmentStrategy: parsed.judgmentStrategy,
       };
-      console.log('[EvaluationDataCollector] ✅ Retrieved evaluation metadata:', {
-        duration: `${evaluationMetadata.evaluationDurationMs}ms`,
-        strategy: evaluationMetadata.judgmentStrategy,
-        totalRuns: parsed.totalRuns,
-        assistants: parsed.assistantsUsed?.length || 0
-      });
+      console.log(
+        "[EvaluationDataCollector] ✅ Retrieved evaluation metadata:",
+        {
+          duration: `${evaluationMetadata.evaluationDurationMs}ms`,
+          strategy: evaluationMetadata.judgmentStrategy,
+          totalRuns: parsed.totalRuns,
+          assistants: parsed.assistantsUsed?.length || 0,
+        }
+      );
     } else {
-      console.warn('[EvaluationDataCollector] ⚠️ No evaluation metadata found in session storage');
+      console.warn(
+        "[EvaluationDataCollector] ⚠️ No evaluation metadata found in session storage"
+      );
     }
   } catch (e) {
-    console.warn('[EvaluationDataCollector] ❌ Could not retrieve evaluation metadata:', e);
+    console.warn(
+      "[EvaluationDataCollector] ❌ Could not retrieve evaluation metadata:",
+      e
+    );
   }
 
   const record = {
@@ -399,21 +418,21 @@ export async function collectEvaluationData(
     evaluation_duration_ms: evaluationMetadata.evaluationDurationMs,
     judgment_strategy: evaluationMetadata.judgmentStrategy,
   };
-  
+
   // Log the complete record to verify metadata is included
-  console.log('[EvaluationDataCollector] 📦 Final evaluation record:', {
+  console.log("[EvaluationDataCollector] 📦 Final evaluation record:", {
     group_id: record.group_id,
     session_id: record.session_id,
     evaluation_duration_ms: record.evaluation_duration_ms,
     judgment_strategy: record.judgment_strategy,
-    has_subscores: rubricWithScoring.criteria.some(c => 
-      Object.values(c.scores || {}).some((s: any) => 
-        s.ai_score?.subscores && s.ai_score.subscores.length > 0
+    has_subscores: rubricWithScoring.criteria.some((c) =>
+      Object.values(c.scores || {}).some(
+        (s: any) => s.ai_score?.subscores && s.ai_score.subscores.length > 0
       )
     ),
-    criteria_count: rubricWithScoring.criteria.length
+    criteria_count: rubricWithScoring.criteria.length,
   });
-  
+
   return record;
 }
 
@@ -475,16 +494,19 @@ export function createEvaluationSnapshot(params: {
     weight?: string;
   }>;
   rubricPoints: number[];
-  humanScores: Record<string, Record<string, number | "">>;
+  humanScores: PointOption;
   humanRationales: Record<string, Record<string, string>>;
   aiScores: Record<
     string,
-    Record<string, { 
-      score: number; 
-      rationale: string;
-      subscores?: any[];
-      aggregation_method?: string;
-    }>
+    Record<
+      string,
+      {
+        score: number;
+        rationale: string;
+        subscores?: any[];
+        aggregation_method?: string;
+      }
+    >
   >;
   evaluatorModel?: string;
   evaluatorSystemPrompt?: string;
@@ -571,16 +593,19 @@ export async function collectAndUploadEvaluationData(params: {
     weight?: string;
   }>;
   rubricPoints: number[];
-  humanScores: Record<string, Record<string, number | "">>;
+  humanScores: PointOption;
   humanRationales: Record<string, Record<string, string>>;
   aiScores: Record<
     string,
-    Record<string, { 
-      score: number; 
-      rationale: string;
-      subscores?: any[];
-      aggregation_method?: string;
-    }>
+    Record<
+      string,
+      {
+        score: number;
+        rationale: string;
+        subscores?: any[];
+        aggregation_method?: string;
+      }
+    >
   >;
   evaluatorModel?: string;
   evaluatorSystemPrompt?: string;

@@ -71,7 +71,7 @@ async function fetchSheetData(
   );
   if (data.values && data.values.length > 0) {
     console.log(`[ideal-responses] Headers: ${data.values[0].join(", ")}`);
-    console.log(`[ideal-responses] Data rows: ${data.values.length - 1}`);
+    // console.log(`[ideal-responses] Data rows: ${data.values.length - 1}`);
   }
 
   return {
@@ -92,33 +92,33 @@ function convertToIdealResponses(
   rows.forEach((row, index) => {
     const name = findFieldValue(headers, row, FIELD_MAP.name);
     if (!name || !name.trim()) {
-      console.log(
-        `[ideal-responses] Row ${
-          index + 1
-        } - Skipping row with empty name. Name field value: "${name}"`
-      );
+      // console.log(
+      //   `[ideal-responses] Row ${
+      //     index + 1
+      //   } - Skipping row with empty name. Name field value: "${name}"`
+      // );
       skippedCount++;
       return;
     }
 
     const modelResponse = findFieldValue(headers, row, FIELD_MAP.modelResponse);
     if (!modelResponse || !modelResponse.trim()) {
-      console.log(
-        `[ideal-responses] Row ${
-          index + 1
-        } - Skipping row with empty model response. Name: "${name}"`
-      );
+      // console.log(
+      //   `[ideal-responses] Row ${
+      //     index + 1
+      //   } - Skipping row with empty model response. Name: "${name}"`
+      // );
       skippedCount++;
       return;
     }
 
     const testCaseInput = findFieldValue(headers, row, FIELD_MAP.testCaseInput);
     if (!testCaseInput || !testCaseInput.trim()) {
-      console.log(
-        `[ideal-responses] Row ${
-          index + 1
-        } - Skipping row with empty test case input. Name: "${name}"`
-      );
+      // console.log(
+      //   `[ideal-responses] Row ${
+      //     index + 1
+      //   } - Skipping row with empty test case input. Name: "${name}"`
+      // );
       skippedCount++;
       return;
     }
@@ -164,7 +164,7 @@ export async function GET() {
       totalIdealResponses: idealResponses.length,
     };
 
-    console.log("[ideal-responses] Request completed successfully");
+    // console.log("[ideal-responses] Request completed successfully");
     return NextResponse.json(responseData);
   } catch (error) {
     console.error("[ideal-responses] Error:", error);

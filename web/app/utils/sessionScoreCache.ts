@@ -4,7 +4,7 @@
  */
 
 interface ScoreData {
-  score: number | "";
+  score: number;
   rationale: string;
 }
 
@@ -23,7 +23,7 @@ const CACHE_KEY = "sessionScoreCache";
  */
 function getCache(): SessionCache {
   if (typeof window === "undefined") return {};
-  
+
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     return cached ? JSON.parse(cached) : {};
@@ -38,7 +38,7 @@ function getCache(): SessionCache {
  */
 function saveCache(cache: SessionCache): void {
   if (typeof window === "undefined") return;
-  
+
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
   } catch (error) {
@@ -49,9 +49,11 @@ function saveCache(cache: SessionCache): void {
 /**
  * Get cached scores and rationales for a session
  */
-export function getCachedSessionData(sessionId: string | null | undefined): Record<number, Record<string, ScoreData>> {
+export function getCachedSessionData(
+  sessionId: string | null | undefined
+): Record<number, Record<string, ScoreData>> {
   if (!sessionId) return {};
-  
+
   const cache = getCache();
   return cache[sessionId] || {};
 }
@@ -63,26 +65,26 @@ export function cacheSessionScore(
   sessionId: string | null | undefined,
   criterionNum: number,
   responseId: string,
-  score: number | "",
+  score: number,
   rationale: string
 ): void {
   if (!sessionId) return;
-  
+
   const cache = getCache();
-  
+
   if (!cache[sessionId]) {
     cache[sessionId] = {};
   }
-  
+
   if (!cache[sessionId][criterionNum]) {
     cache[sessionId][criterionNum] = {};
   }
-  
+
   cache[sessionId][criterionNum][responseId] = {
     score,
-    rationale
+    rationale,
   };
-  
+
   saveCache(cache);
 }
 
@@ -91,11 +93,14 @@ export function cacheSessionScore(
  */
 export function clearSessionCache(sessionId: string | null | undefined): void {
   if (!sessionId) return;
-  
+
   const cache = getCache();
   delete cache[sessionId];
   saveCache(cache);
 }
+
+export type PointValue = Record<string, number>;
+export type PointOption = Record<string, PointValue>;
 
 /**
  * Get all cached data for restoring state
@@ -106,23 +111,23 @@ export function restoreSessionScores(
   criterionNums: number[],
   responseIds: string[]
 ): {
-  scores: Record<string, Record<string, number | "">>;
+  scores: PointOption;
   rationales: Record<string, Record<string, string>>;
 } {
   if (!sessionId) {
     return { scores: {}, rationales: {} };
   }
-  
+
   const cachedData = getCachedSessionData(sessionId);
-  const scores: Record<string, Record<string, number | "">> = {};
+  const scores: PointOption = {};
   const rationales: Record<string, Record<string, string>> = {};
-  
+
   // Initialize empty structure for all criteria by their num
   criterionNums.forEach((num, index) => {
     const rowId = `criterion-${num}`;
     scores[rowId] = {};
     rationales[rowId] = {};
-    
+
     // Fill in cached data if available
     if (cachedData[num]) {
       for (const responseId of responseIds) {
@@ -131,19 +136,19 @@ export function restoreSessionScores(
           scores[rowId][responseId] = cached.score;
           rationales[rowId][responseId] = cached.rationale;
         } else {
-          scores[rowId][responseId] = "";
+          scores[rowId][responseId] = 0;
           rationales[rowId][responseId] = "";
         }
       }
     } else {
       // No cached data for this criterion, initialize empty
       for (const responseId of responseIds) {
-        scores[rowId][responseId] = "";
+        scores[rowId][responseId] = 0;
         rationales[rowId][responseId] = "";
       }
     }
   });
-  
+
   return { scores, rationales };
 }
 
@@ -153,34 +158,34 @@ export function restoreSessionScores(
  */
 export function batchCacheSessionData(
   sessionId: string | null | undefined,
-  scores: Record<string, Record<string, number | "">>,
+  scores: PointOption,
   rationales: Record<string, Record<string, string>>,
   criterionNumMap: Record<string, number>
 ): void {
   if (!sessionId) return;
-  
+
   const cache = getCache();
-  
+
   if (!cache[sessionId]) {
     cache[sessionId] = {};
   }
-  
+
   // Convert from rubric item IDs to criterion nums
   Object.keys(scores).forEach((itemId) => {
     const num = criterionNumMap[itemId];
     if (num === undefined) return; // Skip if no num mapping
-    
+
     if (!cache[sessionId][num]) {
       cache[sessionId][num] = {};
     }
-    
-    Object.keys(scores[itemId]).forEach(responseId => {
+
+    Object.keys(scores[itemId]).forEach((responseId) => {
       cache[sessionId][num][responseId] = {
         score: scores[itemId][responseId],
-        rationale: rationales[itemId]?.[responseId] || ""
+        rationale: rationales[itemId]?.[responseId] || "",
       };
     });
   });
-  
+
   saveCache(cache);
 }
