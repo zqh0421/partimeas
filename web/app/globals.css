@@ -24,3 +24,20 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Custom tooltip styles for InputScoringTable */
+.ant-tooltip-inner {
+  max-width: min(700px, calc(100vw - 32px)) !important;
+  padding: 16px !important;
+  background: rgba(0, 0, 0, 0.85) !important;
+  overflow: hidden !important;
+}
+
+.ant-tooltip-arrow-content {
+  background: rgba(0, 0, 0, 0.85) !important;
+}
+
+/* Ensure tooltips stay within viewport */
+.ant-tooltip {
+  max-width: calc(100vw - 32px);
+}
