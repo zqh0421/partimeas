@@ -234,10 +234,12 @@ export async function POST(request: NextRequest) {
     let referenceSessionId: string | null = null;
     let cachedResponses: any[] = [];
     let referenceSessionIds: string[] = [];
-    
+
     if (useCacheSession) {
-      console.log("🔄 Cache session enabled, looking for recent session to reuse...");
-      
+      console.log(
+        "🔄 Cache session enabled, looking for recent session to reuse..."
+      );
+
       try {
         // Get reference session IDs from config
         const refSessionsConfig = await sql`
@@ -245,29 +247,56 @@ export async function POST(request: NextRequest) {
           WHERE name = 'referenceSessionIds'
           LIMIT 1
         `;
-        
-        if (refSessionsConfig && refSessionsConfig.length > 0 && refSessionsConfig[0].value) {
+
+        if (
+          refSessionsConfig &&
+          refSessionsConfig.length > 0 &&
+          refSessionsConfig[0].value
+        ) {
           // Parse the reference session IDs (comma-separated)
-          referenceSessionIds = refSessionsConfig[0].value.split(',').map((id: string) => id.trim()).filter((id: string) => id);
-          console.log(`📋 Reference session IDs configured: ${referenceSessionIds.join(', ')}`);
+          referenceSessionIds = refSessionsConfig[0].value
+            .split(",")
+            .map((id: string) => id.trim())
+            .filter((id: string) => id);
+          console.log(
+            `📋 Reference session IDs configured: ${referenceSessionIds.join(
+              ", "
+            )}`
+          );
         }
-        
+
         // If specific reference sessions are provided, try them first
         if (referenceSessionIds.length > 0) {
+          // Determine the category for the current test case
+          const currentCategory =
+            testCase.scenarioCategory || testCase.context || "General";
+
           for (const sessionId of referenceSessionIds) {
+            // Check if session exists AND has matching test case category AND has exact response count
             const sessionCheck = await sql.query(
-              `SELECT id FROM partimeas_sessions WHERE id = $1 LIMIT 1`,
-              [sessionId]
+              `SELECT id, test_case_scenario_category, response_count 
+               FROM partimeas_sessions 
+               WHERE id = $1 AND test_case_scenario_category = $2 AND response_count = $3
+               LIMIT 1`,
+              [sessionId, currentCategory, numOutputsToRun]
             );
-            
+
             if (sessionCheck && sessionCheck.length > 0) {
               referenceSessionId = sessionId;
-              console.log(`✅ Using configured reference session: ${referenceSessionId}`);
+              console.log(
+                `✅ Using configured reference session with matching category "${currentCategory}" and ${sessionCheck[0].response_count} responses: ${referenceSessionId}`
+              );
               break;
             }
           }
+
+          if (!referenceSessionId) {
+            console.log(
+              `⚠️ No configured reference sessions found with matching category "${currentCategory}" and ${numOutputsToRun} responses`
+            );
+          }
         }
-        
+
         // If no configured session found, get the most recent session with same test case
         if (!referenceSessionId) {
           const recentSessionQuery = `
@@ -279,15 +308,19 @@ export async function POST(request: NextRequest) {
             ORDER BY created_at DESC
             LIMIT 1
           `;
-          
-          const recentSession = await sql.query(recentSessionQuery, [testCase.input]);
-          
+
+          const recentSession = await sql.query(recentSessionQuery, [
+            testCase.input,
+          ]);
+
           if (recentSession && recentSession.length > 0) {
             referenceSessionId = recentSession[0].id;
-            console.log(`✅ Found recent reference session: ${referenceSessionId}`);
+            console.log(
+              `✅ Found recent reference session: ${referenceSessionId}`
+            );
           }
         }
-        
+
         // Fetch cached responses if we have a reference session
         if (referenceSessionId) {
           const cachedResponsesQuery = `
@@ -296,9 +329,11 @@ export async function POST(request: NextRequest) {
             WHERE session_id = $1
             ORDER BY display_order
           `;
-          
-          const cachedResponsesResult = await sql.query(cachedResponsesQuery, [referenceSessionId]);
-          
+
+          const cachedResponsesResult = await sql.query(cachedResponsesQuery, [
+            referenceSessionId,
+          ]);
+
           if (cachedResponsesResult && cachedResponsesResult.length > 0) {
             cachedResponses = cachedResponsesResult.map((row: any) => ({
               modelId: `${row.provider}/${row.model}`,
@@ -308,13 +343,17 @@ export async function POST(request: NextRequest) {
               model: row.model,
               displayOrder: row.display_order,
               timestamp: new Date().toISOString(),
-              cached: true
+              cached: true,
             }));
-            
-            console.log(`📦 Loaded ${cachedResponses.length} cached responses from session ${referenceSessionId}`);
+
+            console.log(
+              `📦 Loaded ${cachedResponses.length} cached responses from session ${referenceSessionId}`
+            );
           }
         } else {
-          console.log("⚠️ No reference session found, will generate new responses");
+          console.log(
+            "⚠️ No reference session found, will generate new responses"
+          );
         }
       } catch (error) {
         console.error("Error fetching cached session:", error);
@@ -429,13 +468,17 @@ export async function POST(request: NextRequest) {
 
           // Use cached responses if available
           if (cachedResponses.length > 0 && useCacheSession) {
-            console.log("📦 Using cached responses, streaming them to client...");
-            
+            console.log(
+              "📦 Using cached responses, streaming them to client..."
+            );
+
             // Stream cached responses
             for (const cachedResponse of cachedResponses) {
               // Send model chunks (simulate streaming for cached data)
-              const chunks = cachedResponse.output.match(/.{1,100}/g) || [cachedResponse.output];
-              
+              const chunks = cachedResponse.output.match(/.{1,100}/g) || [
+                cachedResponse.output,
+              ];
+
               for (let i = 0; i < chunks.length; i++) {
                 sendMessage({
                   type: "modelChunk",
@@ -444,11 +487,11 @@ export async function POST(request: NextRequest) {
                   isLastChunk: i === chunks.length - 1,
                   timestamp: new Date().toISOString(),
                 });
-                
+
                 // Add small delay to simulate streaming
-                await new Promise(resolve => setTimeout(resolve, 10));
+                await new Promise((resolve) => setTimeout(resolve, 10));
               }
-              
+
               // Send complete model output
               sendMessage({
                 type: "modelOutput",
@@ -456,85 +499,85 @@ export async function POST(request: NextRequest) {
                 output: cachedResponse.output,
                 timestamp: cachedResponse.timestamp,
               });
-              
+
               outputs.push(cachedResponse);
             }
-            
+
             // Set selectedAssistants for session storage
-            selectedAssistants = cachedResponses.map(cr => ({
+            selectedAssistants = cachedResponses.map((cr) => ({
               assistantId: 0,
               name: cr.model,
               provider: cr.provider,
-              model: cr.model.split('/').pop() || cr.model,
+              model: cr.model.split("/").pop() || cr.model,
               systemPrompt: cr.systemPrompt,
               requiredToShow: false,
               linkedModels: [],
-              updatedAt: new Date().toISOString()
+              updatedAt: new Date().toISOString(),
             }));
           } else {
             // Original generation logic
             // Create promises for all model generations to run in parallel
             const generationPromises = selectedAssistants.map(
-            async (assistant, i) => {
-              try {
-                console.log(
-                  `🔄 Starting parallel streaming generation ${i + 1}/${
-                    selectedAssistants.length
-                  }: ${assistant.name}`
-                );
+              async (assistant, i) => {
+                try {
+                  console.log(
+                    `🔄 Starting parallel streaming generation ${i + 1}/${
+                      selectedAssistants.length
+                    }: ${assistant.name}`
+                  );
 
-                // Track accumulated chunks for this model
-                let accumulatedOutput = "";
+                  // Track accumulated chunks for this model
+                  let accumulatedOutput = "";
 
-                const result = await generateModelOutputStreaming(
-                  assistant.provider,
-                  assistant.model,
-                  testCase,
-                  testCase.useCase,
-                  assistant.systemPrompt,
-                  // Chunk sender callback
-                  (chunk: string, modelId: string, isLastChunk: boolean) => {
-                    accumulatedOutput += chunk + (isLastChunk ? "" : " ");
+                  const result = await generateModelOutputStreaming(
+                    assistant.provider,
+                    assistant.model,
+                    testCase,
+                    testCase.useCase,
+                    assistant.systemPrompt,
+                    // Chunk sender callback
+                    (chunk: string, modelId: string, isLastChunk: boolean) => {
+                      accumulatedOutput += chunk + (isLastChunk ? "" : " ");
 
-                    // Send chunk message
-                    sendMessage({
-                      type: "modelChunk",
-                      modelId: modelId,
-                      chunk: chunk,
-                      isLastChunk: isLastChunk,
-                      timestamp: new Date().toISOString(),
-                    });
-                  }
-                );
+                      // Send chunk message
+                      sendMessage({
+                        type: "modelChunk",
+                        modelId: modelId,
+                        chunk: chunk,
+                        isLastChunk: isLastChunk,
+                        timestamp: new Date().toISOString(),
+                      });
+                    }
+                  );
 
-                // Send the complete output message after all chunks
-                sendMessage({
-                  type: "modelOutput",
-                  modelId: result.modelId,
-                  output: result.output,
-                  timestamp: result.timestamp,
-                });
+                  // Send the complete output message after all chunks
+                  sendMessage({
+                    type: "modelOutput",
+                    modelId: result.modelId,
+                    output: result.output,
+                    timestamp: result.timestamp,
+                  });
 
-                console.log(`✅ Streamed result for: ${assistant.name}`);
-                return { success: true, result, assistant };
-              } catch (error) {
-                const errorMessage =
-                  error instanceof Error ? error.message : "Unknown error";
-                console.error(
-                  `❌ Assistant ${assistant.name} failed: ${errorMessage}`
-                );
+                  console.log(`✅ Streamed result for: ${assistant.name}`);
+                  return { success: true, result, assistant };
+                } catch (error) {
+                  const errorMessage =
+                    error instanceof Error ? error.message : "Unknown error";
+                  console.error(
+                    `❌ Assistant ${assistant.name} failed: ${errorMessage}`
+                  );
 
-                // Stream the error
-                sendMessage({
-                  type: "error",
-                  modelId: `${assistant.provider}/${assistant.model}`,
-                  error: errorMessage,
-                  timestamp: new Date().toISOString(),
-                });
+                  // Stream the error
+                  sendMessage({
+                    type: "error",
+                    modelId: `${assistant.provider}/${assistant.model}`,
+                    error: errorMessage,
+                    timestamp: new Date().toISOString(),
+                  });
 
-                return { success: false, error: errorMessage, assistant };
+                  return { success: false, error: errorMessage, assistant };
+                }
               }
-            }
             );
 
             // Wait for all generations to complete
@@ -544,7 +587,10 @@ export async function POST(request: NextRequest) {
             results.forEach((result) => {
               if (result.status === "fulfilled" && result.value.success) {
                 outputs.push(result.value.result);
-              } else if (result.status === "fulfilled" && !result.value.success) {
+              } else if (
+                result.status === "fulfilled" &&
+                !result.value.success
+              ) {
                 errors.push({
                   assistantId: result.value.assistant.assistantId,
                   error: result.value.error,
