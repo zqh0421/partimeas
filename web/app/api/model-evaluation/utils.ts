@@ -210,15 +210,6 @@ export const getModelInstance = async (
         return new ChatOpenAI({
           modelName: modelName,
           openAIApiKey: process.env.OPENAI_API_KEY,
-        }).withConfig({
-          runName: "ChatOpenAI",
-          tags: ["output-generation"],
-          metadata: {
-            source: "PartiMeas",
-            run_type: "llm",
-            ls_provider: provider,
-            ls_model_name: modelName,
-          },
         });
       case "anthropic":
         if (!process.env.ANTHROPIC_API_KEY) {
@@ -228,15 +219,6 @@ export const getModelInstance = async (
         return new ChatAnthropic({
           modelName: modelName,
           anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-        }).withConfig({
-          runName: "ChatAnthropic",
-          tags: ["output-generation"],
-          metadata: {
-            source: "PartiMeas",
-            run_type: "llm",
-            ls_provider: provider,
-            ls_model_name: modelName,
-          },
         });
       case "google":
         if (!process.env.GOOGLE_API_KEY) {
@@ -245,15 +227,6 @@ export const getModelInstance = async (
         return new ChatGoogleGenerativeAI({
           modelName: modelName,
           apiKey: process.env.GOOGLE_API_KEY,
-        }).withConfig({
-          runName: "ChatGoogleGenerativeAI",
-          tags: ["output-generation"],
-          metadata: {
-            source: "PartiMeas",
-            run_type: "llm",
-            ls_provider: provider,
-            ls_model_name: modelName,
-          },
         });
       case "openrouter":
         if (!process.env.OPENROUTER_API_KEY) {
@@ -267,16 +240,7 @@ export const getModelInstance = async (
           {
             baseURL: "https://openrouter.ai/api/v1",
           }
-        ).withConfig({
-          runName: "OpenRouter",
-          tags: ["output-generation", "openrouter"],
-          metadata: {
-            source: "PartiMeas",
-            run_type: "llm",
-            ls_provider: provider,
-            ls_model_name: modelName,
-          },
-        });
+        );
       default:
         throw new Error(`Unsupported provider: ${provider}`);
     }

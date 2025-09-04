@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { NewCriteriaItem } from '@/app/utils/criteriaReader';
+import { useState, useEffect } from "react";
+import { NewCriteriaItem } from "@/app/utils/criteriaReader";
 
 interface UseCriteriaDataReturn {
   criteria: NewCriteriaItem[];
@@ -17,30 +17,35 @@ export function useCriteriaData(): UseCriteriaDataReturn {
     try {
       setIsLoading(true);
       setError(null);
-      
-      const response = await fetch('/api/criteria-data');
-      
+
+      const response = await fetch("/api/criteria-data");
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         // Handle "No criterion versions found" as a warning, not an error
-        if (errorData.details === 'No criterion versions found') {
-          console.warn('[useCriteriaData] No criterion versions found yet - this is normal for new sessions');
+        if (errorData.details === "No criterion versions found") {
+          console.warn(
+            "[useCriteriaData] No criterion versions found yet - this is normal for new sessions"
+          );
           setCriteria([]);
           return;
         }
-        throw new Error(errorData.details || `Failed to fetch criteria: ${response.statusText}`);
+        throw new Error(
+          errorData.details ||
+            `Failed to fetch criteria: ${response.statusText}`
+        );
       }
-      
+
       const data = await response.json();
-      
+
       if (data.success && data.criteria) {
         setCriteria(data.criteria);
       } else {
-        throw new Error(data.error || 'Failed to load criteria data');
+        throw new Error(data.error || "Failed to load criteria data");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
-      console.error('Error fetching criteria:', err);
+      setError(err instanceof Error ? err.message : "Unknown error occurred");
+      console.error("Error fetching criteria:", err);
     } finally {
       setIsLoading(false);
     }
@@ -54,6 +59,6 @@ export function useCriteriaData(): UseCriteriaDataReturn {
     criteria,
     isLoading,
     error,
-    refetch: fetchCriteria
+    refetch: fetchCriteria,
   };
-} 
+}

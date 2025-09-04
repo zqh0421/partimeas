@@ -14,7 +14,6 @@
 
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { JsonOutputParser } from "@langchain/core/output_parsers";
-import { traceable } from "langsmith/traceable";
 import { getModelInstance } from "@/app/api/model-evaluation/utils";
 
 interface EvaluationRun {
@@ -30,7 +29,7 @@ type JudgmentStrategy = "majority_voting" | "highest_score" | "lowest_score";
 
 /**
  * Apply judgment strategy to aggregate scores from multiple runs
- * 
+ *
  * AGGREGATION FLOW:
  * 1. Collect all scores for each criterion from multiple evaluation runs
  * 2. Apply the selected strategy to determine final score:
@@ -43,8 +42,9 @@ export function applyJudgmentStrategy(
   allRuns: EvaluationRun[],
   strategy: JudgmentStrategy,
   modelId: string
-): Record<string, { score: number }> {
-  const aggregatedScores: Record<string, { score: number }> = {};
+): Record<string, { score: number; reasoning: string }> {
+  const aggregatedScores: Record<string, { score: number; reasoning: string }> =
+    {};
 
   // Get all criterion IDs
   const criterionIds = new Set<string>();
@@ -114,8 +114,12 @@ export function applyJudgmentStrategy(
         finalScore = scoresForCriterion[0].score;
     }
 
+    // Find the reasoning that corresponds to the final score
+    const selectedItem = scoresForCriterion.find(item => item.score === finalScore) || scoresForCriterion[0];
+    
     aggregatedScores[criterionId] = {
       score: finalScore,
+      reasoning: selectedItem.reasoning,
     };
   });
 
@@ -124,24 +128,24 @@ export function applyJudgmentStrategy(
 
 /**
  * Evaluate a single criterion with a specific assistant
- * 
+ *
  * EVALUATION FLOW:
  * 1. Get the model instance for the evaluation assistant
  * 2. Construct evaluation prompt with test input, model response, and criterion
  * 3. Send to LLM with JSON output parser for structured scoring
  * 4. Use LangSmith tracing for observability
  * 5. Return score with reasoning or error fallback
- * 
+ *
  * This function is called multiple times in parallel for different criteria
  * and assistants to enable concurrent evaluation.
  */
 export async function evaluateSingleCriterionWithAssistant(
   responseContent: string,
-  _modelId: string,  // Unused but kept for API compatibility
+  _modelId: string, // Unused but kept for API compatibility
   testCaseInput: string,
   criterion: any,
   assistant: any,
-  isIdeal: boolean = false
+  _isIdeal: boolean = false // Unused but kept for API compatibility
 ): Promise<{
   criterionId: string;
   scoreData: { score: number; reasoning: string };
@@ -167,8 +171,8 @@ export async function evaluateSingleCriterionWithAssistant(
     // Create format instructions
     const formatInstructions =
       `Respond with a valid JSON object containing:\n` +
-      `- "score": number (within the specified range)\n` +
-      `- "reasoning": string (explanation for the score)`;
+      `- "reasoning": string (explanation for the score)` +
+      `- "score": number (within the specified range)\n`;
 
     const partialedPrompt = await ChatPromptTemplate.fromMessages([
       ["system", `${assistant.systemPrompt}\n\n{format_instructions}`],
@@ -187,29 +191,7 @@ export async function evaluateSingleCriterionWithAssistant(
       .pipe(evaluationModel)
       .pipe(singleCriterionParser);
 
-    // Create a traceable wrapper
-    const tracedChain = traceable(
-      async (query: string) => {
-        return await chain.invoke({ query });
-      },
-      {
-        name: `criterion-${criterion.id}-${assistant.provider}-${assistant.model}`,
-        tags: isIdeal
-          ? ["evaluation", "ideal-response", "criterion"]
-          : ["evaluation", "criterion"],
-        metadata: {
-          source: "PartiMeas",
-          run_type: "evaluation",
-          criterion_id: criterion.id,
-          ls_provider: assistant.provider,
-          ls_model_name: assistant.model,
-          assistant_id: assistant.assistantId,
-          is_ideal_response: isIdeal,
-        },
-      }
-    );
-
-    const result = await tracedChain(userQuery);
+    const result = await chain.invoke({ query: userQuery });
 
     const evaluationTime = Date.now() - startTime;
 
@@ -240,23 +222,23 @@ export async function evaluateSingleCriterionWithAssistant(
 
 /**
  * Run parallel evaluations for all assistants and their weights
- * 
+ *
  * MAIN PARALLEL PROCESSING FLOW:
  * 1. For each model output to evaluate:
  *    - For each evaluation assistant:
  *      - Create N evaluation runs based on assistant weight
  *      - Each run evaluates ALL criteria for that output
- * 
+ *
  * 2. If ideal response provided:
  *    - Run same evaluation process on ideal response
  *    - Used as baseline for comparison
- * 
+ *
  * 3. Execute all evaluations concurrently using Promise.allSettled
  *    - Typically runs 10-100+ evaluations simultaneously
  *    - Resilient to individual evaluation failures
- * 
+ *
  * 4. Collect results and return with timing metrics
- * 
+ *
  * PERFORMANCE: With 3 assistants × weight 3 × 5 criteria × 2 models = 90 parallel calls
  */
 export async function runParallelEvaluations(

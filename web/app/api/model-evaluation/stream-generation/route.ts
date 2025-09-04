@@ -52,29 +52,16 @@ const generateModelOutputStreaming = async (
 
     // Use LangChain chain for other models with streaming
     const chain = prompt.pipe(model);
-    const chainWithConfig = chain.withConfig({
-      runName: `output-${finalProvider}-${modelId}`,
-      tags: ["output-generation"],
-      metadata: {
-        source: "PartiMeas",
-        run_type: "llm",
-        ls_provider: finalProvider,
-        ls_model_name: modelId,
-        use_case: useCaseType,
-        test_case_id: testCase.id || "unknown",
-        system_prompt: systemPrompt,
-      },
-    });
 
     // Try to use streaming if available
-    if (sendChunk && chainWithConfig.stream && modelId.length < 0) {
+    if (sendChunk && chain.stream && modelId.length < 0) {
       try {
         console.log(
           `🌊 Using native streaming for ${finalProvider}/${modelId}`
         );
         let accumulatedContent = "";
 
-        const stream = await chainWithConfig.stream({
+        const stream = await chain.stream({
           query: `${testCase.input}`,
         });
 
@@ -97,7 +84,7 @@ const generateModelOutputStreaming = async (
         );
         // Fallback to regular invoke if streaming fails
         try {
-          const response = await chainWithConfig.invoke({
+          const response = await chain.invoke({
             query: `${testCase.input}`,
           });
 
@@ -141,7 +128,7 @@ const generateModelOutputStreaming = async (
       }
     } else {
       // Regular non-streaming invoke
-      const response = await chainWithConfig.invoke({
+      const response = await chain.invoke({
         query: `${testCase.input}`,
       });
 

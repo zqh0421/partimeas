@@ -347,6 +347,7 @@ export interface NewAssistantModel {
 export interface EvaluationScore {
   score: number;
   rationale?: string; // Optional - not included for aggregated scores with subscores
+  subscores?: { score: number; rationale: string }[]; // Optional subscores for detailed evaluation
 }
 
 export interface EvaluationCriterion {

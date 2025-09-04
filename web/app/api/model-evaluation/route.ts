@@ -12,7 +12,18 @@ import { sql } from "@/app/config/database";
 interface EvaluationResult {
   modelId?: string;
   overallScore: number;
-  criteriaScores: Record<string, { score: number; reasoning: string }>;
+  criteriaScores: Record<
+    string,
+    {
+      score: number;
+      reasoning: string;
+      subscores?: Array<{
+        score: number;
+        rationale: string;
+      }>;
+      aggregation_method?: string;
+    }
+  >;
   feedback: string;
   timestamp: string;
   isIdealResponse?: boolean;
@@ -134,9 +145,6 @@ const evaluateModelOutputs = async (
               subscoresByCriterion[criterionId] = [];
             }
             subscoresByCriterion[criterionId].push({
-              assistant_id: run.assistantId,
-              assistant_name: run.assistantName,
-              run_index: run.runIndex,
               score: scoreData.score,
               rationale: scoreData.reasoning,
             });
@@ -144,9 +152,22 @@ const evaluateModelOutputs = async (
         );
       });
 
-      // Add subscores to aggregated scores
+      // Create final scores with subscores
+      const finalScores: Record<
+        string,
+        {
+          score: number;
+          reasoning: string;
+          subscores?: Array<{
+            score: number;
+            rationale: string;
+          }>;
+          aggregation_method?: string;
+        }
+      > = {};
+
       Object.keys(aggregatedScores).forEach((criterionId) => {
-        aggregatedScores[criterionId] = {
+        finalScores[criterionId] = {
           ...aggregatedScores[criterionId],
           subscores: subscoresByCriterion[criterionId] || [],
           aggregation_method: judgmentStrategy,
@@ -154,7 +175,7 @@ const evaluateModelOutputs = async (
       });
 
       // Calculate overall score (average of all criteria scores)
-      const scores = Object.values(aggregatedScores).map((s) => s.score);
+      const scores = Object.values(finalScores).map((s) => s.score);
       const overallScore =
         scores.length > 0
           ? scores.reduce((sum, score) => sum + score, 0) / scores.length
@@ -172,7 +193,7 @@ const evaluateModelOutputs = async (
         modelId: modelId === "ideal-response" ? undefined : modelId,
         isIdealResponse: modelId === "ideal-response",
         overallScore,
-        criteriaScores: aggregatedScores,
+        criteriaScores: finalScores,
         feedback,
         timestamp: new Date().toISOString(),
       });
@@ -244,7 +265,7 @@ const evaluateModelOutputs = async (
             });
             const voteSummary = Array.from(voteCount.entries())
               .map(([score, count]) => `${score}: ${count}`)
-              .join(', ');
+              .join(", ");
             console.log(`       (Vote distribution: ${voteSummary})`);
           }
         }
@@ -264,44 +285,44 @@ const evaluateModelOutputs = async (
     );
 
     // Calculate score variance if multiple runs
-    if (totalRuns > 1) {
-      console.log(`\n📉 Score Consistency Analysis:`);
-      modelIds.forEach((modelId) => {
-        const modelRuns = evaluationRuns.filter((r) => r.modelId === modelId);
-        if (modelRuns.length > 1) {
-          const modelName =
-            modelId === "ideal-response" ? "IDEAL RESPONSE" : modelId;
-          console.log(`   ${modelName}:`);
+    // if (totalRuns > 1) {
+    //   console.log(`\n📉 Score Consistency Analysis:`);
+    //   modelIds.forEach((modelId) => {
+    //     const modelRuns = evaluationRuns.filter((r) => r.modelId === modelId);
+    //     if (modelRuns.length > 1) {
+    //       const modelName =
+    //         modelId === "ideal-response" ? "IDEAL RESPONSE" : modelId;
+    //       console.log(`   ${modelName}:`);
 
-          criteria.forEach((criterion: any) => {
-            const scores = modelRuns
-              .map((r) => r.criteriaScores[criterion.id]?.score)
-              .filter((s) => s !== undefined);
+    //       criteria.forEach((criterion: any) => {
+    //         const scores = modelRuns
+    //           .map((r) => r.criteriaScores[criterion.id]?.score)
+    //           .filter((s) => s !== undefined);
 
-            if (scores.length > 1) {
-              const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-              const variance =
-                scores.reduce(
-                  (sum, score) => sum + Math.pow(score - avg, 2),
-                  0
-                ) / scores.length;
-              const stdDev = Math.sqrt(variance);
-              const uniqueScores = new Set(scores);
+    //         if (scores.length > 1) {
+    //           const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    //           const variance =
+    //             scores.reduce(
+    //               (sum, score) => sum + Math.pow(score - avg, 2),
+    //               0
+    //             ) / scores.length;
+    //           const stdDev = Math.sqrt(variance);
+    //           const uniqueScores = new Set(scores);
 
-              console.log(`     • ${criterion.name}:`);
-              console.log(`       - Scores: [${scores.join(", ")}]`);
-              console.log(`       - Unique values: ${uniqueScores.size}`);
-              console.log(`       - Std deviation: ${stdDev.toFixed(2)}`);
-              console.log(
-                `       - Agreement: ${
-                  uniqueScores.size === 1 ? "✅ Perfect" : "⚠️ Varied"
-                }`
-              );
-            }
-          });
-        }
-      });
-    }
+    //           console.log(`     • ${criterion.name}:`);
+    //           console.log(`       - Scores: [${scores.join(", ")}]`);
+    //           console.log(`       - Unique values: ${uniqueScores.size}`);
+    //           console.log(`       - Std deviation: ${stdDev.toFixed(2)}`);
+    //           console.log(
+    //             `       - Agreement: ${
+    //               uniqueScores.size === 1 ? "✅ Perfect" : "⚠️ Varied"
+    //             }`
+    //           );
+    //         }
+    //       });
+    //     }
+    //   });
+    // }
 
     console.log(`\n${"=".repeat(80)}`);
     console.log(`✅ Evaluation completed successfully!`);

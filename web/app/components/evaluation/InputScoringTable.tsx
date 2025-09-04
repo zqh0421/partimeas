@@ -32,8 +32,10 @@ import {
   CheckIcon,
   ClockIcon,
   RefreshArcIcon,
+  InfoIcon,
 } from "@/app/components/icons";
 import { InlineSpinner, ButtonSpinner } from "@/app/components/LoadingSpinner";
+import { Tooltip } from "antd";
 
 type InputScoringTableProps = {
   responses: { id: string; label: string }[];
@@ -46,7 +48,14 @@ type InputScoringTableProps = {
   }[];
   aiScores?: Record<
     string,
-    Record<string, { score: number; rationale: string }>
+    Record<
+      string,
+      {
+        score: number;
+        rationale: string;
+        subscores?: Array<{ score: number; rationale: string }>;
+      }
+    >
   >;
   modelOutputs?: any[];
   testCase?: any;
@@ -118,7 +127,7 @@ const InputScoringTable = forwardRef<
           id: criterion.original_id || `archived-criterion-${idx + 1}`,
           name: criterion.name || `Criterion ${idx + 1}`,
           num: criterion.num || idx + 1, // Use num from archived data if available
-          requirement: criterion.name || `Criterion ${idx + 1}`, // Add requirement field for consistency
+          requirement: criterion.requirement || criterion.description || criterion.name || `Criterion ${idx + 1}`, // Use actual requirement field from archived data
         }));
 
         // Sort items by num field
@@ -666,7 +675,14 @@ const InputScoringTable = forwardRef<
     const newHumanRationales: Record<string, Record<string, string>> = {};
     const newAiScores: Record<
       string,
-      Record<string, { score: number; rationale: string }>
+      Record<
+        string,
+        {
+          score: number;
+          rationale: string;
+          subscores?: Array<{ score: number; rationale: string }>;
+        }
+      >
     > = {};
     const newIdealScores: PointValue = {};
 
@@ -698,6 +714,7 @@ const InputScoringTable = forwardRef<
                 score: scoreData.ai_score.score,
                 rationale:
                   scoreData.ai_score.rationale || "No rationale provided",
+                subscores: scoreData.ai_score.subscores,
               };
             }
           } else {
@@ -715,12 +732,13 @@ const InputScoringTable = forwardRef<
                   scoreData.human_score.rationale || "";
               }
 
-              // Set AI scores and rationales
+              // Set AI scores and rationales (including subscores)
               if (scoreData.ai_score) {
                 newAiScores[rubricItemId][mappedResponseId] = {
                   score: scoreData.ai_score.score,
                   rationale:
                     scoreData.ai_score.rationale || "No rationale provided",
+                  subscores: scoreData.ai_score.subscores,
                 };
               }
             }
@@ -810,9 +828,12 @@ const InputScoringTable = forwardRef<
       const criteriaForApi = derived.items.map((item, index) => ({
         id: item.id,
         name: item.name,
-        description: item.requirement || item.name, // Use the actual prompt requirement, fallback to name if not available
+        description: item.requirement, // Use the actual prompt requirement
         scoreRange: `Score range: 0-${idealPoints[index] || 1}`, // Include score range for each criterion
       }));
+
+      console.log("Evaluation criteria:", criteriaForApi);
+      console.log(derived);
 
       console.log(derived.items[0]);
       console.log(modelOutputs);
@@ -1185,12 +1206,47 @@ const InputScoringTable = forwardRef<
     }
   };
 
-  const toTitleCase = (input: string): string => {
-    if (!input) return "";
-    return input.replace(
-      /\b\w+\b/g,
-      (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  // Helper function to get subscore rationale that matches the final score
+  const getMatchingSubscoreRationale = (
+    rubricId: string,
+    responseId: string
+  ): string | null => {
+    const scoreData = aiScores[rubricId]?.[responseId];
+
+    // Debug logging
+    console.log("Getting subscore rationale for:", {
+      rubricId,
+      responseId,
+      scoreData,
+    });
+
+    if (
+      !scoreData ||
+      !scoreData.subscores ||
+      scoreData.subscores.length === 0
+    ) {
+      console.log("No subscores found");
+      return null;
+    }
+
+    // Find a subscore that matches the final score
+    const matchingSubscore = scoreData.subscores.find(
+      (subscore: any) => subscore.score === scoreData.score
     );
+
+    if (matchingSubscore && matchingSubscore.rationale) {
+      console.log("Found matching subscore:", matchingSubscore);
+      return matchingSubscore.rationale;
+    }
+
+    // If no exact match, return the first subscore's rationale as fallback
+    if (scoreData.subscores[0] && scoreData.subscores[0].rationale) {
+      console.log("Using first subscore as fallback:", scoreData.subscores[0]);
+      return scoreData.subscores[0].rationale;
+    }
+
+    console.log("No rationale found in subscores");
+    return null;
   };
 
   const autoResize = (el: HTMLTextAreaElement | null) => {
@@ -1324,26 +1380,65 @@ const InputScoringTable = forwardRef<
                       </div>
                     </td>
                     <td className="px-4 py-3 align-top border-x border-gray-200">
-                      <textarea
-                        className={`w-[15vw] px-3 py-2 border rounded-md text-sm transition-all duration-200 ${
-                          isComparingMode
-                            ? "border-gray-200 bg-white text-gray-700"
-                            : "border-gray-300 shadow-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700"
-                        }`}
-                        placeholder="Your rationale"
-                        rows={1}
-                        disabled={isComparingMode}
-                        value={
-                          (rationales[r.id] && rationales[r.id][resp.id]) ?? ""
-                        }
-                        onChange={(e) => {
-                          handleRationaleChange(r.id, resp.id, e.target.value);
-                          autoResize(e.currentTarget);
-                        }}
-                        onInput={(e) => autoResize(e.currentTarget)}
-                        ref={(el) => autoResize(el)}
-                        style={{ overflow: "hidden", resize: "none" }}
-                      />
+                      <div className="flex items-start gap-2">
+                        <textarea
+                          className={`w-[15vw] px-3 py-2 border rounded-md text-sm transition-all duration-200 ${
+                            isComparingMode
+                              ? "border-gray-200 bg-white text-gray-700"
+                              : "border-gray-300 shadow-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+                          }`}
+                          placeholder="Your rationale"
+                          rows={1}
+                          disabled={isComparingMode}
+                          value={
+                            (rationales[r.id] && rationales[r.id][resp.id]) ??
+                            ""
+                          }
+                          onChange={(e) => {
+                            handleRationaleChange(
+                              r.id,
+                              resp.id,
+                              e.target.value
+                            );
+                            autoResize(e.currentTarget);
+                          }}
+                          onInput={(e) => autoResize(e.currentTarget)}
+                          ref={(el) => autoResize(el)}
+                          style={{ overflow: "hidden", resize: "none" }}
+                        />
+                        {isComparingMode && aiScores[r.id]?.[resp.id] && (
+                          <Tooltip
+                            title={(() => {
+                              const rationale = getMatchingSubscoreRationale(
+                                r.id,
+                                resp.id
+                              );
+                              if (!rationale)
+                                return "No subscore rationale available";
+                              return (
+                                <div>
+                                  <div
+                                    style={{
+                                      fontWeight: "bold",
+                                      marginBottom: "4px",
+                                    }}
+                                  >
+                                    AI Evaluation Rationale (Score {aiScores?.[r.id]?.[resp.id]?.score}):
+                                  </div>
+                                  <div style={{ whiteSpace: "pre-wrap" }}>{rationale}</div>
+                                </div>
+                              );
+                            })()}
+                            placement="top"
+                            arrow={true}
+                            styles={{ root: { maxWidth: "800px" } }}
+                          >
+                            <div className="mt-2 cursor-help inline-block">
+                              <InfoIcon className="w-4 h-4 text-blue-500 hover:text-blue-700 transition-colors" />
+                            </div>
+                          </Tooltip>
+                        )}
+                      </div>
                     </td>
                   </React.Fragment>
                 ))}
