@@ -40,14 +40,6 @@ const evaluateModelOutputs = async (
 ) => {
   try {
     const totalEvaluationStartTime = Date.now();
-    console.log(`\n🔍 Starting parallel evaluation process...`);
-    console.log(`📊 Configuration:`);
-    console.log(`   - Model outputs to evaluate: ${outputs.length}`);
-    console.log(`   - Ideal response: ${idealResponse ? "Yes" : "No"}`);
-    console.log(
-      `   - Total evaluations: ${outputs.length + (idealResponse ? 1 : 0)}`
-    );
-    console.log(`   - Criteria per evaluation: ${criteria.length}`);
 
     // Get judgment strategy from config
     let judgmentStrategy: JudgmentStrategy = "majority_voting";
@@ -61,9 +53,8 @@ const evaluateModelOutputs = async (
         judgmentStrategy = strategyConfig[0].value as JudgmentStrategy;
       }
     } catch (e) {
-      console.log("Using default judgment strategy: majority_voting");
+      // Using default judgment strategy: majority_voting
     }
-    console.log(`   - Judgment strategy: ${judgmentStrategy}`);
 
     // Get all active evaluation assistants with weights
     const activeEvaluationAssistants = await getAllActiveEvaluationAssistants();
@@ -86,24 +77,6 @@ const evaluateModelOutputs = async (
     const totalRuns = activeEvaluationAssistants.reduce(
       (sum, a) => sum + (a.weight || 1),
       0
-    );
-    console.log(`   - Active assistants: ${activeEvaluationAssistants.length}`);
-    console.log(`   - Total weighted runs per output: ${totalRuns}`);
-    console.log(
-      `   - Total parallel evaluations: ${
-        (outputs.length + (idealResponse ? 1 : 0)) * totalRuns * criteria.length
-      }`
-    );
-
-    // Log assistant details
-    activeEvaluationAssistants.forEach((assistant) => {
-      console.log(
-        `   - ${assistant.name}: weight=${assistant.weight}, model=${assistant.provider}/${assistant.model}`
-      );
-    });
-
-    console.log(
-      `⏱️  Started at: ${new Date(totalEvaluationStartTime).toISOString()}\n`
     );
 
     // Run parallel evaluations
@@ -201,89 +174,6 @@ const evaluateModelOutputs = async (
 
     const totalEvaluationTime = Date.now() - totalEvaluationStartTime;
 
-    // Print comprehensive evaluation summary
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`📊 EVALUATION SUMMARY`);
-    console.log(`${"=".repeat(80)}`);
-
-    console.log(`\n⏱️  Performance Metrics:`);
-    console.log(`   - Total wall time: ${totalEvaluationTime}ms`);
-    console.log(`   - Parallel execution time: ${totalTime}ms`);
-    console.log(
-      `   - Speedup factor: ${(totalEvaluationTime / totalTime).toFixed(2)}x`
-    );
-    console.log(
-      `   - Average time per evaluation: ${(
-        totalTime / evaluationRuns.length
-      ).toFixed(2)}ms`
-    );
-
-    console.log(
-      `\n🤖 Assistants Used (${activeEvaluationAssistants.length} total):`
-    );
-    activeEvaluationAssistants.forEach((assistant) => {
-      const runs = evaluationRuns.filter(
-        (r) => r.assistantId === assistant.assistantId
-      ).length;
-      console.log(`   - ${assistant.name}:`);
-      console.log(`     • Model: ${assistant.provider}/${assistant.model}`);
-      console.log(`     • Weight: ${assistant.weight}`);
-      console.log(`     • Actual runs: ${runs}`);
-    });
-
-    console.log(
-      `\n📈 Judgment Strategy: ${judgmentStrategy
-        .replace("_", " ")
-        .toUpperCase()}`
-    );
-
-    console.log(`\n📋 Results per Model:`);
-    evaluations.forEach((evaluation) => {
-      const modelName = evaluation.isIdealResponse
-        ? "IDEAL RESPONSE"
-        : evaluation.modelId || "Unknown";
-      console.log(`\n   ${modelName}:`);
-      console.log(`   - Overall Score: ${evaluation.overallScore.toFixed(2)}`);
-      console.log(`   - Criteria Scores:`);
-
-      Object.entries(evaluation.criteriaScores).forEach(
-        ([criterionId, scoreData]) => {
-          const criterion = criteria.find((c: any) => c.id === criterionId);
-          const criterionName = criterion?.name || criterionId;
-          console.log(`     • ${criterionName}: ${scoreData.score}`);
-
-          // If majority voting, show vote distribution from subscores
-          if (
-            judgmentStrategy === "majority_voting" &&
-            scoreData.subscores &&
-            scoreData.subscores.length > 0
-          ) {
-            const voteCount = new Map<number, number>();
-            scoreData.subscores.forEach((subscore: any) => {
-              const count = voteCount.get(subscore.score) || 0;
-              voteCount.set(subscore.score, count + 1);
-            });
-            const voteSummary = Array.from(voteCount.entries())
-              .map(([score, count]) => `${score}: ${count}`)
-              .join(", ");
-            console.log(`       (Vote distribution: ${voteSummary})`);
-          }
-        }
-      );
-    });
-
-    console.log(`\n📊 Statistics:`);
-    console.log(`   - Total evaluation runs: ${evaluationRuns.length}`);
-    console.log(
-      `   - Models evaluated: ${outputs.length}${
-        idealResponse ? " + 1 ideal" : ""
-      }`
-    );
-    console.log(`   - Criteria evaluated: ${criteria.length}`);
-    console.log(
-      `   - Total individual scores: ${evaluationRuns.length * criteria.length}`
-    );
-
     // Calculate score variance if multiple runs
     // if (totalRuns > 1) {
     //   console.log(`\n📉 Score Consistency Analysis:`);
@@ -324,9 +214,6 @@ const evaluateModelOutputs = async (
     //   });
     // }
 
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`✅ Evaluation completed successfully!`);
-    console.log(`${"=".repeat(80)}\n`);
 
     // Get evaluation model ID for response (use first assistant's model for backward compatibility)
     const evaluationModelId =
@@ -366,7 +253,6 @@ export async function POST(request: NextRequest) {
     const { phase, testCase, criteria, outputs, idealResponse } = body;
 
     if (phase === "evaluate") {
-      console.log("Starting evaluation phase with parallel execution...");
       const result = await evaluateModelOutputs(
         outputs,
         testCase,

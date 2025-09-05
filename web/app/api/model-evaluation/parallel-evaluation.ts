@@ -254,12 +254,6 @@ export async function runParallelEvaluations(
   const startTime = Date.now();
   const allEvaluationPromises: Promise<EvaluationRun>[] = [];
 
-  // Calculate total runs
-  const totalRuns = assistants.reduce((sum, a) => sum + (a.weight || 1), 0);
-  console.log(
-    `🚀 Starting parallel evaluation with ${assistants.length} assistants, ${totalRuns} total runs`
-  );
-
   // STEP 1: Create evaluation promises for each output
   // This nested loop structure creates all evaluation tasks upfront
   for (const output of outputs) {
@@ -269,7 +263,6 @@ export async function runParallelEvaluations(
       // Create multiple runs based on weight for voting power
       for (let runIndex = 0; runIndex < weight; runIndex++) {
         const evaluationPromise = (async (): Promise<EvaluationRun> => {
-          const runStartTime = Date.now();
           const criteriaScores: Record<
             string,
             { score: number; reasoning: string }
@@ -302,13 +295,6 @@ export async function runParallelEvaluations(
             }
           });
 
-          console.log(
-            `✅ Assistant ${assistant.name} (run ${
-              runIndex + 1
-            }/${weight}) completed for ${output.modelId} in ${
-              Date.now() - runStartTime
-            }ms`
-          );
 
           return {
             assistantId: assistant.assistantId,
@@ -333,7 +319,6 @@ export async function runParallelEvaluations(
 
       for (let runIndex = 0; runIndex < weight; runIndex++) {
         const evaluationPromise = (async (): Promise<EvaluationRun> => {
-          const runStartTime = Date.now();
           const criteriaScores: Record<
             string,
             { score: number; reasoning: string }
@@ -364,13 +349,6 @@ export async function runParallelEvaluations(
             }
           });
 
-          console.log(
-            `✅ Assistant ${assistant.name} (run ${
-              runIndex + 1
-            }/${weight}) completed for ideal response in ${
-              Date.now() - runStartTime
-            }ms`
-          );
 
           return {
             assistantId: assistant.assistantId,
@@ -389,9 +367,6 @@ export async function runParallelEvaluations(
 
   // STEP 3: Execute all evaluations in parallel
   // Promise.allSettled ensures all evaluations complete even if some fail
-  console.log(
-    `🔄 Executing ${allEvaluationPromises.length} evaluation runs in parallel...`
-  );
   const results = await Promise.allSettled(allEvaluationPromises);
 
   // STEP 4: Process results - separate successful from failed runs
@@ -408,9 +383,6 @@ export async function runParallelEvaluations(
   });
 
   const totalTime = Date.now() - startTime;
-  console.log(
-    `✅ Parallel evaluation completed in ${totalTime}ms (${successfulRuns.length} successful, ${failedCount} failed)`
-  );
 
   return {
     evaluationRuns: successfulRuns,

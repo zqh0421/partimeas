@@ -212,6 +212,7 @@ type InputScoringTableProps = {
   enableIdealScoreEditing?: boolean;
   idealResponses?: IdealModelResponse[];
   sessionId?: string | null;
+  linkedCriteriaId?: string; // Linked criteria from session
   onVersionInfo?: (currentIndex: number | null, totalVersions: number) => void;
   onVersionChange?: (index: number) => void;
 };
@@ -230,6 +231,7 @@ const InputScoringTable = forwardRef<
     selectedIdealResponseId,
     idealResponses = [],
     sessionId,
+    linkedCriteriaId,
     onVersionInfo,
   }: InputScoringTableProps,
   ref
@@ -317,7 +319,22 @@ const InputScoringTable = forwardRef<
       return { items: [], points: [] };
     }
 
-    const selectedVersionId = restoreIndependentCriteriaSelection();
+    // Priority: 1. linkedCriteriaId (from session), 2. cached selection, 3. first available
+    let selectedVersionId = linkedCriteriaId;
+
+    // If no linked criteria, check independent cache (for non-session usage)
+    if (!selectedVersionId) {
+      selectedVersionId = restoreIndependentCriteriaSelection() ?? undefined;
+    }
+
+    // Debug logging to track which source is used
+    console.log("🎯 Rubric selection logic:", {
+      linkedCriteriaId,
+      cachedCriteriaId: restoreIndependentCriteriaSelection() ?? undefined,
+      finalSelectedId: selectedVersionId,
+      availableVersions: criteria.map((v) => v.sheetName),
+    });
+
     let selectedVersion = criteria.find(
       (v) => v.sheetName === selectedVersionId
     );
@@ -362,7 +379,7 @@ const InputScoringTable = forwardRef<
   }, [testCase?.sessionId, sessionId]);
 
   const [scores, setScores] = useState<PointOption>(() => {
-    // Try to restore from session cache first
+    // Try to restore from session cache first (independent from rubric selection)
     if (effectiveSessionId && derived.items.length > 0) {
       const { scores: cachedScores } = restoreSessionScores(
         effectiveSessionId,
@@ -372,10 +389,12 @@ const InputScoringTable = forwardRef<
 
       // Map criterion nums back to rubric item IDs
       const mapped: PointOption = {};
+      let restoredCount = 0;
       derived.items.forEach((item) => {
         const rowData = cachedScores[`criterion-${item.num}`];
         if (rowData) {
           mapped[item.id] = rowData;
+          restoredCount += Object.keys(rowData).length;
         } else {
           mapped[item.id] = {};
           for (const resp of responses) {
@@ -383,6 +402,21 @@ const InputScoringTable = forwardRef<
           }
         }
       });
+
+      if (restoredCount > 0) {
+        console.log(
+          "[InputScoringTable] 📦 Restored human scores from independent cache:",
+          {
+            sessionId: effectiveSessionId,
+            restoredScores: restoredCount,
+            rubricUsed:
+              linkedCriteriaId ||
+              restoreIndependentCriteriaSelection() ||
+              "default",
+            cacheType: "sessionScoreCache (independent from rubric selection)",
+          }
+        );
+      }
 
       return mapped;
     }
@@ -1013,7 +1047,7 @@ const InputScoringTable = forwardRef<
                 }
               : undefined
             : undefined,
-          criteriaSheetName: restoreIndependentCriteriaSelection(), // Pass the selected criteria version
+          criteriaSheetName: restoreIndependentCriteriaSelection() ?? undefined, // Pass the selected criteria version
         }),
       });
 

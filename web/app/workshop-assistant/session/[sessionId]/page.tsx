@@ -37,13 +37,9 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
   const config = useConfig();
   const { numOutputsToShow } = config;
 
-  // Get rubric and ideal response from session data (priority) or URL params (fallback)
-  const [rubricId, setRubricId] = useState<string | null>(
-    searchParams.get("rubricId")
-  );
-  const [idealResponseId, setIdealResponseId] = useState<string | null>(
-    searchParams.get("idealResponseId")
-  );
+  // Get rubric and ideal response - will be set from session data, not URL params
+  const [rubricId, setRubricId] = useState<string | null>(null);
+  const [idealResponseId, setIdealResponseId] = useState<string | null>(null);
 
   // Load criteria data and ideal responses
   const { criteria } = useCriteriaData();
@@ -70,6 +66,13 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
           "📋 Session data loaded:",
           sessionData ? "success" : "not found"
         );
+        if (sessionData) {
+          console.log("🔗 Session linked data:", {
+            linked_criterion_sheet_name: sessionData.linked_criterion_sheet_name,
+            linked_ideal_response: sessionData.linked_ideal_response,
+            linked_ideal_test_case: sessionData.linked_ideal_test_case
+          });
+        }
 
         if (!sessionData) {
           console.log("❌ Session not found");
@@ -91,12 +94,20 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
         setSession(sessionData);
 
         // Set rubric and ideal response from session data if available
+        // Otherwise fall back to URL params (for backward compatibility)
         if (sessionData.linked_criterion_sheet_name) {
           console.log(
             "📋 Using linked rubric from session:",
             sessionData.linked_criterion_sheet_name
           );
           setRubricId(sessionData.linked_criterion_sheet_name);
+        } else {
+          // Fallback to URL params if session doesn't have linked rubric
+          const urlRubricId = searchParams.get("rubricId");
+          if (urlRubricId) {
+            console.log("📋 Falling back to rubric from URL params:", urlRubricId);
+            setRubricId(urlRubricId);
+          }
         }
 
         if (sessionData.linked_ideal_response) {
@@ -105,6 +116,13 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
             sessionData.linked_ideal_response
           );
           setIdealResponseId(sessionData.linked_ideal_response);
+        } else {
+          // Fallback to URL params if session doesn't have linked ideal response
+          const urlIdealResponseId = searchParams.get("idealResponseId");
+          if (urlIdealResponseId) {
+            console.log("📋 Falling back to ideal response from URL params:", urlIdealResponseId);
+            setIdealResponseId(urlIdealResponseId);
+          }
         }
       } catch (err) {
         console.error("Error loading session:", err);

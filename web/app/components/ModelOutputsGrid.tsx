@@ -563,6 +563,7 @@ export default function ModelOutputsGrid({
                     }}
                     idealResponses={idealResponses}
                     sessionId={sessionId}
+                    linkedCriteriaId={selectedCriteriaId}
                     onVersionInfo={handleVersionInfo}
                   />
                 );

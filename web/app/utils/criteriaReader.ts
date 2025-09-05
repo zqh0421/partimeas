@@ -109,6 +109,10 @@ const FIELD_MAP = {
 
 // List of sheet names to ignore when reading criteria
 export const IGNORED_SHEET_NAMES = [
+  "Group 2: People pleasing-ORIGINAL",
+  "Test Criterion",
+  "Group 1: Collaboration discussion",
+  "Group 3: Better understanding situation",
   "Rubric Info Card",
   "Rubric",
   "Copy of Sample Criterion",
@@ -458,7 +462,7 @@ export function shouldIgnoreSheet(
     ...IGNORED_SHEET_NAMES,
     ...(additionalIgnoredSheets || []),
   ];
-  return ignoredSheets.some((ignored) =>
-    sheetName.toLowerCase() === ignored.toLowerCase()
+  return ignoredSheets.some(
+    (ignored) => sheetName.toLowerCase() === ignored.toLowerCase()
   );
 }
