@@ -1,6 +1,6 @@
 import { ModelConfig, PromptConfig } from "@/types/admin";
-import { SectionHeader } from "./SectionHeader";
-import { SimplifiedPromptsSection } from "./SimplifiedPromptsSection";
+import { SectionHeader } from "@/components/admin/blocks/SectionHeader";
+import { SimplifiedPromptsSection } from "@/components/admin/blocks/SimplifiedPromptsSection";
 import { Row, Col } from "antd";
 
 interface OutputGenerationSectionProps {
@@ -8,7 +8,7 @@ interface OutputGenerationSectionProps {
   promptConfigs: PromptConfig[];
   onAddProviderModels: (
     provider: "openai" | "anthropic" | "google" | "openrouter",
-    modelNames: string[]
+    modelNames: string[],
   ) => void;
   onUpdateModel: (id: string, updates: Partial<ModelConfig>) => void;
   onRemoveModel: (id: string) => void;
@@ -24,22 +24,14 @@ interface OutputGenerationSectionProps {
 export function OutputGenerationSection({
   modelConfigs,
   promptConfigs,
-  onAddProviderModels,
-  onUpdateModel,
-  onRemoveModel,
   onAddPrompt,
   onUpdatePrompt,
   onRemovePrompt,
-  onSaveModels,
   onSavePrompts,
-  hasModelChanges = false,
   hasPromptChanges = false,
 }: OutputGenerationSectionProps) {
-  const outputGenerationModels = modelConfigs.filter(
-    (model) => model.isOutputGenerationModel
-  );
   const systemPrompts = promptConfigs.filter(
-    (prompt) => prompt.type === "system"
+    (prompt) => prompt.type === "system",
   );
 
   return (
@@ -48,9 +40,6 @@ export function OutputGenerationSection({
         <SectionHeader
           title="Output Generation"
           description="Configure prompts for generating workshop outputs and responses"
-          buttonText="Add Prompt"
-          buttonColor="blue"
-          onAddClick={() => onAddPrompt("system")}
         />
 
         {/* Prompts for Output Generation */}

@@ -3,7 +3,6 @@ export { default as LoadingState } from "./LoadingState";
 export { default as AnalysisHeaderFull } from "./AnalysisHeaderFull";
 
 // Step 1: Load
-export { default as UseCaseSelectorFull } from "./UseCaseSelectorFull";
 export { default as MultiLevelSelector } from "./MultiLevelSelector";
 
 // Step 2: Test

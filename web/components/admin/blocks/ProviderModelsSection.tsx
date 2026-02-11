@@ -1,56 +1,22 @@
+"use client";
 import React, { useRef, useState } from "react";
-import {
-  Card,
-  Select,
-  Typography,
-  Space,
-  Tag,
-  Input,
-  Button,
-  Divider,
-} from "antd";
+import { Select, Typography, Space, Tag, Input, Button, Divider } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
-import { ModelConfig } from "../../types/admin";
+import { ModelConfig } from "@/types/admin";
 import type { InputRef } from "antd";
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 interface ProviderModelsSectionProps {
-  provider: "openai" | "anthropic" | "google" | "openrouter";
+  provider: "openai" | "anthropic" | "google";
   models: ModelConfig[];
   onAddModels: (
-    provider: "openai" | "anthropic" | "google" | "openrouter",
-    modelNames: string[]
+    provider: "openai" | "anthropic" | "google",
+    modelNames: string[],
   ) => void;
   onUpdateModel: (id: string, updates: Partial<ModelConfig>) => void;
   onRemoveModel: (id: string) => void;
 }
-
-// Available models for each provider
-const PROVIDER_MODELS = {
-  openai: [
-    "gpt-3.5-turbo",
-    "gpt-4",
-    "gpt-4o-mini",
-    "gpt-4o",
-    "gpt-5",
-    "gpt-5-mini",
-    "o1-mini",
-    "o1",
-    "o3-mini",
-    "o3-pro",
-    "o4",
-    "o4-mini",
-  ],
-  anthropic: [
-    "claude-3-opus-20240229",
-    "claude-3-sonnet-20240229",
-    "claude-4-sonnet-20250219",
-  ],
-  google: ["gemini-pro", "gemini-1.5-pro", "gemini-1.5-flash"],
-  openrouter: ["google/gemma-3n-e2b-it"],
-};
 
 const PROVIDER_CONFIG = {
   openai: {
@@ -61,9 +27,6 @@ const PROVIDER_CONFIG = {
   },
   google: {
     name: "Google",
-  },
-  openrouter: {
-    name: "OpenRouter",
   },
 };
 
@@ -77,29 +40,13 @@ export const ProviderModelsSection: React.FC<ProviderModelsSectionProps> = ({
   const inputRef = useRef<InputRef>(null);
 
   const config = PROVIDER_CONFIG[provider];
-  const availableModels = PROVIDER_MODELS[provider];
   const existingModelNames = Array.from(
     new Set(
-      models.map((m) => m.model).filter((model) => model && model.trim() !== "") // Filter out empty/undefined values
-    )
+      models
+        .map((m) => m.model)
+        .filter((model) => model && model.trim() !== ""), // Filter out empty/undefined values
+    ),
   );
-
-  // Debug logging
-  console.log(`ProviderModelsSection ${provider}:`, {
-    models,
-    existingModelNames,
-    availableModels,
-  });
-
-  const handleModelSelect = (selectedModels: string[]) => {
-    // Find newly selected models
-    const newModels = selectedModels.filter(
-      (model) => !existingModelNames.includes(model)
-    );
-    if (newModels.length > 0) {
-      onAddModels(provider, newModels);
-    }
-  };
 
   const handleModelRemove = (modelName: string) => {
     const modelToRemove = models.find((m) => m.model === modelName);
@@ -109,21 +56,12 @@ export const ProviderModelsSection: React.FC<ProviderModelsSectionProps> = ({
   };
 
   // Filter out models that already exist in the current provider's models
-  const availableModelsForSelection = availableModels
-    .filter((model) => !existingModelNames.includes(model))
+  const availableModelsForSelection = models
+    .filter((model) => !existingModelNames.includes(model.model))
     .map((model) => ({
       value: model,
       label: model,
     }));
-
-  // Create grouped options with a header group
-  const groupedOptions = [
-    {
-      label: "Popular Models to Add:",
-      title: "Popular Models to Add:",
-      options: availableModelsForSelection,
-    },
-  ];
 
   const addCustomModel = () => {
     if (customModelName.trim()) {
@@ -152,16 +90,14 @@ export const ProviderModelsSection: React.FC<ProviderModelsSectionProps> = ({
           // Filter out models that are already in the database for this provider
           const validNext = uniqueNext.filter((m: string) => {
             // Only allow models that are either already selected or available to add
-            return (
-              existingModelNames.includes(m) || availableModels.includes(m)
-            );
+            return existingModelNames.includes(m);
           });
 
           const added = validNext.filter(
-            (m: string) => !existingModelNames.includes(m)
+            (m: string) => !existingModelNames.includes(m),
           );
           const removed = existingModelNames.filter(
-            (m) => !validNext.includes(m as string)
+            (m) => !validNext.includes(m as string),
           );
 
           if (added.length > 0) {

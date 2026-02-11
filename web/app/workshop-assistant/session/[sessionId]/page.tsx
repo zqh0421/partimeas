@@ -8,7 +8,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import TestCaseNavigation from "@/components/TestCaseNavigation";
 import ModelOutputsGrid from "@/components/ModelOutputsGrid";
 import { useConfig } from "@/hooks/useConfig";
-import { useCriteriaData } from "@/hooks/useCriteriaData";
 import { useIdealResponses } from "@/hooks/useIdealResponses";
 import { RefreshIcon } from "@/components/icons";
 
@@ -30,9 +29,6 @@ export default function Page({
   // Get rubric and ideal response - will be set from session data, not URL params
   const [rubricId, setRubricId] = useState<string | null>(null);
   const [idealResponseId, setIdealResponseId] = useState<string | null>(null);
-
-  // Load criteria data and ideal responses
-  const { criteria } = useCriteriaData();
   const { idealResponses } = useIdealResponses();
 
   useEffect(() => {
@@ -131,6 +127,11 @@ export default function Page({
 
     loadSession();
   }, [sessionId]);
+
+  // // Handle loading state
+  // if (loading) {
+  //   return <LoadingFallback />;
+  // }
 
   // Handle error state
   if (error) {

@@ -52,7 +52,7 @@ export default function Page() {
     evaluation,
     selection,
     useCase: { updateSystemPromptForUseCase },
-  } = useAnalysisState(); // Use dynamic default from USE_CASE_PROMPTS
+  } = useAnalysisState();
 
   const {
     currentStep,

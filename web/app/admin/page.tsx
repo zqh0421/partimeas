@@ -1,138 +1,159 @@
 "use client";
 
-import { Layout, App } from "antd";
+import React, { useCallback, useMemo } from "react";
 import { useAdminState } from "@/hooks/useAdminState";
+import LoadingState from "@/components/LoadingState";
 import {
   StatusMessages,
   ActionButtons,
   SectionNavigation,
-  MainContent,
-  LoadingSpinner,
-  Breadcrumb,
-  PageHeader,
+  OutputGenerationSection,
+  EvaluationSection,
+  ModelsSection,
+  AssistantsSection,
+  Configuration,
 } from "@/components/admin";
 
-const { Content } = Layout;
-
 export default function AdminPage() {
-  const {
-    state,
-    loadConfiguration,
-    saveConfiguration,
-    saveModelsOnly,
-    savePromptsOnly,
-    saveAssistantsOnly,
-    updateModelConfig,
-    updatePromptConfig,
-    updateAssistant,
-    addModelConfig,
-    addProviderModels,
-    addPromptConfig,
-    addAssistant,
-    removeModelConfig,
-    removePromptConfig,
-    removeAssistant,
-    setActiveSection,
-    clearError,
-    clearSuccess,
-    updateConfigValue,
-  } = useAdminState();
+  const admin = useAdminState();
+  const { state, actions } = admin;
 
-  // Individual save functions for models and prompts
-  const handleSaveModels = async () => {
-    try {
-      await saveModelsOnly();
-      // You could add specific success handling for models here
-    } catch (error) {
-      console.error("Error saving models:", error);
-    }
+  const wrapAsync = useCallback(
+    (label: string, fn: () => Promise<unknown>) => async () => {
+      try {
+        await fn();
+      } catch (err) {
+        console.error(`Error saving ${label}:`, err);
+      }
+    },
+    [],
+  );
+
+  const handleSaveModels = useMemo(
+    () => wrapAsync("models", actions.models.save),
+    [wrapAsync, actions.models.save],
+  );
+  const handleSavePrompts = useMemo(
+    () => wrapAsync("prompts", actions.prompts.save),
+    [wrapAsync, actions.prompts.save],
+  );
+  const handleSaveAssistants = useMemo(
+    () => wrapAsync("assistants", actions.assistants.save),
+    [wrapAsync, actions.assistants.save],
+  );
+
+  const onConfigChange = useCallback(
+    (configs: Array<{ name: string; value: string }>) => {
+      configs.forEach(({ name, value }) => {
+        if (state.configValues?.find((c) => c.name === name)?.value !== value) {
+          actions.config.updateValue(name, value);
+        }
+      });
+    },
+    [state.configValues, actions.config],
+  );
+
+  if (state.isLoading)
+    return <LoadingState message="Loading admin configuration..." size="lg" />;
+
+  const sectionData = {
+    modelConfigs: state.modelConfigs,
+    promptConfigs: state.promptConfigs,
+    assistants: state.assistants,
+    configValues: state.configValues || [],
   };
 
-  const handleSavePrompts = async () => {
-    try {
-      await savePromptsOnly();
-      // You could add specific success handling for prompts here
-    } catch (error) {
-      console.error("Error saving prompts:", error);
-    }
+  const modelActions = {
+    onAddProviderModels: actions.models.addProviderModels,
+    onUpdateModel: actions.models.update,
+    onRemoveModel: actions.models.remove,
+    onSaveModels: handleSaveModels,
   };
 
-  const handleSaveAssistants = async () => {
-    try {
-      await saveAssistantsOnly();
-      // You could add specific success handling for assistants here
-    } catch (error) {
-      console.error("Error saving assistants:", error);
-    }
+  const promptActions = {
+    onAddPrompt: actions.prompts.add,
+    onUpdatePrompt: actions.prompts.update,
+    onRemovePrompt: actions.prompts.remove,
+    onSavePrompts: handleSavePrompts,
   };
 
-  if (state.isLoading) {
-    return <LoadingSpinner />;
-  }
+  const assistantActions = {
+    onAddAssistant: actions.assistants.add,
+    onUpdateAssistant: actions.assistants.update,
+    onRemoveAssistant: actions.assistants.remove,
+    onSaveAssistants: handleSaveAssistants,
+    onConfigChange: onConfigChange,
+  };
+
+  const sectionFlags = {
+    hasModelChanges: state.hasModelChanges,
+    hasPromptChanges: state.hasPromptChanges,
+    hasAssistantChanges: state.hasAssistantChanges,
+    hasConfigChanges: state.hasConfigChanges || false,
+  };
+
+  const content =
+    state.activeSection === "output-generation" ? (
+      <OutputGenerationSection
+        modelConfigs={sectionData.modelConfigs}
+        promptConfigs={sectionData.promptConfigs}
+        {...modelActions}
+        {...promptActions}
+        hasModelChanges={sectionFlags.hasModelChanges}
+        hasPromptChanges={sectionFlags.hasPromptChanges}
+      />
+    ) : state.activeSection === "evaluation" ? (
+      <EvaluationSection
+        modelConfigs={sectionData.modelConfigs}
+        promptConfigs={sectionData.promptConfigs}
+        {...modelActions}
+        {...promptActions}
+        hasModelChanges={sectionFlags.hasModelChanges}
+        hasPromptChanges={sectionFlags.hasPromptChanges}
+      />
+    ) : state.activeSection === "models" ? (
+      <ModelsSection
+        modelConfigs={sectionData.modelConfigs}
+        {...modelActions}
+        hasModelChanges={sectionFlags.hasModelChanges}
+      />
+    ) : state.activeSection === "assistants" ? (
+      <AssistantsSection
+        assistants={sectionData.assistants}
+        modelConfigs={sectionData.modelConfigs}
+        promptConfigs={sectionData.promptConfigs}
+        configValues={sectionData.configValues}
+        {...assistantActions}
+        hasAssistantChanges={sectionFlags.hasAssistantChanges}
+      />
+    ) : state.activeSection === "configuration" ? (
+      <Configuration
+        configValues={sectionData.configValues}
+        onConfigChange={onConfigChange}
+        hasChanges={sectionFlags.hasConfigChanges}
+        onSave={() => {
+          // This is handled by the Configuration component.
+        }}
+      />
+    ) : null;
 
   return (
-    <App>
-      <Layout style={{ minHeight: "100vh", backgroundColor: "#f5f5f5" }}>
-        <Content
-          style={{
-            padding: "24px",
-            maxWidth: 1200,
-            margin: "0 auto",
-            width: "100%",
-          }}
-        >
-          <Breadcrumb />
+    <>
+      <StatusMessages
+        error={state.error}
+        success={state.success}
+        onClearError={actions.ui.clearError}
+        onClearSuccess={actions.ui.clearSuccess}
+      />
 
-          <PageHeader
-            title="Admin Configuration"
-            description="Manage main settings, models, and prompts for output generation and evaluation"
-          />
+      <ActionButtons onReload={actions.lifecycle.loadConfiguration} />
 
-          <StatusMessages
-            error={state.error}
-            success={state.success}
-            onClearError={clearError}
-            onClearSuccess={clearSuccess}
-          />
+      <SectionNavigation
+        activeSection={state.activeSection}
+        onSectionChange={actions.ui.setActiveSection}
+      />
 
-          <ActionButtons onReload={loadConfiguration} />
-
-          <SectionNavigation
-            activeSection={state.activeSection}
-            onSectionChange={setActiveSection}
-          />
-
-          <MainContent
-            activeSection={state.activeSection}
-            modelConfigs={state.modelConfigs}
-            promptConfigs={state.promptConfigs}
-            assistants={state.assistants}
-            configValues={state.configValues || []}
-            onAddProviderModels={addProviderModels}
-            onUpdateModel={updateModelConfig}
-            onRemoveModel={removeModelConfig}
-            onAddPrompt={addPromptConfig}
-            onUpdatePrompt={updatePromptConfig}
-            onRemovePrompt={removePromptConfig}
-            onAddAssistant={addAssistant}
-            onUpdateAssistant={updateAssistant}
-            onRemoveAssistant={removeAssistant}
-            onSaveModels={handleSaveModels}
-            onSavePrompts={handleSavePrompts}
-            onSaveAssistants={handleSaveAssistants}
-            onConfigChange={(configs) => {
-              // Update the state with the new config values
-              configs.forEach((config) => {
-                updateConfigValue(config.name, config.value);
-              });
-            }}
-            hasModelChanges={state.hasModelChanges}
-            hasPromptChanges={state.hasPromptChanges}
-            hasAssistantChanges={state.hasAssistantChanges}
-            hasConfigChanges={state.hasConfigChanges || false}
-          />
-        </Content>
-      </Layout>
-    </App>
+      {content}
+    </>
   );
 }

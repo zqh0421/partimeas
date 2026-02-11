@@ -66,76 +66,45 @@ export function useAdminState() {
 
       // Load configuration values
       console.log("Loading configuration values...");
-      let configValues: ConfigValue[] = [];
-      try {
-        const configResponse = await fetch(
-          "/api/config?name=numOutputsToRun&name=numOutputsToShow&name=assistantModelAlgorithm&name=enableGroupIdCollection"
-        );
-        console.log(
-          "Config response status:",
-          configResponse.status,
-          configResponse.statusText
-        );
+      const configResponse = await fetch(
+        "/api/config?name=numOutputsToRun&name=numOutputsToShow&name=assistantModelAlgorithm&name=enableGroupIdCollection"
+      );
+      console.log(
+        "Config response status:",
+        configResponse.status,
+        configResponse.statusText
+      );
+      if (!configResponse.ok) {
+        throw new Error("Failed to load configuration values");
+      }
 
-        if (configResponse.ok) {
-          const configData = await configResponse.json();
-          console.log(
-            "Loaded configs:",
-            configData.config ? Object.keys(configData.config).length : 0
-          );
+      const configData = await configResponse.json();
+      console.log(
+        "Loaded configs:",
+        configData.config ? Object.keys(configData.config).length : 0
+      );
 
-          // Transform config data to ConfigValue format
-          if (configData.config) {
-            Object.entries(configData.config).forEach(
-              ([name, config]: [string, any]) => {
-                configValues.push({
-                  name,
-                  value: config.value,
-                  scope: config.scope || "global",
-                  created_at: config.created_at,
-                  updated_at: config.updated_at,
-                });
-              }
-            );
+      const configValues: ConfigValue[] = [];
+      if (configData.config) {
+        Object.entries(configData.config).forEach(
+          ([name, config]: [string, any]) => {
+            configValues.push({
+              name,
+              value: config.value,
+              scope: config.scope || "global",
+              created_at: config.created_at,
+              updated_at: config.updated_at,
+            });
           }
-        }
-      } catch (configError) {
-        console.warn(
-          "Failed to load configuration values, using defaults:",
-          configError
         );
       }
 
-      // Ensure default configuration values exist
-      const defaultConfigs = [
-        { name: "numOutputsToRun", value: "2", scope: "global" },
-        { name: "numOutputsToShow", value: "2", scope: "global" },
-        {
-          name: "assistantModelAlgorithm",
-          value: "random_selection",
-          scope: "global",
-        },
-        { name: "enableGroupIdCollection", value: "false", scope: "global" },
-        { name: "useCacheSession", value: "true", scope: "global" },
-        {
-          name: "referenceSessionIds",
-          value:
-            "95533a6c-00e5-4ffc-9135-772b3e98ddde,a7e53502-73cd-480c-95e7-0e8eab98fa82,1796c058-e0f9-4286-afde-efa606473956,3b741acf-9d1b-4e27-aa14-89645fc413cc,a86c108d-9f15-4c6f-ba75-97cb0bdc7cf8,b2981e3b-1038-43e9-8ce7-e3c9325903b8,6f7fb887-9be9-4a86-850a-825bee8d9a64,f950b796-fae4-410e-9dd8-7bdc117dffc2,ae588e80-4715-4523-a923-277009cb580a,b07909cb-086b-44c8-a13a-132e3b9c8610,3070692e-bf47-4c22-a62b-b476130c2562,56b24acf-8776-42ed-904e-0a848ed06b05,73fd0fb8-2c4f-495c-9c43-49b0a9875266,73d25944-9895-4d7e-b723-528cd756fb5f,b908e48f-4348-44c7-b37d-83c1f4742da9,4a64b32e-c315-44fa-a414-d10a76034c28",
-          scope: "global",
-        },
-      ];
-
-      defaultConfigs.forEach((defaultConfig) => {
-        if (!configValues.find((c) => c.name === defaultConfig.name)) {
-          configValues.push({
-            ...defaultConfig,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
-        }
-      });
-
-      if (modelResponse.ok && promptResponse.ok && assistantResponse.ok) {
+      if (
+        modelResponse.ok &&
+        promptResponse.ok &&
+        assistantResponse.ok &&
+        configResponse.ok
+      ) {
         const modelData = await modelResponse.json();
         const promptData = await promptResponse.json();
         const assistantData = await assistantResponse.json();
@@ -595,8 +564,43 @@ export function useAdminState() {
     setState((prev) => ({ ...prev, success: null }));
   };
 
+  const actions = {
+    lifecycle: {
+      loadConfiguration,
+      saveConfiguration,
+    },
+    models: {
+      save: saveModelsOnly,
+      addProviderModels,
+      update: updateModelConfig,
+      remove: removeModelConfig,
+      add: addModelConfig,
+    },
+    prompts: {
+      save: savePromptsOnly,
+      add: addPromptConfig,
+      update: updatePromptConfig,
+      remove: removePromptConfig,
+    },
+    assistants: {
+      save: saveAssistantsOnly,
+      add: addAssistant,
+      update: updateAssistant,
+      remove: removeAssistant,
+    },
+    config: {
+      updateValue: updateConfigValue,
+    },
+    ui: {
+      setActiveSection,
+      clearError,
+      clearSuccess,
+    },
+  };
+
   return {
     state,
+    actions,
     loadConfiguration,
     saveConfiguration,
     saveModelsOnly,

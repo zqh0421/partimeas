@@ -77,37 +77,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("GET /api/admin/assistants error:", error);
-
-    // Fallback with mock data when database is not available
-    const mockAssistants: Assistant[] = [
-      {
-        id: 1,
-        name: "Output Generation Assistant (Mock)",
-        model_ids: ["mock-model-id"],
-        system_prompt_id: "mock-prompt-id",
-        required_to_show: true,
-        type: "output_generation",
-      },
-      {
-        id: 2,
-        name: "Evaluation Assistant (Mock)",
-        model_ids: ["mock-model-id"],
-        system_prompt_id: "mock-prompt-id",
-        required_to_show: false,
-        type: "evaluation",
-      },
-    ];
-
-    return NextResponse.json({
-      success: true,
-      assistants: mockAssistants,
-      pagination: {
-        page: 1,
-        limit: 50,
-        total: mockAssistants.length,
-        totalPages: 1,
-      },
-    });
+    return NextResponse.json(
+      { error: "Failed to fetch assistants" },
+      { status: 500 },
+    );
   }
 }
 
@@ -129,21 +102,21 @@ export async function POST(request: NextRequest) {
           error:
             "Missing required fields: name, model_ids, system_prompt_id, type",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!Array.isArray(model_ids) || model_ids.length === 0) {
       return NextResponse.json(
         { error: "model_ids must be a non-empty array" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!["output_generation", "evaluation"].includes(type)) {
       return NextResponse.json(
         { error: 'Invalid type. Must be "output_generation" or "evaluation"' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -153,7 +126,7 @@ export async function POST(request: NextRequest) {
         {
           error: "system_prompt_id must be a valid UUID saved in the database",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -161,7 +134,7 @@ export async function POST(request: NextRequest) {
       if (!isValidUuid(model_id)) {
         return NextResponse.json(
           { error: "All model_ids must be valid UUIDs saved in the database" },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -173,7 +146,7 @@ export async function POST(request: NextRequest) {
     if (!promptExists) {
       return NextResponse.json(
         { error: "Referenced system_prompt_id does not exist" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -184,7 +157,7 @@ export async function POST(request: NextRequest) {
       if (!modelExists) {
         return NextResponse.json(
           { error: `Referenced model_id ${model_id} does not exist` },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -202,8 +175,8 @@ export async function POST(request: NextRequest) {
     const result = await sql`
       INSERT INTO partimeas_assistants (name, system_prompt_id, required_to_show, type, weight)
       VALUES (${name}, ${system_prompt_id}, ${
-      required_to_show || false
-    }, ${type}, ${weight || 1})
+        required_to_show || false
+      }, ${type}, ${weight || 1})
       RETURNING id, name, system_prompt_id, required_to_show, type, weight, created_at, updated_at
     `;
 
@@ -247,7 +220,7 @@ export async function POST(request: NextRequest) {
     console.error("POST /api/admin/assistants error:", error);
     return NextResponse.json(
       { error: "Failed to create assistant" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -268,7 +241,7 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { error: "Missing required field: id" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -279,7 +252,7 @@ export async function PUT(request: NextRequest) {
       if (weight < 1 || weight > 10) {
         return NextResponse.json(
           { error: "Weight must be between 1 and 10" },
-          { status: 400 }
+          { status: 400 },
         );
       }
       updateFields.weight = weight;
@@ -288,7 +261,7 @@ export async function PUT(request: NextRequest) {
       if (!isValidUuid(system_prompt_id)) {
         return NextResponse.json(
           { error: "system_prompt_id must be a valid UUID" },
-          { status: 400 }
+          { status: 400 },
         );
       }
       const [promptExists] =
@@ -296,7 +269,7 @@ export async function PUT(request: NextRequest) {
       if (!promptExists) {
         return NextResponse.json(
           { error: "Referenced system_prompt_id does not exist" },
-          { status: 400 }
+          { status: 400 },
         );
       }
       updateFields.system_prompt_id = system_prompt_id;
@@ -309,7 +282,7 @@ export async function PUT(request: NextRequest) {
           {
             error: 'Invalid type. Must be "output_generation" or "evaluation"',
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
       updateFields.type = type;
@@ -320,7 +293,7 @@ export async function PUT(request: NextRequest) {
       if (!Array.isArray(model_ids)) {
         return NextResponse.json(
           { error: "model_ids must be an array" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -329,7 +302,7 @@ export async function PUT(request: NextRequest) {
         if (!isValidUuid(model_id)) {
           return NextResponse.json(
             { error: "All model_ids must be valid UUIDs" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         const [modelExists] =
@@ -337,7 +310,7 @@ export async function PUT(request: NextRequest) {
         if (!modelExists) {
           return NextResponse.json(
             { error: `Referenced model_id ${model_id} does not exist` },
-            { status: 400 }
+            { status: 400 },
           );
         }
       }
@@ -360,7 +333,7 @@ export async function PUT(request: NextRequest) {
     if (Object.keys(updateFields).length === 0 && model_ids === undefined) {
       return NextResponse.json(
         { error: "No fields to update" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -386,7 +359,7 @@ export async function PUT(request: NextRequest) {
       const setClause = Object.keys(updateFields)
         .map(
           (key, index) =>
-            sql`${sql.unsafe(key)} = ${Object.values(updateFields)[index]}`
+            sql`${sql.unsafe(key)} = ${Object.values(updateFields)[index]}`,
         )
         .reduce((acc, clause) => sql`${acc}, ${clause}`);
 
@@ -407,7 +380,7 @@ export async function PUT(request: NextRequest) {
     if (!assistantRow) {
       return NextResponse.json(
         { error: "Assistant not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -441,7 +414,7 @@ export async function PUT(request: NextRequest) {
     console.error("PUT /api/admin/assistants error:", error);
     return NextResponse.json(
       { error: "Failed to update assistant" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -455,7 +428,7 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { error: "Missing required parameter: id" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -475,7 +448,7 @@ export async function DELETE(request: NextRequest) {
     if (result.length === 0) {
       return NextResponse.json(
         { error: "Assistant not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -487,7 +460,7 @@ export async function DELETE(request: NextRequest) {
     console.error("DELETE /api/admin/assistants error:", error);
     return NextResponse.json(
       { error: "Failed to delete assistant" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

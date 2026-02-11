@@ -55,35 +55,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching system prompts:", error);
-
-    // Fallback with mock data when database is not available
-    const mockPrompts = [
-      {
-        id: "general-mock",
-        name: "General Assistant (Mock)",
-        content:
-          "You are a helpful AI assistant. Answer questions clearly and concisely.",
-        type: "system" as const,
-      },
-      {
-        id: "evaluation-mock",
-        name: "Evaluation Assistant (Mock)",
-        content:
-          "You are an evaluation expert. Assess responses objectively and provide constructive feedback.",
-        type: "evaluation" as const,
-      },
-    ];
-
-    return NextResponse.json({
-      success: true,
-      prompts: mockPrompts,
-      pagination: {
-        page: 1,
-        limit: 50,
-        total: mockPrompts.length,
-        totalPages: 1,
-      },
-    });
+    return NextResponse.json(
+      { error: "Failed to fetch system prompts" },
+      { status: 500 }
+    );
   }
 }
 

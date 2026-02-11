@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from "react";
 import {
   Card,
@@ -70,7 +71,7 @@ export function Configuration({
     } catch (error) {
       console.error("Error saving configuration:", error);
       message.error(
-        error instanceof Error ? error.message : "Failed to save configuration"
+        error instanceof Error ? error.message : "Failed to save configuration",
       );
     }
   };
@@ -86,7 +87,7 @@ export function Configuration({
 
   const handleValueChange = (name: string, value: string) => {
     const updatedConfigs = configValues.map((config) =>
-      config.name === name ? { ...config, value } : config
+      config.name === name ? { ...config, value } : config,
     );
     onConfigChange(updatedConfigs);
   };
@@ -117,7 +118,7 @@ export function Configuration({
               onChange={(checked) =>
                 handleValueChange(
                   "enableGroupIdCollection",
-                  checked ? "1" : "0"
+                  checked ? "1" : "0",
                 )
               }
             />

@@ -13,16 +13,16 @@ export default function LoadingState({
   className = '',
   showBackground = true
 }: LoadingStateProps) {
-  const sizeClasses = {
-    sm: 'h-6 w-6',
-    md: 'h-8 w-8', 
-    lg: 'h-12 w-12'
-  };
-
   const textSizes = {
     sm: 'text-sm',
     md: 'text-base',
     lg: 'text-lg'
+  };
+
+  const spinnerSizes = {
+    sm: 'h-6 w-6 border-2',
+    md: 'h-8 w-8 border-2',
+    lg: 'h-12 w-12 border-2'
   };
 
   const containerClasses = showBackground 
@@ -32,9 +32,11 @@ export default function LoadingState({
   return (
     <div className={`${containerClasses} ${className}`}>
       <div className="text-center">
-        <div className={`animate-spin rounded-full border-2 border-gray-200 border-t-blue-600 mx-auto mb-4 ${sizeClasses[size]}`}></div>
+        <div
+          className={`animate-spin rounded-full border-gray-200 border-t-blue-600 mx-auto mb-4 ${spinnerSizes[size]}`}
+        ></div>
         <p className={`text-gray-600 ${textSizes[size]}`}>{message}</p>
       </div>
     </div>
   );
-} 
+}

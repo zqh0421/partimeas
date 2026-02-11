@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/config/database";
-import { MODEL_CONFIGS, OPENROUTER_MODELS } from "@/app/api/shared/constants";
 
 // GET /api/models?provider=
 export async function GET(request: NextRequest) {
@@ -8,23 +7,6 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const provider = url.searchParams.get("provider");
     const type = url.searchParams.get("type"); // optional: 'output_generation' | 'evaluation'
-
-    // Helper to resolve a model key recognizable by MODEL_CONFIGS
-    const resolveModelKey = (modelName: string): string | null => {
-      if (MODEL_CONFIGS[modelName as keyof typeof MODEL_CONFIGS])
-        return modelName;
-      const entry = Object.entries(MODEL_CONFIGS).find(
-        ([, cfg]) => cfg.model === modelName
-      );
-      if (entry) return entry[0];
-      // Also check OpenRouter models mapping
-      if (OPENROUTER_MODELS[modelName as keyof typeof OPENROUTER_MODELS])
-        return modelName;
-      const orEntry = Object.entries(OPENROUTER_MODELS).find(
-        ([, cfg]) => cfg.model === modelName
-      );
-      return orEntry ? orEntry[0] : null;
-    };
 
     // Get models from database
     const rows = await sql`
@@ -42,18 +24,12 @@ export async function GET(request: NextRequest) {
 
     // If a type filter is provided, return a minimal shape for dynamic model selection
     if (type === "output_generation" || type === "evaluation") {
-      // Map to recognized model keys
-      const minimal = rows
-        .map((row) => {
-          const key = resolveModelKey(row.model_id);
-          if (!key) return null;
-          return {
-            id: `${type}-${key}`,
-            provider: row.provider,
-            model_id: key,
-          };
-        })
-        .filter(Boolean);
+      // Return pure cloud data from DB without local constant mapping/filtering
+      const minimal = rows.map((row) => ({
+        id: row.id,
+        provider: row.provider,
+        model_id: row.model_id,
+      }));
 
       return NextResponse.json({ success: true, models: minimal });
     }

@@ -10,8 +10,8 @@ import {
 import SimpleMarkdownRenderer from "@/components/SimpleMarkdownRenderer";
 import { useStepLoading } from "@/components/steps/VerticalStepper";
 import TestCaseNavigation from "@/components/TestCaseNavigation";
-import RealCriteriaTable from "@/components/evaluation/RealCriteriaTable";
-import InputScoringTable from "@/components/evaluation/InputScoringTable";
+import RealCriteriaTable from "@/components/analysis/evaluation/RealCriteriaTable";
+import InputScoringTable from "@/components/analysis/evaluation/InputScoringTable";
 import { EvaluationRecord } from "@/types/database";
 
 // Helper function to determine grid columns based on model count
@@ -108,13 +108,13 @@ export default function ModelOutputsGrid({
     (currentIndex: number | null, totalVersions: number) => {
       setVersionInfo({ currentIndex, totalVersions });
     },
-    []
+    [],
   );
 
   // Versioning state (saved evaluation records for this session/group)
   const [versions, setVersions] = useState<EvaluationRecord[]>([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState<number | null>(
-    null
+    null,
   );
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
   const [versionsError, setVersionsError] = useState<string | null>(null);
@@ -124,7 +124,7 @@ export default function ModelOutputsGrid({
     const fetchVersions = async () => {
       // Check if any test case is in comparing mode
       const isAnyComparing = Array.from(comparingStates.values()).some(
-        (v) => v
+        (v) => v,
       );
       if (!sessionId || !isRealEvaluation || !isAnyComparing) {
         setVersions([]);
@@ -137,7 +137,7 @@ export default function ModelOutputsGrid({
         setVersionsError(null);
 
         const apiUrl = `/api/evaluation-records?action=bySession&session_id=${encodeURIComponent(
-          sessionId
+          sessionId,
         )}`;
 
         const res = await fetch(apiUrl);
@@ -146,7 +146,7 @@ export default function ModelOutputsGrid({
 
         if (!res.ok || !json.success) {
           throw new Error(
-            json.error || json.details || "Failed to load versions"
+            json.error || json.details || "Failed to load versions",
           );
         }
 
@@ -168,7 +168,7 @@ export default function ModelOutputsGrid({
         setCurrentVersionIndex(sorted.length - 1);
       } catch (e) {
         setVersionsError(
-          e instanceof Error ? e.message : "Failed to load versions"
+          e instanceof Error ? e.message : "Failed to load versions",
         );
       } finally {
         setIsLoadingVersions(false);
@@ -263,7 +263,7 @@ export default function ModelOutputsGrid({
           index: streamingModels.length + index,
           isStreaming: true,
           isPlaceholder: true,
-        })
+        }),
       );
 
       return [...streamingModels, ...placeholders];
@@ -345,7 +345,7 @@ export default function ModelOutputsGrid({
                 !comparingStates.get(
                   testCases?.[selectedTestCaseIndex || 0]?.id ||
                     selectedTestCaseIndex ||
-                    0
+                    0,
                 ) && (
                   <p className="mt-1 text-sm text-gray-600">
                     Provide your expected scoring points with rationale on how
@@ -359,7 +359,7 @@ export default function ModelOutputsGrid({
               comparingStates.get(
                 testCases?.[selectedTestCaseIndex || 0]?.id ||
                   selectedTestCaseIndex ||
-                  0
+                  0,
               ) &&
               versionInfo.totalVersions > 0 && (
                 <div className="flex items-center gap-2">
@@ -368,7 +368,7 @@ export default function ModelOutputsGrid({
                     {Math.max(
                       versionInfo.totalVersions -
                         (versionInfo.currentIndex ?? 0),
-                      1
+                      1,
                     )}{" "}
                     of {Math.max(versionInfo.totalVersions, 1)}
                   </span>
@@ -392,7 +392,7 @@ export default function ModelOutputsGrid({
                         versionInfo.currentIndex < versionInfo.totalVersions - 1
                       ) {
                         inputScoringTableRef.current?.changeVersion(
-                          versionInfo.currentIndex + 1
+                          versionInfo.currentIndex + 1,
                         );
                       }
                     }}
@@ -419,7 +419,7 @@ export default function ModelOutputsGrid({
                         versionInfo.currentIndex > 0
                       ) {
                         inputScoringTableRef.current?.changeVersion(
-                          versionInfo.currentIndex - 1
+                          versionInfo.currentIndex - 1,
                         );
                       }
                     }}
@@ -530,7 +530,7 @@ export default function ModelOutputsGrid({
                       id: tc.id,
                       sessionId: "sessionId" in tc ? tc.sessionId : undefined,
                     })),
-                  }
+                  },
                 );
 
                 // Create a unique key for each test case to force component remount
@@ -680,7 +680,7 @@ export default function ModelOutputsGrid({
               (item as any).isStreaming &&
               !("isPlaceholder" in item && (item as any).isPlaceholder);
             const streamingError = streamingErrors.find(
-              (error) => error.modelId === item.modelId
+              (error) => error.modelId === item.modelId,
             );
 
             return (
@@ -745,8 +745,8 @@ export default function ModelOutputsGrid({
                           {isStreaming
                             ? "Preparing response..."
                             : isLoading
-                            ? "Preparing response..."
-                            : "Preparing response..."}
+                              ? "Preparing response..."
+                              : "Preparing response..."}
                         </p>
                       </div>
                     </div>

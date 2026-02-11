@@ -50,7 +50,13 @@ export default function IdealResponseSelector({
       setInternalLoading(true);
       console.log("[IdealResponseSelector] Fetching ideal responses...");
 
-      const response = await fetch("/api/ideal-responses");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch("/api/ideal-responses", {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response
@@ -80,7 +86,11 @@ export default function IdealResponseSelector({
         error
       );
       const errorMessage =
-        error instanceof Error ? error.message : "Unknown error occurred";
+        error instanceof Error && error.name === "AbortError"
+          ? "Request timed out after 15 seconds"
+          : error instanceof Error
+          ? error.message
+          : "Unknown error occurred";
       onError(`Failed to load ideal responses: ${errorMessage}`);
     } finally {
       setInternalLoading(false);

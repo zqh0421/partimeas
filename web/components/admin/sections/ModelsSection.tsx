@@ -1,15 +1,15 @@
 import React from "react";
 import { ModelConfig } from "@/types/admin";
-import { ProvidersModelsGrid } from "./ProvidersModelsGrid";
-import { Card, Typography, Space } from "antd";
+import { ProvidersModelsGrid } from "@/components/admin/blocks/ProvidersModelsGrid";
+import { Typography } from "antd";
 
 const { Title, Text } = Typography;
 
 interface ModelsSectionProps {
   modelConfigs: ModelConfig[];
   onAddProviderModels: (
-    provider: "openai" | "anthropic" | "google" | "openrouter",
-    modelNames: string[]
+    provider: "openai" | "anthropic" | "google",
+    modelNames: string[],
   ) => void;
   onUpdateModel: (id: string, updates: Partial<ModelConfig>) => void;
   onRemoveModel: (id: string) => void;

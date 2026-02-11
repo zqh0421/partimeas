@@ -1,14 +1,14 @@
 import { ModelConfig, PromptConfig } from "@/types/admin";
-import { SectionHeader } from "./SectionHeader";
-import { SimplifiedPromptsSection } from "./SimplifiedPromptsSection";
+import { SectionHeader } from "@/components/admin/blocks/SectionHeader";
+import { SimplifiedPromptsSection } from "@/components/admin/blocks/SimplifiedPromptsSection";
 import { Row, Col } from "antd";
 
 interface EvaluationSectionProps {
   modelConfigs: ModelConfig[];
   promptConfigs: PromptConfig[];
   onAddProviderModels: (
-    provider: "openai" | "anthropic" | "google" | "openrouter",
-    modelNames: string[]
+    provider: "openai" | "anthropic" | "google",
+    modelNames: string[],
   ) => void;
   onUpdateModel: (id: string, updates: Partial<ModelConfig>) => void;
   onRemoveModel: (id: string) => void;
@@ -24,22 +24,17 @@ interface EvaluationSectionProps {
 export function EvaluationSection({
   modelConfigs,
   promptConfigs,
-  onAddProviderModels,
-  onUpdateModel,
-  onRemoveModel,
   onAddPrompt,
   onUpdatePrompt,
   onRemovePrompt,
-  onSaveModels,
   onSavePrompts,
-  hasModelChanges = false,
   hasPromptChanges = false,
 }: EvaluationSectionProps) {
   const evaluationModels = modelConfigs.filter(
-    (model) => model.isEvaluationModel
+    (model) => model.isEvaluationModel,
   );
   const evaluationPrompts = promptConfigs.filter(
-    (prompt) => prompt.type === "evaluation"
+    (prompt) => prompt.type === "evaluation",
   );
 
   return (
