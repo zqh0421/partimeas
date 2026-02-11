@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState, use } from "react";
-import VerticalStepper from "@/components/steps/VerticalStepper";
+import VerticalStepper from "@/components/workshop-assistant/steps/VerticalStepper";
 import SessionHeader from "@/components/SessionHeader";
 import { TestCase, TestCaseWithModelOutputs } from "@/types";
 import type { SessionWithResponses } from "@/utils/sessionManager";
 import { useRouter, useSearchParams } from "next/navigation";
-import TestCaseNavigation from "@/components/TestCaseNavigation";
-import ModelOutputsGrid from "@/components/ModelOutputsGrid";
+import TestCaseNavigation from "@/components/workshop-assistant/model-output/TestCaseNavigation";
+import AnalysisStep from "@/components/workshop-assistant/steps/AnalysisStep";
 import { useConfig } from "@/hooks/useConfig";
 import { useIdealResponses } from "@/hooks/useIdealResponses";
 import { RefreshIcon } from "@/components/icons";
@@ -233,25 +233,31 @@ export default function Page({
       isCollapsed: false,
       content: (
         <div className="space-y-6">
-          {/* Model Outputs Grid with scoring - configured exactly like workshop-assistant */}
-          <ModelOutputsGrid
-            modelOutputs={testCasesWithModelOutputs[0]?.modelOutputs}
-            testCases={testCases}
-            selectedTestCaseIndex={0}
-            onTestCaseSelect={() => {}} // No-op for read-only session
-            stepId="analysis"
-            className="space-y-4"
-            showEvaluationFeatures={rubricId && idealResponseId ? true : false}
-            isRealEvaluation={rubricId && idealResponseId ? true : false}
-            currentPhase="complete"
-            numOutputsToShow={numOutputsToShow}
-            sessionId={sessionId}
-            showFinalResultsHere={false}
-            selectedCriteriaId={rubricId ?? undefined}
-            selectedIdealResponseId={idealResponseId ?? undefined}
-            idealResponses={idealResponses}
-            isStreaming={false}
-            isLoading={false}
+          <AnalysisStep
+            data={{
+              testCases,
+              testCasesWithModelOutputs,
+              idealResponses,
+              loadingModelListOverride: [],
+              streamingOutputs: [],
+              streamingErrors: [],
+            }}
+            state={{
+              selectedTestCaseIndex: 0,
+              analysisStep: "complete",
+              currentPhase: "complete",
+              showEvaluationFeatures: Boolean(rubricId && idealResponseId),
+              isRealEvaluation: Boolean(rubricId && idealResponseId),
+              numOutputsToShow,
+              sessionId,
+              isStreaming: false,
+              selectedCriteriaId: rubricId ?? undefined,
+              selectedIdealResponseId: idealResponseId ?? undefined,
+            }}
+            actions={{
+              onTestCaseSelect: () => {},
+              onCompareClick: () => {},
+            }}
           />
         </div>
       ),

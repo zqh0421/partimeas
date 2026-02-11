@@ -5,7 +5,7 @@ import { IdealModelResponse } from "@/types";
 import GenericMultiLevelSelector, {
   TreeNode,
   SelectionPath,
-} from "./GenericMultiLevelSelector";
+} from "@/components/GenericMultiLevelSelector";
 import {
   saveIndependentIdealResponseSelection,
   restoreIndependentIdealResponseSelection,

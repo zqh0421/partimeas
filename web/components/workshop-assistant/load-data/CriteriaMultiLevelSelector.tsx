@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import GenericMultiLevelSelector, {
   SelectionPath,
   SelectorConfig,
-} from "./GenericMultiLevelSelector";
+  TreeNode,
+} from "@/components/GenericMultiLevelSelector";
 import { CriterionVersion, CriteriaRequirement } from "@/utils/criteriaReader";
 import { useCriteriaData } from "@/hooks/useCriteriaData";
 import {
@@ -18,7 +19,7 @@ import {
 } from "@/utils/treeDataConverter";
 
 // Criteria item type for selected sheets/criterion versions
-interface CriteriaItem {
+export interface CriteriaItem {
   id: string;
   sheetName: string;
   criterionName: string;
@@ -83,7 +84,10 @@ export default function CriteriaMultiLevelSelector({
           treeStructure
         );
 
-        const findNodeBySheetName = (nodes: any[], sheetName: string): any => {
+        const findNodeBySheetName = (
+          nodes: TreeNode[],
+          sheetName: string,
+        ): TreeNode | null => {
           for (const node of nodes) {
             const nodeSheetName = node?.metadata?.version?.sheetName;
             if (nodeSheetName === sheetName) return node;

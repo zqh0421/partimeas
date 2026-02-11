@@ -1,21 +1,24 @@
 "use client";
 
-import MultiLevelSelector from "@/components/MultiLevelSelector";
+import MultiLevelSelector from "@/components/workshop-assistant/load-data/MultiLevelSelector";
 import CriteriaMultiLevelSelector, {
   CriteriaItem,
-} from "@/components/CriteriaMultiLevelSelector";
-import IdealResponseSelector from "@/components/IdealResponseSelector";
-import { TestCase, IdealModelResponse } from "@/types";
+} from "@/components/workshop-assistant/load-data/CriteriaMultiLevelSelector";
+import IdealResponseSelector from "@/components/workshop-assistant/load-data/IdealResponseSelector";
+import { IdealModelResponse, TestCase } from "@/types";
 import { SelectionPath } from "@/components/GenericMultiLevelSelector";
 
-interface SetupStepProps {
-  testCases: TestCase[];
-  selectedTestCaseIndex: number;
+type SetupStepState = {
   validationError: string;
   hasValidSelections: boolean;
   analysisStep: "setup" | "running" | "complete";
-  selectedCriteriaVersionId?: string;
+};
+
+type SetupStepSelection = {
   selectedIdealResponseId?: string;
+};
+
+type SetupStepHandlers = {
   onMultiLevelSelectionChange?: (
     selections: Array<{
       useCaseId: string;
@@ -24,9 +27,8 @@ interface SetupStepProps {
   ) => void;
   onUseCaseSelected: (useCaseId: string) => void;
   onScenarioCategorySelected: (categoryId: string) => void;
-  onUseCaseDataLoaded: (testCases: any[]) => void;
+  onUseCaseDataLoaded: (testCases: TestCase[]) => void;
   onUseCaseError: (error: string) => void;
-  onTestCaseSelect: (index: number) => void;
   onConfirmSelections: () => void;
   onCriteriaVersionSelected?: (versionId: string) => void;
   onCriteriaSelectionChange?: (selections: SelectionPath[]) => void;
@@ -35,29 +37,36 @@ interface SetupStepProps {
   onIdealResponseSelected?: (idealResponseId: string) => void;
   onIdealResponseDataLoaded?: (idealResponses: IdealModelResponse[]) => void;
   onIdealResponseError?: (error: string) => void;
+};
+
+interface SetupStepProps {
+  state: SetupStepState;
+  selection: SetupStepSelection;
+  handlers: SetupStepHandlers;
 }
 
 export default function SetupStep({
-  testCases,
-  validationError,
-  hasValidSelections,
-  analysisStep,
-  selectedIdealResponseId,
-  onMultiLevelSelectionChange,
-  onUseCaseSelected,
-  onScenarioCategorySelected,
-  onUseCaseDataLoaded,
-  onUseCaseError,
-  onConfirmSelections,
-  onCriteriaVersionSelected,
-  onCriteriaSelectionChange,
-  onCriteriaDataLoaded,
-  onCriteriaError,
-  onIdealResponseSelected,
-  onIdealResponseDataLoaded,
-  onIdealResponseError,
+  state,
+  selection,
+  handlers,
 }: SetupStepProps) {
-  const showTestCaseSelector = testCases.length > 0;
+  const { validationError, hasValidSelections, analysisStep } = state;
+  const { selectedIdealResponseId } = selection;
+  const {
+    onMultiLevelSelectionChange,
+    onUseCaseSelected,
+    onScenarioCategorySelected,
+    onUseCaseDataLoaded,
+    onUseCaseError,
+    onConfirmSelections,
+    onCriteriaVersionSelected,
+    onCriteriaSelectionChange,
+    onCriteriaDataLoaded,
+    onCriteriaError,
+    onIdealResponseSelected,
+    onIdealResponseDataLoaded,
+    onIdealResponseError,
+  } = handlers;
 
   return (
     <div className="space-y-6">
