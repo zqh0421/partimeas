@@ -1,22 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/app/config/database';
-import { MODEL_CONFIGS, OPENROUTER_MODELS } from '@/app/api/shared/constants';
+import { NextRequest, NextResponse } from "next/server";
+import { sql } from "@/config/database";
+import { MODEL_CONFIGS, OPENROUTER_MODELS } from "@/app/api/shared/constants";
 
 // GET /api/models?provider=
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const provider = url.searchParams.get('provider');
-    const type = url.searchParams.get('type'); // optional: 'output_generation' | 'evaluation'
+    const provider = url.searchParams.get("provider");
+    const type = url.searchParams.get("type"); // optional: 'output_generation' | 'evaluation'
 
     // Helper to resolve a model key recognizable by MODEL_CONFIGS
     const resolveModelKey = (modelName: string): string | null => {
-      if (MODEL_CONFIGS[modelName as keyof typeof MODEL_CONFIGS]) return modelName;
-      const entry = Object.entries(MODEL_CONFIGS).find(([, cfg]) => cfg.model === modelName);
+      if (MODEL_CONFIGS[modelName as keyof typeof MODEL_CONFIGS])
+        return modelName;
+      const entry = Object.entries(MODEL_CONFIGS).find(
+        ([, cfg]) => cfg.model === modelName
+      );
       if (entry) return entry[0];
       // Also check OpenRouter models mapping
-      if (OPENROUTER_MODELS[modelName as keyof typeof OPENROUTER_MODELS]) return modelName;
-      const orEntry = Object.entries(OPENROUTER_MODELS).find(([, cfg]) => cfg.model === modelName);
+      if (OPENROUTER_MODELS[modelName as keyof typeof OPENROUTER_MODELS])
+        return modelName;
+      const orEntry = Object.entries(OPENROUTER_MODELS).find(
+        ([, cfg]) => cfg.model === modelName
+      );
       return orEntry ? orEntry[0] : null;
     };
 
@@ -35,38 +41,41 @@ export async function GET(request: NextRequest) {
     `;
 
     // If a type filter is provided, return a minimal shape for dynamic model selection
-    if (type === 'output_generation' || type === 'evaluation') {
+    if (type === "output_generation" || type === "evaluation") {
       // Map to recognized model keys
       const minimal = rows
-        .map(row => {
+        .map((row) => {
           const key = resolveModelKey(row.model_id);
           if (!key) return null;
           return {
             id: `${type}-${key}`,
             provider: row.provider,
-            model_id: key
+            model_id: key,
           };
         })
         .filter(Boolean);
-      
+
       return NextResponse.json({ success: true, models: minimal });
     }
 
     // Otherwise, return the full admin shape used by the settings UI
-    const transformedModels = rows.map(row => ({
+    const transformedModels = rows.map((row) => ({
       id: row.id,
       name: row.model_id, // Use model_id as name
       provider: row.provider,
       model: row.model_id,
       isEnabled: true, // All models are enabled by default
       isEvaluationModel: true, // All models can be used for evaluation
-      isOutputGenerationModel: true // All models can be used for output generation
+      isOutputGenerationModel: true, // All models can be used for output generation
     }));
 
     return NextResponse.json({ success: true, models: transformedModels });
   } catch (e) {
-    console.error('GET /api/models error:', e);
-    return NextResponse.json({ error: 'Failed to fetch models' }, { status: 500 });
+    console.error("GET /api/models error:", e);
+    return NextResponse.json(
+      { error: "Failed to fetch models" },
+      { status: 500 }
+    );
   }
 }
 
@@ -75,15 +84,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
-      provider, 
-      modelId, 
-      temperature
-    } = body ?? {};
+    const { provider, modelId, temperature } = body ?? {};
 
     if (!provider || !modelId) {
       return NextResponse.json(
-        { error: 'provider and modelId are required' },
+        { error: "provider and modelId are required" },
         { status: 400 }
       );
     }
@@ -96,13 +101,16 @@ export async function POST(request: NextRequest) {
     `;
 
     if (existing) {
-      return NextResponse.json({
-        success: true,
-        data: existing,
-        message: `Model ${provider}/${modelId} already exists`,
-        skipped: true,
-        inserted: 0
-      }, { status: 200 });
+      return NextResponse.json(
+        {
+          success: true,
+          data: existing,
+          message: `Model ${provider}/${modelId} already exists`,
+          skipped: true,
+          inserted: 0,
+        },
+        { status: 200 }
+      );
     }
 
     const [created] = await sql`
@@ -120,16 +128,17 @@ export async function POST(request: NextRequest) {
     `;
 
     return NextResponse.json(
-      { success: true, data: created, message: 'Model created', inserted: 1 },
+      { success: true, data: created, message: "Model created", inserted: 1 },
       { status: 201 }
     );
   } catch (e: any) {
-    console.error('POST /api/models error:', e);
-    return NextResponse.json({ error: 'Failed to create model' }, { status: 500 });
+    console.error("POST /api/models error:", e);
+    return NextResponse.json(
+      { error: "Failed to create model" },
+      { status: 500 }
+    );
   }
 }
-
-
 
 // PUT /api/models
 // body: { models: [{ provider, modelId, temperature? }] }
@@ -141,14 +150,14 @@ export async function PUT(request: NextRequest) {
 
     if (!models || !Array.isArray(models)) {
       return NextResponse.json(
-        { error: 'models array is required' },
+        { error: "models array is required" },
         { status: 400 }
       );
     }
 
     if (models.length === 0) {
       return NextResponse.json(
-        { error: 'models array cannot be empty' },
+        { error: "models array cannot be empty" },
         { status: 400 }
       );
     }
@@ -157,7 +166,7 @@ export async function PUT(request: NextRequest) {
     for (const model of models) {
       if (!model.provider || !model.modelId) {
         return NextResponse.json(
-          { error: 'Each model must have provider and modelId' },
+          { error: "Each model must have provider and modelId" },
           { status: 400 }
         );
       }
@@ -166,7 +175,7 @@ export async function PUT(request: NextRequest) {
     // Check for existing models and filter them out
     const modelsToInsert = [];
     const skippedModels = [];
-    
+
     for (const model of models) {
       const [existing] = await sql`
         SELECT provider, model_id FROM partimeas_models
@@ -178,19 +187,24 @@ export async function PUT(request: NextRequest) {
         modelsToInsert.push(model);
       }
     }
-    
+
     // If no new models to insert, return success with skipped info
     if (modelsToInsert.length === 0) {
-      const skipped = skippedModels.map(m => `${m.provider}/${m.model_id}`).join(', ');
-      return NextResponse.json({
-        success: true,
-        data: [],
-        message: `All models already exist: ${skipped}`,
-        skipped: skippedModels,
-        inserted: 0
-      }, { status: 200 });
+      const skipped = skippedModels
+        .map((m) => `${m.provider}/${m.model_id}`)
+        .join(", ");
+      return NextResponse.json(
+        {
+          success: true,
+          data: [],
+          message: `All models already exist: ${skipped}`,
+          skipped: skippedModels,
+          inserted: 0,
+        },
+        { status: 200 }
+      );
     }
-    
+
     // Insert only new models
     const result = [];
     for (const model of modelsToInsert) {
@@ -210,23 +224,29 @@ export async function PUT(request: NextRequest) {
       result.push(created);
     }
 
-    const skipped = skippedModels.map(m => `${m.provider}/${m.model_id}`).join(', ');
-    const message = skippedModels.length > 0 
-      ? `Models created successfully. Skipped existing models: ${skipped}`
-      : 'Models created successfully';
-      
+    const skipped = skippedModels
+      .map((m) => `${m.provider}/${m.model_id}`)
+      .join(", ");
+    const message =
+      skippedModels.length > 0
+        ? `Models created successfully. Skipped existing models: ${skipped}`
+        : "Models created successfully";
+
     return NextResponse.json(
-      { 
-        success: true, 
-        data: result, 
+      {
+        success: true,
+        data: result,
         message,
         skipped: skippedModels,
-        inserted: result.length
+        inserted: result.length,
       },
       { status: 201 }
     );
   } catch (e) {
-    console.error('PUT /api/models error:', e);
-    return NextResponse.json({ error: 'Failed to create models' }, { status: 500 });
+    console.error("PUT /api/models error:", e);
+    return NextResponse.json(
+      { error: "Failed to create models" },
+      { status: 500 }
+    );
   }
 }

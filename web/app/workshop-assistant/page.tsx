@@ -1,47 +1,69 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useAnalysisState } from "@/app/hooks/useAnalysisState";
-import { useAnalysisHandlers } from "@/app/hooks/useAnalysisHandlers";
-import { useConfig } from "@/app/hooks/useConfig";
-import useStreamingGeneration from "@/app/hooks/useStreamingGeneration";
-// Removed useSessionLoader - now using dedicated session pages
-import VerticalStepper from "@/app/components/steps/VerticalStepper";
-import SetupStep from "@/app/components/steps/SetupStep";
-import AnalysisStep from "@/app/components/steps/AnalysisStep";
-import ModelOutputsGrid from "@/app/components/ModelOutputsGrid";
-import { RefreshIcon } from "@/app/components/icons";
-import { AnalysisHeaderFull } from "@/app/components";
-import { GroupIdModal } from "@/app/components/GroupIdModal";
-import { TestCaseWithModelOutputs, ModelOutput } from "@/app/types";
-import { Assistant } from "@/app/types/admin";
-import { selectionCache } from "@/app/utils/selectionCache";
-import { TEST_CASE_CONFIG } from "@/app/config/useCases";
+import { useCallback, useEffect, useState } from "react";
+import { useAnalysisState } from "@/hooks/useAnalysisState";
+import { useAnalysisHandlers } from "@/hooks/useAnalysisHandlers";
+import { useConfig } from "@/hooks/useConfig";
+import useStreamingGeneration from "@/hooks/useStreamingGeneration";
+import VerticalStepper from "@/components/steps/VerticalStepper";
+import SetupStep from "@/components/steps/SetupStep";
+import AnalysisStep from "@/components/steps/AnalysisStep";
+import { RefreshIcon } from "@/components/icons";
+import { AnalysisHeaderFull } from "@/components";
+import { GroupIdModal } from "@/components/GroupIdModal";
+import { TestCaseWithModelOutputs, ModelOutput } from "@/types";
+import { Assistant } from "@/types/admin";
+import { selectionCache } from "@/utils/selectionCache";
+import { TEST_CASE_CONFIG } from "@/config/useCases";
 
-// Loading fallback component
-function LoadingFallback() {
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading...</p>
-      </div>
-    </div>
-  );
-}
+type StateUpdate<T> = Partial<T> | ((prev: T) => T);
+
+type SessionState = {
+  currentSessionId: string | null;
+  testCaseSessionIds: Map<number, string>;
+  currentGroupId: string | null;
+  showGroupIdModal: boolean;
+  isHydrated: boolean;
+};
+
+type AnalysisViewState = {
+  analysisStep: "setup" | "running" | "complete";
+  hasStartedEvaluation: boolean;
+  isStep1Collapsed: boolean;
+  currentPhase: "generating" | "evaluating" | "complete";
+  showEvaluationFeatures: boolean;
+  hasComparedWithAi: boolean;
+  expandedOriginalText: Set<string>;
+};
+
+type GenerationState = {
+  localTestCasesWithModelOutputs: TestCaseWithModelOutputs[];
+  isGeneratingOutputs: boolean;
+  selectedOutputModelIds: string[];
+  isRealEvaluation: boolean;
+  isUsingStreaming: boolean;
+};
 
 // Main component wrapped in Suspense
-function OutputAnalysisFullPageContent() {
+export default function Page() {
   const {
-    // Step management
+    ui,
+    data,
+    evaluation,
+    selection,
+    useCase: { updateSystemPromptForUseCase },
+  } = useAnalysisState(); // Use dynamic default from USE_CASE_PROMPTS
+
+  const {
     currentStep,
     setCurrentStep,
-
-    // Loading states
     isLoading,
     setIsLoading,
+    validationError,
+    setValidationError,
+  } = ui;
 
-    // Data states
+  const {
     testCases,
     setTestCases,
     testCasesWithModelOutputs,
@@ -54,12 +76,11 @@ function OutputAnalysisFullPageContent() {
     setOutcomesWithModelComparison,
     idealResponses,
     setIdealResponses,
+  } = data;
 
-    // Selection states
+  const {
     selectedTestCaseIndex,
     setSelectedTestCaseIndex,
-    // selectedUseCaseId,
-    // setSelectedUseCaseId,
     selectedScenarioCategory,
     setSelectedScenarioCategory,
     selectedCriteriaId,
@@ -68,48 +89,83 @@ function OutputAnalysisFullPageContent() {
     setSelectedIdealResponseId,
     selectedSystemPrompt,
     setSelectedSystemPrompt,
-    // currentUseCaseType,
-    updateSystemPromptForUseCase,
+  } = selection;
 
-    // Evaluation states
+  const {
     shouldStartEvaluation,
     setShouldStartEvaluation,
     evaluationProgress,
     setEvaluationProgress,
+  } = evaluation;
 
-    // Validation
-    validationError,
-    setValidationError,
-  } = useAnalysisState(); // Use dynamic default from USE_CASE_PROMPTS
-
-  // Session functionality - now using dedicated session pages
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [testCaseSessionIds, setTestCaseSessionIds] = useState<
-    Map<number, string>
-  >(new Map());
-
-  // Analysis-specific internal state (previously in UnifiedAnalysis component)
-  const [analysisStep, setAnalysisStep] = useState<
-    "setup" | "running" | "complete"
-  >("setup");
-  const [hasStartedEvaluation, setHasStartedEvaluation] = useState(false);
-  const [expandedOriginalText, setExpandedOriginalText] = useState<Set<string>>(
-    new Set()
+  const [sessionState, setSessionState] = useState<SessionState>({
+    currentSessionId: null,
+    testCaseSessionIds: new Map(),
+    currentGroupId: null,
+    showGroupIdModal: false,
+    isHydrated: false,
+  });
+  const updateSessionState = useCallback(
+    (updates: StateUpdate<SessionState>) =>
+      setSessionState((prev) =>
+        typeof updates === "function" ? updates(prev) : { ...prev, ...updates }
+      ),
+    []
   );
-  const [isStep1Collapsed, setIsStep1Collapsed] = useState(false);
-  const [localTestCasesWithModelOutputs, setLocalTestCasesWithModelOutputs] =
-    useState<TestCaseWithModelOutputs[]>([]);
-  const [isGeneratingOutputs, setIsGeneratingOutputs] = useState(false);
-  const [hasComparedWithAi, setHasComparedWithAi] = useState(false);
-  const [currentPhase, setCurrentPhase] = useState<
-    "generating" | "evaluating" | "complete"
-  >("generating");
-  const [showEvaluationFeatures, setShowEvaluationFeatures] =
-    useState<boolean>(true);
-  const [selectedOutputModelIds, setSelectedOutputModelIds] = useState<
-    string[]
-  >([]);
-  const [isRealEvaluation, setIsRealEvaluation] = useState<boolean>(false);
+  const {
+    currentSessionId,
+    testCaseSessionIds,
+    currentGroupId,
+    showGroupIdModal,
+    isHydrated,
+  } = sessionState;
+
+  const [analysisViewState, setAnalysisViewState] = useState<AnalysisViewState>({
+    analysisStep: "setup",
+    hasStartedEvaluation: false,
+    isStep1Collapsed: false,
+    currentPhase: "generating",
+    showEvaluationFeatures: true,
+    hasComparedWithAi: false,
+    expandedOriginalText: new Set(),
+  });
+  const updateAnalysisViewState = useCallback(
+    (updates: StateUpdate<AnalysisViewState>) =>
+      setAnalysisViewState((prev) =>
+        typeof updates === "function" ? updates(prev) : { ...prev, ...updates }
+      ),
+    []
+  );
+  const {
+    analysisStep,
+    hasStartedEvaluation,
+    isStep1Collapsed,
+    currentPhase,
+    showEvaluationFeatures,
+    hasComparedWithAi,
+    expandedOriginalText,
+  } = analysisViewState;
+
+  const [generationState, setGenerationState] = useState<GenerationState>({
+    localTestCasesWithModelOutputs: [],
+    isGeneratingOutputs: false,
+    selectedOutputModelIds: [],
+    isRealEvaluation: false,
+    isUsingStreaming: false,
+  });
+  const updateGenerationState = useCallback(
+    (updates: StateUpdate<GenerationState>) =>
+      setGenerationState((prev) =>
+        typeof updates === "function" ? updates(prev) : { ...prev, ...updates }
+      ),
+    []
+  );
+  const {
+    isGeneratingOutputs,
+    selectedOutputModelIds,
+    isRealEvaluation,
+    isUsingStreaming,
+  } = generationState;
 
   // Streaming generation hook
   const {
@@ -121,9 +177,6 @@ function OutputAnalysisFullPageContent() {
     startStreaming,
     resetStream,
   } = useStreamingGeneration();
-
-  // Track if we're using streaming for this session
-  const [isUsingStreaming, setIsUsingStreaming] = useState(false);
 
   // Create shareable link when session is created
   const shareableLink = streamingSessionId
@@ -168,28 +221,39 @@ function OutputAnalysisFullPageContent() {
 
         // Store the session ID in the map for test case 0
         if (streamingSessionId) {
-          setTestCaseSessionIds((prev) => {
-            const newMap = new Map(prev);
-            newMap.set(0, streamingSessionId);
+          updateSessionState((prev) => {
+            const nextMap = new Map(prev.testCaseSessionIds);
+            nextMap.set(0, streamingSessionId);
             console.log(
               `📋 Captured streaming session ID for test case 1: ${streamingSessionId}`
             );
-            return newMap;
+            return { ...prev, testCaseSessionIds: nextMap };
           });
         }
 
         setTestCasesWithModelOutputs([updatedTestCase]);
-        setLocalTestCasesWithModelOutputs([updatedTestCase]);
+        updateGenerationState({
+          localTestCasesWithModelOutputs: [updatedTestCase],
+        });
 
         // Start evaluation phase
-        setCurrentPhase("evaluating");
+        updateAnalysisViewState({ currentPhase: "evaluating" });
         startEvaluationPhase([updatedTestCase]);
 
         // Reset the streaming flag
-        setIsUsingStreaming(false);
+        updateGenerationState({ isUsingStreaming: false });
       }
     }
-  }, [isStreamingComplete, streamingOutputs, isUsingStreaming, testCases]);
+  }, [
+    isStreamingComplete,
+    streamingOutputs,
+    isUsingStreaming,
+    testCases,
+    updateSessionState,
+    updateGenerationState,
+    updateAnalysisViewState,
+    setTestCasesWithModelOutputs,
+  ]);
 
   // Track current session ID from generated responses (removed duplicate declaration)
 
@@ -210,23 +274,17 @@ function OutputAnalysisFullPageContent() {
       numOutputsToShow,
     });
   }, [config, enableGroupIdCollection, configLoading, numOutputsToShow]);
-
-  // Group ID state
-  const [showGroupIdModal, setShowGroupIdModal] = useState(false);
-  const [currentGroupId, setCurrentGroupId] = useState<string | null>(null);
-  const [isHydrated, setIsHydrated] = useState(false);
-
   // Load group ID from localStorage after hydration
   useEffect(() => {
-    setIsHydrated(true);
+    updateSessionState((prev) => ({ ...prev, isHydrated: true }));
     const savedGroupId = localStorage.getItem("partimeas_group_id");
     if (savedGroupId) {
-      setCurrentGroupId(savedGroupId);
+      updateSessionState((prev) => ({ ...prev, currentGroupId: savedGroupId }));
       console.log("📋 Loaded group ID from localStorage:", savedGroupId);
     } else {
       console.log("📋 No saved group ID found in localStorage");
     }
-  }, []);
+  }, [updateSessionState]);
 
   // Debug logging for group ID modal
   useEffect(() => {
@@ -271,10 +329,6 @@ function OutputAnalysisFullPageContent() {
     },
   });
 
-  // Session functionality - currentSessionId will be set when responses are generated
-
-  // Session error handling removed - now using dedicated session pages
-
   // Fetch active evaluation assistant to decide if real or mock evaluation
   useEffect(() => {
     const fetchActiveEvaluator = async () => {
@@ -291,8 +345,8 @@ function OutputAnalysisFullPageContent() {
         console.log("✅ Active evaluation assistant found:", active);
 
         // Always show evaluation features; toggle real vs mock
-        setShowEvaluationFeatures(true);
-        setIsRealEvaluation(Boolean(active));
+        updateAnalysisViewState({ showEvaluationFeatures: true });
+        updateGenerationState({ isRealEvaluation: Boolean(active) });
         console.log(
           "🎯 Evaluation mode set to:",
           Boolean(active) ? "REAL" : "MOCK"
@@ -300,13 +354,13 @@ function OutputAnalysisFullPageContent() {
       } catch (e) {
         console.error("❌ Error fetching evaluation assistant:", e);
         // Fallback to mock evaluation UI
-        setShowEvaluationFeatures(true);
-        setIsRealEvaluation(false);
+        updateAnalysisViewState({ showEvaluationFeatures: true });
+        updateGenerationState({ isRealEvaluation: false });
         console.log("🔄 Falling back to mock evaluation mode");
       }
     };
     fetchActiveEvaluator();
-  }, []);
+  }, [updateAnalysisViewState, updateGenerationState]);
 
   // Check if group ID is required and not yet provided
   useEffect(() => {
@@ -319,17 +373,26 @@ function OutputAnalysisFullPageContent() {
       shouldShowModal: enableGroupIdCollection && !currentGroupId,
     });
 
-    if (enableGroupIdCollection && !currentGroupId) {
+    if (enableGroupIdCollection && !currentGroupId && !showGroupIdModal) {
       console.log("Setting modal to visible!");
-      setShowGroupIdModal(true);
+      updateSessionState({ showGroupIdModal: true });
     }
-  }, [enableGroupIdCollection, currentGroupId, isHydrated]);
+  }, [
+    enableGroupIdCollection,
+    currentGroupId,
+    isHydrated,
+    showGroupIdModal,
+    updateSessionState,
+  ]);
 
   // Handle group ID confirmation
   const handleGroupIdConfirm = (groupId: string) => {
     console.log("✅ Group ID confirmed:", groupId);
-    setCurrentGroupId(groupId);
-    setShowGroupIdModal(false);
+    updateSessionState((prev) => ({
+      ...prev,
+      currentGroupId: groupId,
+      showGroupIdModal: false,
+    }));
 
     // Save to localStorage for persistence
     if (typeof window !== "undefined") {
@@ -341,7 +404,6 @@ function OutputAnalysisFullPageContent() {
   // Handle group ID modal cancel
   const handleGroupIdCancel = () => {
     console.log("❌ Group ID modal cancelled");
-    setShowGroupIdModal(false);
     // Reset to setup step if user cancels group ID entry
     setCurrentStep("sync");
 
@@ -350,7 +412,11 @@ function OutputAnalysisFullPageContent() {
       localStorage.removeItem("partimeas_group_id");
       console.log("🗑️ Group ID cleared from localStorage");
     }
-    setCurrentGroupId(null);
+    updateSessionState((prev) => ({
+      ...prev,
+      showGroupIdModal: false,
+      currentGroupId: null,
+    }));
   };
 
   // Function to clear group ID (for reset purposes)
@@ -360,24 +426,26 @@ function OutputAnalysisFullPageContent() {
       localStorage.removeItem("partimeas_group_id");
       console.log("💾 Group ID removed from localStorage");
     }
-    setCurrentGroupId(null);
-    // Only show modal if hydrated to prevent SSR mismatch
+    updateSessionState((prev) => ({
+      ...prev,
+      currentGroupId: null,
+      showGroupIdModal: isHydrated ? true : prev.showGroupIdModal,
+    }));
     if (isHydrated) {
-      setShowGroupIdModal(true); // Show modal again for new input
       console.log("🔄 Group ID modal will be shown again");
     }
   };
 
   // Helper function to toggle original text expansion
   const toggleOriginalTextExpansion = (modelId: string) => {
-    setExpandedOriginalText((prev) => {
-      const newSet = new Set(prev);
+    updateAnalysisViewState((prev) => {
+      const newSet = new Set(prev.expandedOriginalText);
       if (newSet.has(modelId)) {
         newSet.delete(modelId);
       } else {
         newSet.add(modelId);
       }
-      return newSet;
+      return { ...prev, expandedOriginalText: newSet };
     });
   };
 
@@ -387,9 +455,9 @@ function OutputAnalysisFullPageContent() {
     console.log("📊 Test cases to process:", testCases.length);
     console.log("🔍 Current group ID:", currentGroupId);
 
-    setIsGeneratingOutputs(true);
-    setCurrentPhase("generating");
-    setSelectedOutputModelIds([]);
+    updateGenerationState({ isGeneratingOutputs: true });
+    updateAnalysisViewState({ currentPhase: "generating" });
+    updateGenerationState({ selectedOutputModelIds: [] });
 
     try {
       // Pre-seed loading placeholders from configured assistants to avoid empty state flicker
@@ -424,7 +492,7 @@ function OutputAnalysisFullPageContent() {
           );
 
           if (placeholderIds.length > 0) {
-            setSelectedOutputModelIds(placeholderIds);
+            updateGenerationState({ selectedOutputModelIds: placeholderIds });
             console.log("📋 Set placeholder model IDs:", placeholderIds);
           }
         } else {
@@ -432,11 +500,11 @@ function OutputAnalysisFullPageContent() {
             "⚠️ Failed to fetch assistants, using fallback placeholders"
           );
           // Fallback placeholders
-          setSelectedOutputModelIds(["loading-1", "loading-2"]);
+          updateGenerationState({ selectedOutputModelIds: ["loading-1", "loading-2"] });
         }
       } catch (error) {
         console.error("❌ Error fetching assistants:", error);
-        setSelectedOutputModelIds(["loading-1", "loading-2"]);
+        updateGenerationState({ selectedOutputModelIds: ["loading-1", "loading-2"] });
       }
 
       console.log(
@@ -450,7 +518,7 @@ function OutputAnalysisFullPageContent() {
       console.log("🌊 Using streaming generation for single test case");
 
       // Set flag to track streaming usage
-      setIsUsingStreaming(true);
+      updateGenerationState({ isUsingStreaming: true });
 
       // Reset stream before starting
       resetStream();
@@ -481,10 +549,13 @@ function OutputAnalysisFullPageContent() {
           ? error.message
           : "Unknown error during generation"
       );
-      setIsGeneratingOutputs(false);
-      setHasStartedEvaluation(false);
-      setCurrentPhase("complete");
-      setAnalysisStep("setup");
+      updateGenerationState({ isGeneratingOutputs: false });
+      updateAnalysisViewState((prev) => ({
+        ...prev,
+        hasStartedEvaluation: false,
+        currentPhase: "complete",
+        analysisStep: "setup",
+      }));
     }
   };
 
@@ -512,7 +583,7 @@ function OutputAnalysisFullPageContent() {
         console.log("📡 Starting real evaluation API calls...");
 
         // Ensure we're in evaluating phase
-        setCurrentPhase("evaluating");
+        updateAnalysisViewState({ currentPhase: "evaluating" });
 
         // Small delay to make the evaluating phase visible
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -701,7 +772,7 @@ function OutputAnalysisFullPageContent() {
         handlers.handleEvaluationProgress(testCasesWithOutputs.length - 1, 100);
 
         // Set phase to complete after evaluation
-        setCurrentPhase("complete");
+        updateAnalysisViewState({ currentPhase: "complete" });
 
         handlers.handleModelComparisonEvaluationComplete(evaluationResults);
       } else {
@@ -730,10 +801,13 @@ function OutputAnalysisFullPageContent() {
       console.log("🎯 Setting final states...");
       handlers.handleEvaluationProgress(testCases.length - 1, 100);
       console.log("🔄 Setting currentPhase to complete");
-      setCurrentPhase("complete");
-      setIsGeneratingOutputs(false);
-      setHasStartedEvaluation(false);
-      setAnalysisStep("complete");
+      updateGenerationState({ isGeneratingOutputs: false });
+      updateAnalysisViewState((prev) => ({
+        ...prev,
+        currentPhase: "complete",
+        hasStartedEvaluation: false,
+        analysisStep: "complete",
+      }));
     } catch (error) {
       console.error("❌ Error during evaluation phase:", error);
       handlers.handleEvaluationError(
@@ -741,10 +815,13 @@ function OutputAnalysisFullPageContent() {
           ? error.message
           : "Unknown error during evaluation"
       );
-      setIsGeneratingOutputs(false);
-      setHasStartedEvaluation(false);
-      setCurrentPhase("complete");
-      setAnalysisStep("setup");
+      updateGenerationState({ isGeneratingOutputs: false });
+      updateAnalysisViewState((prev) => ({
+        ...prev,
+        hasStartedEvaluation: false,
+        currentPhase: "complete",
+        analysisStep: "setup",
+      }));
     }
   };
 
@@ -784,8 +861,11 @@ function OutputAnalysisFullPageContent() {
 
     console.log("✅ Validation passed, starting evaluation");
     setValidationError("");
-    setHasStartedEvaluation(true);
-    setIsStep1Collapsed(true);
+    updateAnalysisViewState((prev) => ({
+      ...prev,
+      hasStartedEvaluation: true,
+      isStep1Collapsed: true,
+    }));
     handlers.handleStartEvaluation();
   };
 
@@ -796,7 +876,10 @@ function OutputAnalysisFullPageContent() {
     // Reset all state
     setTestCases([]);
     setTestCasesWithModelOutputs([]);
-    setLocalTestCasesWithModelOutputs([]);
+    updateGenerationState((prev) => ({
+      ...prev,
+      localTestCasesWithModelOutputs: [],
+    }));
     setCriteria([]);
     setOutcomes([]);
     setOutcomesWithModelComparison([]);
@@ -813,17 +896,26 @@ function OutputAnalysisFullPageContent() {
     setSelectedTestCaseIndex(0);
 
     // Reset analysis state
-    setAnalysisStep("setup");
-    setHasStartedEvaluation(false);
-    setIsStep1Collapsed(false);
-    setIsGeneratingOutputs(false);
-    setCurrentPhase("generating");
-    setSelectedOutputModelIds([]);
+    updateAnalysisViewState((prev) => ({
+      ...prev,
+      analysisStep: "setup",
+      hasStartedEvaluation: false,
+      isStep1Collapsed: false,
+      currentPhase: "generating",
+    }));
+    updateGenerationState((prev) => ({
+      ...prev,
+      isGeneratingOutputs: false,
+      selectedOutputModelIds: [],
+    }));
 
     // Clear current session ID and group ID
-    setCurrentSessionId(null);
-    setTestCaseSessionIds(new Map()); // Clear per-test case session IDs
-    setCurrentGroupId(null);
+    updateSessionState((prev) => ({
+      ...prev,
+      currentSessionId: null,
+      testCaseSessionIds: new Map(),
+      currentGroupId: null,
+    }));
 
     // Go back to first step
     setCurrentStep("sync");
@@ -842,15 +934,15 @@ function OutputAnalysisFullPageContent() {
   // Determine current analysis step based on data availability
   useEffect(() => {
     if (outcomesWithModelComparison.length > 0 && currentPhase === "complete") {
-      setAnalysisStep("complete");
+      updateAnalysisViewState({ analysisStep: "complete" });
     } else if (
       hasStartedEvaluation ||
       shouldStartEvaluation ||
       isGeneratingOutputs
     ) {
-      setAnalysisStep("running");
+      updateAnalysisViewState({ analysisStep: "running" });
     } else {
-      setAnalysisStep("setup");
+      updateAnalysisViewState({ analysisStep: "setup" });
     }
   }, [
     outcomesWithModelComparison.length,
@@ -1004,7 +1096,7 @@ function OutputAnalysisFullPageContent() {
           onEvaluationProgress={handlers.handleEvaluationProgress}
           loadingModelListOverride={selectedOutputModelIds}
           sessionId={testCaseSessionIds.get(selectedTestCaseIndex) || null}
-          onCompareClick={() => setHasComparedWithAi(true)}
+          onCompareClick={() => updateAnalysisViewState({ hasComparedWithAi: true })}
           idealResponses={idealResponses}
           streamingOutputs={streamingOutputs}
           isStreaming={isStreaming}
@@ -1016,8 +1108,6 @@ function OutputAnalysisFullPageContent() {
     },
   ];
 
-  // No session loading state needed - using dedicated session pages
-
   return (
     <div className="min-h-screen bg-gray-50">
       <AnalysisHeaderFull
@@ -1027,7 +1117,7 @@ function OutputAnalysisFullPageContent() {
         groupId={currentGroupId}
         onEditGroupId={() => {
           if (isHydrated) {
-            setShowGroupIdModal(true);
+            updateSessionState({ showGroupIdModal: true });
           }
         }}
         onClearGroupId={clearGroupId}
@@ -1062,13 +1152,5 @@ function OutputAnalysisFullPageContent() {
         loading={false}
       />
     </div>
-  );
-}
-
-export default function OutputAnalysisFullPage() {
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <OutputAnalysisFullPageContent />
-    </Suspense>
   );
 }

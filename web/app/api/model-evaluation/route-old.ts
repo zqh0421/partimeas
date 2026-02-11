@@ -7,11 +7,11 @@ import {
   getActiveEvaluationAssistant,
   getAllActiveEvaluationAssistants,
 } from "@/app/api/model-evaluation/utils";
-import { 
-  runParallelEvaluations, 
-  applyJudgmentStrategy 
+import {
+  runParallelEvaluations,
+  applyJudgmentStrategy,
 } from "@/app/api/model-evaluation/parallel-evaluation";
-import { sql } from "@/app/config/database";
+import { sql } from "@/config/database";
 import { group } from "console";
 
 interface EvaluationResult {
@@ -30,7 +30,7 @@ interface EvaluationRun {
   criteriaScores: Record<string, { score: number; reasoning: string }>;
 }
 
-type JudgmentStrategy = 'majority_voting' | 'highest_score' | 'lowest_score';
+type JudgmentStrategy = "majority_voting" | "highest_score" | "lowest_score";
 
 // Helper function to evaluate model outputs
 const evaluateModelOutputs = async (
@@ -59,7 +59,7 @@ const evaluateModelOutputs = async (
     );
 
     // Get judgment strategy from config
-    let judgmentStrategy: JudgmentStrategy = 'majority_voting';
+    let judgmentStrategy: JudgmentStrategy = "majority_voting";
     try {
       const strategyConfig = await sql`
         SELECT value FROM partimeas_configs 
@@ -70,12 +70,15 @@ const evaluateModelOutputs = async (
         judgmentStrategy = strategyConfig[0].value as JudgmentStrategy;
       }
     } catch (e) {
-      console.log('Using default judgment strategy: majority_voting');
+      console.log("Using default judgment strategy: majority_voting");
     }
 
     // Get all active evaluation assistants with weights
     const activeEvaluationAssistants = await getAllActiveEvaluationAssistants();
-    if (!activeEvaluationAssistants || activeEvaluationAssistants.length === 0) {
+    if (
+      !activeEvaluationAssistants ||
+      activeEvaluationAssistants.length === 0
+    ) {
       // Fallback to single assistant for backward compatibility
       const singleAssistant = await getActiveEvaluationAssistant();
       if (!singleAssistant) {
@@ -83,7 +86,7 @@ const evaluateModelOutputs = async (
       }
       activeEvaluationAssistants.push({
         ...singleAssistant,
-        weight: 1
+        weight: 1,
       });
     }
 

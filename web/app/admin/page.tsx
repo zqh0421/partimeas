@@ -1,7 +1,7 @@
 "use client";
 
 import { Layout, App } from "antd";
-import { useAdminState } from "../hooks/useAdminState";
+import { useAdminState } from "@/hooks/useAdminState";
 import {
   StatusMessages,
   ActionButtons,
@@ -10,7 +10,7 @@ import {
   LoadingSpinner,
   Breadcrumb,
   PageHeader,
-} from "../components/admin";
+} from "@/components/admin";
 
 const { Content } = Layout;
 

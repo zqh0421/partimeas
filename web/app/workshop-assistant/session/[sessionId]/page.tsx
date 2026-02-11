@@ -1,39 +1,29 @@
 "use client";
-import { Suspense, useEffect, useState, use } from "react";
-import VerticalStepper from "@/app/components/steps/VerticalStepper";
-import SessionHeader from "@/app/components/SessionHeader";
-import { TestCase, TestCaseWithModelOutputs } from "@/app/types";
-import type { SessionWithResponses } from "@/app/utils/sessionManager";
+import { useEffect, useState, use } from "react";
+import VerticalStepper from "@/components/steps/VerticalStepper";
+import SessionHeader from "@/components/SessionHeader";
+import { TestCase, TestCaseWithModelOutputs } from "@/types";
+import type { SessionWithResponses } from "@/utils/sessionManager";
 import { useRouter, useSearchParams } from "next/navigation";
-import TestCaseNavigation from "@/app/components/TestCaseNavigation";
-import ModelOutputsGrid from "@/app/components/ModelOutputsGrid";
-import { useConfig } from "@/app/hooks/useConfig";
-import { useCriteriaData } from "@/app/hooks/useCriteriaData";
-import { useIdealResponses } from "@/app/hooks/useIdealResponses";
-import { RefreshIcon } from "@/app/components/icons";
+import TestCaseNavigation from "@/components/TestCaseNavigation";
+import ModelOutputsGrid from "@/components/ModelOutputsGrid";
+import { useConfig } from "@/hooks/useConfig";
+import { useCriteriaData } from "@/hooks/useCriteriaData";
+import { useIdealResponses } from "@/hooks/useIdealResponses";
+import { RefreshIcon } from "@/components/icons";
 
-// Loading fallback component
-function LoadingFallback() {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-200 border-t-blue-600"></div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Client component for session display
-function SessionPageContent({ sessionId }: { sessionId: string }) {
+export default function Page({
+  params,
+}: {
+  params: Promise<{ sessionId: string }>;
+}) {
+  const { sessionId } = use(params);
   const [session, setSession] = useState<SessionWithResponses | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Get configuration values
   const config = useConfig();
   const { numOutputsToShow } = config;
 
@@ -53,7 +43,7 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
 
         // Fetch session data via API to avoid client-side DB access
         const response = await fetch(
-          `/api/sessions?action=byId&id=${sessionId}`
+          `/api/sessions?action=byId&id=${sessionId}`,
         );
         if (!response.ok) {
           throw new Error(`Failed to load session: ${response.status}`);
@@ -64,13 +54,14 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
           : null;
         console.log(
           "📋 Session data loaded:",
-          sessionData ? "success" : "not found"
+          sessionData ? "success" : "not found",
         );
         if (sessionData) {
           console.log("🔗 Session linked data:", {
-            linked_criterion_sheet_name: sessionData.linked_criterion_sheet_name,
+            linked_criterion_sheet_name:
+              sessionData.linked_criterion_sheet_name,
             linked_ideal_response: sessionData.linked_ideal_response,
-            linked_ideal_test_case: sessionData.linked_ideal_test_case
+            linked_ideal_test_case: sessionData.linked_ideal_test_case,
           });
         }
 
@@ -82,11 +73,11 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
 
         // Validate that the session has the expected number of responses
         console.log(
-          `📊 Session validation: ${sessionData.responses.length} responses, expected ${sessionData.response_count}`
+          `📊 Session validation: ${sessionData.responses.length} responses, expected ${sessionData.response_count}`,
         );
         if (sessionData.responses.length !== sessionData.response_count) {
           throw new Error(
-            `Session response count mismatch: expected ${sessionData.response_count}, got ${sessionData.responses.length}`
+            `Session response count mismatch: expected ${sessionData.response_count}, got ${sessionData.responses.length}`,
           );
         }
 
@@ -98,14 +89,17 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
         if (sessionData.linked_criterion_sheet_name) {
           console.log(
             "📋 Using linked rubric from session:",
-            sessionData.linked_criterion_sheet_name
+            sessionData.linked_criterion_sheet_name,
           );
           setRubricId(sessionData.linked_criterion_sheet_name);
         } else {
           // Fallback to URL params if session doesn't have linked rubric
           const urlRubricId = searchParams.get("rubricId");
           if (urlRubricId) {
-            console.log("📋 Falling back to rubric from URL params:", urlRubricId);
+            console.log(
+              "📋 Falling back to rubric from URL params:",
+              urlRubricId,
+            );
             setRubricId(urlRubricId);
           }
         }
@@ -113,14 +107,17 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
         if (sessionData.linked_ideal_response) {
           console.log(
             "📋 Using linked ideal response from session:",
-            sessionData.linked_ideal_response
+            sessionData.linked_ideal_response,
           );
           setIdealResponseId(sessionData.linked_ideal_response);
         } else {
           // Fallback to URL params if session doesn't have linked ideal response
           const urlIdealResponseId = searchParams.get("idealResponseId");
           if (urlIdealResponseId) {
-            console.log("📋 Falling back to ideal response from URL params:", urlIdealResponseId);
+            console.log(
+              "📋 Falling back to ideal response from URL params:",
+              urlIdealResponseId,
+            );
             setIdealResponseId(urlIdealResponseId);
           }
         }
@@ -134,11 +131,6 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
 
     loadSession();
   }, [sessionId]);
-
-  // Handle loading state
-  if (loading) {
-    return <LoadingFallback />;
-  }
 
   // Handle error state
   if (error) {
@@ -210,8 +202,6 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
       scenarioCategory: session.test_case_scenario_category || "session",
     },
   ];
-
-  // No handlers needed for read-only session page
 
   // Create steps for the vertical stepper with consistent styling
   const steps = [
@@ -290,19 +280,5 @@ function SessionPageContent({ sessionId }: { sessionId: string }) {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function SessionPage({
-  params,
-}: {
-  params: Promise<{ sessionId: string }>;
-}) {
-  const { sessionId } = use(params);
-
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <SessionPageContent sessionId={sessionId} />
-    </Suspense>
   );
 }

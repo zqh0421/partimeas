@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { TEST_CASE_CONFIG } from "@/app/config/useCases";
-import { getGoogleAccessToken } from "@/app/utils/googleAuth";
+import { TEST_CASE_CONFIG } from "@/config/useCases";
+import { getGoogleAccessToken } from "@/utils/googleAuth";
 
 const FIELD_MAP = {
   input: ["Prompt"],

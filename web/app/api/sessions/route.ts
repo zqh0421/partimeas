@@ -1,99 +1,107 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getSessionById, 
-  getRecentSessions, 
+import { NextRequest, NextResponse } from "next/server";
+import {
+  getSessionById,
+  getRecentSessions,
   getSessionStats,
-  searchSessionsByPrompt 
-} from '@/app/utils/sessionManager';
+  searchSessionsByPrompt,
+} from "@/utils/sessionManager";
 
 // GET endpoint to retrieve session data
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
-    
+    const action = searchParams.get("action");
+
     switch (action) {
-      case 'byId':
-        const sessionId = searchParams.get('id');
+      case "byId":
+        const sessionId = searchParams.get("id");
         if (!sessionId) {
           return NextResponse.json(
-            { error: 'Session ID is required for byId action' },
+            { error: "Session ID is required for byId action" },
             { status: 400 }
           );
         }
-        
+
         const session = await getSessionById(sessionId);
         if (!session) {
           return NextResponse.json(
-            { error: 'Session not found' },
+            { error: "Session not found" },
             { status: 404 }
           );
         }
-        
+
         return NextResponse.json({
           success: true,
-          session
+          session,
         });
-        
-      case 'recent':
-        const limit = parseInt(searchParams.get('limit') || '10');
-        const offset = parseInt(searchParams.get('offset') || '0');
-        const category = searchParams.get('category') || undefined;
-        const algorithm = searchParams.get('algorithm') || undefined;
-        const groupId = searchParams.get('groupId') || undefined;
-        
-        const sessions = await getRecentSessions(limit, offset, category, algorithm, groupId);
-        
+
+      case "recent":
+        const limit = parseInt(searchParams.get("limit") || "10");
+        const offset = parseInt(searchParams.get("offset") || "0");
+        const category = searchParams.get("category") || undefined;
+        const algorithm = searchParams.get("algorithm") || undefined;
+        const groupId = searchParams.get("groupId") || undefined;
+
+        const sessions = await getRecentSessions(
+          limit,
+          offset,
+          category,
+          algorithm,
+          groupId
+        );
+
         return NextResponse.json({
           success: true,
           sessions,
           pagination: {
             limit,
             offset,
-            total: sessions.length
-          }
+            total: sessions.length,
+          },
         });
-        
-      case 'stats':
+
+      case "stats":
         const stats = await getSessionStats();
-        
+
         return NextResponse.json({
           success: true,
-          stats
+          stats,
         });
-        
-      case 'search':
-        const searchTerm = searchParams.get('q');
+
+      case "search":
+        const searchTerm = searchParams.get("q");
         if (!searchTerm) {
           return NextResponse.json(
-            { error: 'Search query is required for search action' },
+            { error: "Search query is required for search action" },
             { status: 400 }
           );
         }
-        
-        const searchLimit = parseInt(searchParams.get('limit') || '10');
-        const searchResults = await searchSessionsByPrompt(searchTerm, searchLimit);
-        
+
+        const searchLimit = parseInt(searchParams.get("limit") || "10");
+        const searchResults = await searchSessionsByPrompt(
+          searchTerm,
+          searchLimit
+        );
+
         return NextResponse.json({
           success: true,
           results: searchResults,
           query: searchTerm,
-          total: searchResults.length
+          total: searchResults.length,
         });
-        
+
       default:
         return NextResponse.json(
-          { error: 'Invalid action. Use: byId, recent, stats, or search' },
+          { error: "Invalid action. Use: byId, recent, stats, or search" },
           { status: 400 }
         );
     }
-    
   } catch (error) {
-    console.error('Sessions API error:', error);
+    console.error("Sessions API error:", error);
     return NextResponse.json(
-      { 
-        error: 'Failed to retrieve session data',
-        details: error instanceof Error ? error.message : 'Unknown error'
+      {
+        error: "Failed to retrieve session data",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );
@@ -104,37 +112,36 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { sessionId } = await request.json();
-    
+
     if (!sessionId) {
       return NextResponse.json(
-        { error: 'Session ID is required' },
+        { error: "Session ID is required" },
         { status: 400 }
       );
     }
-    
-    const { deleteSession } = await import('@/app/utils/sessionManager');
+
+    const { deleteSession } = await import("@/utils/sessionManager");
     const deleted = await deleteSession(sessionId);
-    
+
     if (!deleted) {
       return NextResponse.json(
-        { error: 'Session not found or already deleted' },
+        { error: "Session not found or already deleted" },
         { status: 404 }
       );
     }
-    
+
     return NextResponse.json({
       success: true,
-      message: 'Session deleted successfully'
+      message: "Session deleted successfully",
     });
-    
   } catch (error) {
-    console.error('Session deletion error:', error);
+    console.error("Session deletion error:", error);
     return NextResponse.json(
-      { 
-        error: 'Failed to delete session',
-        details: error instanceof Error ? error.message : 'Unknown error'
+      {
+        error: "Failed to delete session",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );
   }
-} 
+}

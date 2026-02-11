@@ -8,7 +8,7 @@ import {
   matchProvider,
 } from "@/app/api/model-evaluation/utils";
 import type { OutputAssistant } from "@/app/api/model-evaluation/utils";
-import { sql } from "@/app/config/database";
+import { sql } from "@/config/database";
 
 interface StreamMessage {
   type: "modelOutput" | "modelChunk" | "complete" | "error";

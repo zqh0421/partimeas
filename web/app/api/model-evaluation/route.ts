@@ -7,7 +7,7 @@ import {
   runParallelEvaluations,
   applyJudgmentStrategy,
 } from "@/app/api/model-evaluation/parallel-evaluation";
-import { sql } from "@/app/config/database";
+import { sql } from "@/config/database";
 
 interface EvaluationResult {
   modelId?: string;
@@ -213,7 +213,6 @@ const evaluateModelOutputs = async (
     //     }
     //   });
     // }
-
 
     // Get evaluation model ID for response (use first assistant's model for backward compatibility)
     const evaluationModelId =

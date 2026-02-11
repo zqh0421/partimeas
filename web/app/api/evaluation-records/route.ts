@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { evaluationRecordUtils } from "@/app/utils/database";
-import {
-  NewEvaluationRecord,
-  EvaluationRecordFilters,
-} from "@/app/types/database";
+import { evaluationRecordUtils } from "@/utils/database";
+import { NewEvaluationRecord, EvaluationRecordFilters } from "@/types/database";
 import {
   validateEvaluationRecord,
   validateEvaluationRecordsBulk,
-} from "@/app/utils/evaluationRecordValidation";
+} from "@/utils/evaluationRecordValidation";
 
 // GET endpoint to retrieve evaluation records
 export async function GET(request: NextRequest) {
@@ -84,11 +81,9 @@ export async function GET(request: NextRequest) {
           );
         }
 
-
         const sessionRecords = await evaluationRecordUtils.getBySessionId(
           targetSessionId
         );
-
 
         return NextResponse.json({
           success: true,

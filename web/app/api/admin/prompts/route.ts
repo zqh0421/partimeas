@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/app/config/database';
+import { NextRequest, NextResponse } from "next/server";
+import { sql } from "@/config/database";
 
 // Get all system prompts
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const category = url.searchParams.get('category');
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const limit = parseInt(url.searchParams.get('limit') || '50');
+    const category = url.searchParams.get("category");
+    const page = parseInt(url.searchParams.get("page") || "1");
+    const limit = parseInt(url.searchParams.get("limit") || "50");
 
-    let whereClause = 'WHERE 1=1';
+    let whereClause = "WHERE 1=1";
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       id: prompt.id,
       name: prompt.name,
       content: prompt.prompt,
-      type: prompt.type === 'evaluation' ? 'evaluation' : 'system'
+      type: prompt.type === "evaluation" ? "evaluation" : "system",
     }));
 
     return NextResponse.json({
@@ -50,32 +50,39 @@ export async function GET(request: NextRequest) {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
-    console.error('Error fetching system prompts:', error);
-    
+    console.error("Error fetching system prompts:", error);
+
     // Fallback with mock data when database is not available
     const mockPrompts = [
       {
-        id: 'general-mock',
-        name: 'General Assistant (Mock)',
-        content: 'You are a helpful AI assistant. Answer questions clearly and concisely.',
-        type: 'system' as const
+        id: "general-mock",
+        name: "General Assistant (Mock)",
+        content:
+          "You are a helpful AI assistant. Answer questions clearly and concisely.",
+        type: "system" as const,
       },
       {
-        id: 'evaluation-mock',
-        name: 'Evaluation Assistant (Mock)',
-        content: 'You are an evaluation expert. Assess responses objectively and provide constructive feedback.',
-        type: 'evaluation' as const
-      }
+        id: "evaluation-mock",
+        name: "Evaluation Assistant (Mock)",
+        content:
+          "You are an evaluation expert. Assess responses objectively and provide constructive feedback.",
+        type: "evaluation" as const,
+      },
     ];
 
     return NextResponse.json({
       success: true,
       prompts: mockPrompts,
-      pagination: { page: 1, limit: 50, total: mockPrompts.length, totalPages: 1 }
+      pagination: {
+        page: 1,
+        limit: 50,
+        total: mockPrompts.length,
+        totalPages: 1,
+      },
     });
   }
 }
@@ -84,11 +91,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
+
     // Validate required fields
     if (!body.name || !body.prompt) {
       return NextResponse.json(
-        { error: 'Name and prompt are required fields' },
+        { error: "Name and prompt are required fields" },
         { status: 400 }
       );
     }
@@ -96,7 +103,7 @@ export async function POST(request: NextRequest) {
     const promptData = {
       name: body.name,
       prompt: body.prompt,
-      type: body.category || body.type || 'system'
+      type: body.category || body.type || "system",
     };
 
     const [newPrompt] = await sql`
@@ -105,17 +112,19 @@ export async function POST(request: NextRequest) {
       RETURNING *
     `;
 
-    return NextResponse.json({
-      success: true,
-      data: newPrompt,
-      message: 'System prompt created successfully'
-    }, { status: 201 });
-  } catch (error) {
-    console.error('Error creating system prompt:', error);
     return NextResponse.json(
-      { error: 'Failed to create system prompt' },
+      {
+        success: true,
+        data: newPrompt,
+        message: "System prompt created successfully",
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Error creating system prompt:", error);
+    return NextResponse.json(
+      { error: "Failed to create system prompt" },
       { status: 500 }
     );
   }
 }
-

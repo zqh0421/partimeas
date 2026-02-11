@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getGoogleAccessToken } from "@/app/utils/googleAuth";
-import { IdealModelResponse } from "@/app/types";
+import { getGoogleAccessToken } from "@/utils/googleAuth";
+import { IdealModelResponse } from "@/types";
 
 // Configuration for the ideal responses spreadsheet
 const IDEAL_RESPONSES_CONFIG = {

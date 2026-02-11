@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sql } from "@/app/config/database";
+import { sql } from "@/config/database";
 
 export async function GET() {
   try {
@@ -41,10 +41,10 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       assistant: null,
-      assistants: []
+      assistants: [],
     });
   } catch (e) {
     console.error("[GET /api/evaluation-assistant] DB error:", e);

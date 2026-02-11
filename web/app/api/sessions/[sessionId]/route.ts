@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionById } from "@/app/utils/sessionManager";
+import { getSessionById } from "@/utils/sessionManager";
 
 export async function GET(
   request: NextRequest,
@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const sessionId = params.sessionId;
-    
+
     if (!sessionId) {
       return NextResponse.json(
         { error: "Session ID is required" },
@@ -16,12 +16,9 @@ export async function GET(
     }
 
     const session = await getSessionById(sessionId);
-    
+
     if (!session) {
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     // Return the session with all its data including the new fields
@@ -38,15 +35,15 @@ export async function GET(
         linked_ideal_response: session.linked_ideal_response,
         linked_ideal_test_case: session.linked_ideal_test_case,
         linked_criterion_sheet_name: session.linked_criterion_sheet_name,
-        responses: session.responses
-      }
+        responses: session.responses,
+      },
     });
   } catch (error) {
     console.error("Error fetching session:", error);
     return NextResponse.json(
-      { 
-        error: "Failed to fetch session", 
-        details: error instanceof Error ? error.message : "Unknown error" 
+      {
+        error: "Failed to fetch session",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

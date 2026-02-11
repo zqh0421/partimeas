@@ -1,6 +1,6 @@
 "use client";
 import { Suspense } from "react";
-import { LoadingState } from "@/app/components";
+import { LoadingState } from "@/components";
 
 export default function WorkshopAssistantLayout({
   children,

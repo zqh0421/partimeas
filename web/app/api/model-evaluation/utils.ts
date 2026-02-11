@@ -1,4 +1,4 @@
-import { sql } from "@/app/config/database";
+import { sql } from "@/config/database";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatAnthropic } from "@langchain/anthropic";
